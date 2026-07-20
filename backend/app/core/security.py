@@ -1,11 +1,6 @@
-"""
-Security utilities for password hashing and JWT authentication.
-"""
-
 from datetime import datetime, timedelta, timezone
-from typing import Any
 
-from jose import jwt
+from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
@@ -31,9 +26,11 @@ def verify_password(
 
 
 def create_access_token(
-    subject: str | Any,
+    data: dict,
     expires_delta: timedelta | None = None,
 ) -> str:
+
+    to_encode = data.copy()
 
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -42,21 +39,29 @@ def create_access_token(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    payload = {
-        "sub": str(subject),
-        "exp": expire,
-    }
+    to_encode.update(
+        {
+            "exp": expire,
+        }
+    )
 
     return jwt.encode(
-        payload,
+        to_encode,
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
     )
 
 
-def decode_access_token(token: str) -> dict:
-    return jwt.decode(
-        token,
-        settings.SECRET_KEY,
-        algorithms=[settings.ALGORITHM],
-    )
+def decode_access_token(
+    token: str,
+):
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+        return payload
+
+    except JWTError:
+        return None

@@ -6,10 +6,6 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class Token(BaseModel):
+class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-
-
-class TokenData(BaseModel):
-    sub: str | None = None
