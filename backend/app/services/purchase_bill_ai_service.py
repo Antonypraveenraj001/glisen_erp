@@ -21,19 +21,42 @@ class PurchaseBillAIService:
         filename: str,
     ):
 
-        ai_result = await PurchaseBillAI.extract_purchase_bill(
-            file_bytes=file_bytes,
-            filename=filename,
+        # ==========================================
+        # 1. AI DOCUMENT EXTRACTION
+        # ==========================================
+
+        ai_result = (
+            await PurchaseBillAI.extract_purchase_bill(
+                file_bytes=file_bytes,
+                filename=filename,
+            )
         )
 
-        supplier = ai_result["data"]["supplier"]
+        data = ai_result["data"]
+
+        supplier = data.get(
+            "supplier",
+            {},
+        )
+
+        products = data.get(
+            "products",
+            []
+        )
+
+        # ==========================================
+        # 2. SUPPLIER MATCHING
+        # ==========================================
 
         supplier_match = None
         match_type = None
 
-        gst_number = supplier.get(
-            "gst_number",
-            "",
+        gst_number = str(
+            supplier.get(
+                "gst_number",
+                "",
+            )
+            or ""
         ).strip()
 
         if gst_number:
@@ -48,11 +71,18 @@ class PurchaseBillAIService:
             if supplier_match:
                 match_type = "gst_number"
 
+        # ------------------------------------------
+        # Fallback: company name
+        # ------------------------------------------
+
         if supplier_match is None:
 
-            company_name = supplier.get(
-                "company_name",
-                "",
+            company_name = str(
+                supplier.get(
+                    "company_name",
+                    "",
+                )
+                or ""
             ).strip()
 
             if company_name:
@@ -67,32 +97,49 @@ class PurchaseBillAIService:
                 if supplier_match:
                     match_type = "company_name"
 
-        supplier["existing_supplier"] = (
-            supplier_match is not None
-        )
+        # ------------------------------------------
+        # Add matching information
+        #
+        # IMPORTANT:
+        # Do NOT replace the AI-extracted supplier
+        # information.
+        # ------------------------------------------
 
-        supplier["supplier_id"] = (
+        supplier[
+            "existing_supplier"
+        ] = supplier_match is not None
+
+        supplier[
+            "supplier_id"
+        ] = (
             supplier_match.id
             if supplier_match
             else None
         )
 
-        supplier["match_type"] = match_type
+        supplier[
+            "match_type"
+        ] = match_type
 
-        # -----------------------------------
-        # Product Matching
-        # -----------------------------------
+        # ==========================================
+        # 3. PRODUCT MATCHING
+        # ==========================================
 
-        for product in ai_result["data"]["products"]:
+        for product in products:
 
             product_match = None
             product_match_type = None
+
+            # --------------------------------------
+            # Match by HSN
+            # --------------------------------------
 
             hsn_code = str(
                 product.get(
                     "hsn_code",
                     "",
                 )
+                or ""
             ).strip()
 
             if hsn_code:
@@ -105,13 +152,22 @@ class PurchaseBillAIService:
                 )
 
                 if product_match:
-                    product_match_type = "hsn_code"
+                    product_match_type = (
+                        "hsn_code"
+                    )
+
+            # --------------------------------------
+            # Fallback: product name
+            # --------------------------------------
 
             if product_match is None:
 
-                product_name = product.get(
-                    "product_name",
-                    "",
+                product_name = str(
+                    product.get(
+                        "product_name",
+                        "",
+                    )
+                    or ""
                 ).strip()
 
                 if product_name:
@@ -124,30 +180,60 @@ class PurchaseBillAIService:
                     )
 
                     if product_match:
-                        product_match_type = "product_name"
+                        product_match_type = (
+                            "product_name"
+                        )
 
-            product["existing_product"] = (
-                product_match is not None
-            )
+            # --------------------------------------
+            # Add matching metadata
+            #
+            # IMPORTANT:
+            # Never replace the AI-extracted
+            # product values.
+            # --------------------------------------
 
-            product["product_id"] = (
+            product[
+                "existing_product"
+            ] = product_match is not None
+
+            product[
+                "product_id"
+            ] = (
                 product_match.id
                 if product_match
                 else None
             )
 
-            product["match_type"] = (
-                product_match_type
-            )
+            product[
+                "match_type"
+            ] = product_match_type
 
-        # -----------------------------------
-        # AI Validation & Auto Calculation
-        # -----------------------------------
+        # ==========================================
+        # 4. VALIDATE + CALCULATE
+        # ==========================================
+        #
+        # This happens AFTER AI extraction and
+        # supplier/product matching.
+        #
+        # The validator is responsible for:
+        #
+        # quantity
+        # purchase_price
+        # line_total
+        # subtotal
+        # GST
+        # grand_total
+        #
+        # ==========================================
 
-        ai_result["data"] = (
-            PurchaseBillValidator.validate(
-                ai_result["data"]
-            )
+        data = PurchaseBillValidator.validate(
+            data
         )
+
+        # ==========================================
+        # 5. RETURN FINAL REVIEW DATA
+        # ==========================================
+
+        ai_result["data"] = data
 
         return ai_result

@@ -12,21 +12,40 @@ app = FastAPI(
     version=settings.APP_VERSION,
 )
 
+# ========================================
+# CORS
+# ========================================
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_URL],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# ========================================
+# API ROUTES
+# ========================================
+
 app.include_router(api_router)
 
+
+# ========================================
+# STARTUP
+# ========================================
 
 @app.on_event("startup")
 async def startup_event():
     logger.info("Glisen ERP Backend Started")
 
+
+# ========================================
+# ROOT
+# ========================================
 
 @app.get("/")
 def root():
