@@ -15,6 +15,8 @@ import PurchaseBillScanner from "../pages/PurchaseBills/PurchaseBillScanner";
 import PurchaseBillReview from "../pages/PurchaseBills/PurchaseBillReview";
 import PurchaseBillDetails from "../pages/PurchaseBills/PurchaseBillDetails";
 
+import EnquiryList from "../pages/Enquiries/EnquiryList";
+
 function DashboardPage() {
   return (
     <div>
@@ -65,6 +67,15 @@ export default function AppRouter() {
           <Route
             path="/dashboard"
             element={<DashboardPage />}
+          />
+
+          {/* =========================
+              ENQUIRIES
+          ========================== */}
+
+          <Route
+            path="/enquiries"
+            element={<EnquiryList />}
           />
 
           {/* =========================
