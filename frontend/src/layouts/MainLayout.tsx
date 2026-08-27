@@ -66,8 +66,8 @@ export default function MainLayout() {
       icon: <BarChart3 size={17} />,
     },
     {
-      label: "Sales",
-      path: "/sales",
+      label: "Proformas",
+      path: "/proformas",
       icon: <FileText size={17} />,
     },
     {

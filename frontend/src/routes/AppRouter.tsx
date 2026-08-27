@@ -17,11 +17,15 @@ import PurchaseBillDetails from "../pages/PurchaseBills/PurchaseBillDetails";
 
 import EnquiryList from "../pages/Enquiries/EnquiryList";
 
+import ProformaPage from "../pages/Proformas/ProformaPage";
+
 function DashboardPage() {
   return (
     <div>
       <h1>Glisen ERP Dashboard</h1>
-      <p>Dashboard coming soon.</p>
+      <p>
+        Dashboard coming soon.
+      </p>
     </div>
   );
 }
@@ -52,7 +56,8 @@ export default function AppRouter() {
           }
         >
 
-          {/* Root */}
+          {/* ROOT */}
+
           <Route
             path="/"
             element={
@@ -63,10 +68,13 @@ export default function AppRouter() {
             }
           />
 
-          {/* Dashboard */}
+          {/* DASHBOARD */}
+
           <Route
             path="/dashboard"
-            element={<DashboardPage />}
+            element={
+              <DashboardPage />
+            }
           />
 
           {/* =========================
@@ -75,7 +83,34 @@ export default function AppRouter() {
 
           <Route
             path="/enquiries"
-            element={<EnquiryList />}
+            element={
+              <EnquiryList />
+            }
+          />
+
+          {/* =========================
+              PROFORMAS
+          ========================== */}
+
+          <Route
+            path="/proformas"
+            element={
+              <ProformaPage />
+            }
+          />
+
+          <Route
+            path="/proformas/new"
+            element={
+              <ProformaPage />
+            }
+          />
+
+          <Route
+            path="/proformas/:id"
+            element={
+              <ProformaPage />
+            }
           />
 
           {/* =========================
@@ -84,22 +119,30 @@ export default function AppRouter() {
 
           <Route
             path="/purchase-bills"
-            element={<PurchaseBillList />}
+            element={
+              <PurchaseBillList />
+            }
           />
 
           <Route
             path="/purchase-bills/scan"
-            element={<PurchaseBillScanner />}
+            element={
+              <PurchaseBillScanner />
+            }
           />
 
           <Route
             path="/purchase-bills/review"
-            element={<PurchaseBillReview />}
+            element={
+              <PurchaseBillReview />
+            }
           />
 
           <Route
             path="/purchase-bills/:id"
-            element={<PurchaseBillDetails />}
+            element={
+              <PurchaseBillDetails />
+            }
           />
 
         </Route>
@@ -113,7 +156,9 @@ export default function AppRouter() {
           element={
             <div>
               <h1>404</h1>
-              <p>Page Not Found</p>
+              <p>
+                Page Not Found
+              </p>
             </div>
           }
         />

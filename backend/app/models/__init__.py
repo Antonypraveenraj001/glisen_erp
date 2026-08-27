@@ -2,6 +2,8 @@ from app.models.customer import Customer
 from app.models.enquiry import Enquiry
 from app.models.permission import Permission
 from app.models.product import Product
+from app.models.proforma import Proforma
+from app.models.proforma_item import ProformaItem
 from app.models.purchase_bill import PurchaseBill
 from app.models.purchase_bill_item import PurchaseBillItem
 from app.models.role import Role
@@ -19,6 +21,8 @@ __all__ = [
     "Enquiry",
     "Supplier",
     "Product",
+    "Proforma",
+    "ProformaItem",
     "PurchaseBill",
     "PurchaseBillItem",
 ]
