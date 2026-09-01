@@ -4,7 +4,6 @@ from decimal import Decimal
 from sqlalchemy import (
     Boolean,
     DateTime,
-    ForeignKey,
     Integer,
     Numeric,
     String,
@@ -75,16 +74,19 @@ class Product(Base):
     minimum_stock: Mapped[int] = mapped_column(
         Integer,
         default=0,
+        nullable=False,
     )
 
     maximum_stock: Mapped[int] = mapped_column(
         Integer,
         default=0,
+        nullable=False,
     )
 
     current_stock: Mapped[int] = mapped_column(
         Integer,
         default=0,
+        nullable=False,
     )
 
     is_active: Mapped[bool] = mapped_column(
@@ -93,18 +95,15 @@ class Product(Base):
         nullable=False,
     )
 
-    created_by: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
-        nullable=False,
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
+        nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now(),
         onupdate=func.now(),
+        nullable=False,
     )
