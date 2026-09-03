@@ -6,6 +6,7 @@ from app.api.v1.enquiries import router as enquiries_router
 from app.api.v1.health import router as health_router
 from app.api.v1.products import router as products_router
 from app.api.v1.proformas import router as proformas_router
+from app.api.v1.production import router as production_router
 from app.api.v1.purchase_bill_ai import (
     router as purchase_bill_ai_router,
 )
@@ -29,3 +30,4 @@ api_router.include_router(products_router)
 api_router.include_router(purchase_bills_router)
 api_router.include_router(purchase_bill_ai_router)
 api_router.include_router(proformas_router)
+api_router.include_router(production_router)
