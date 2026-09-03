@@ -36,6 +36,33 @@ PRODUCTION_ROLES = (
 # PRODUCTION ORDERS
 # ============================================================
 
+
+@router.post(
+    "/orders/from-proforma/{proforma_id}",
+    response_model=list[ProductionOrderResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+def create_production_orders_from_proforma(
+    proforma_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(*PRODUCTION_ROLES)
+    ),
+):
+    service = ProductionService(db)
+
+    try:
+        return service.create_production_orders_from_proforma(
+            proforma_id=proforma_id
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+
 @router.post(
     "/orders",
     response_model=ProductionOrderResponse,
@@ -68,7 +95,9 @@ def get_production_orders(
     return service.get_all_production_orders()
 
 
-# Static routes MUST appear before the dynamic {production_order_id} route.
+# Static routes MUST appear before the dynamic
+# {production_order_id} route.
+
 
 @router.get(
     "/orders/number/{production_number}",
@@ -241,7 +270,9 @@ def delete_production_order(
             detail="Production order not found",
         )
 
-    service.delete_production_order(existing_order)
+    service.delete_production_order(
+        existing_order
+    )
 
     return None
 
@@ -249,6 +280,7 @@ def delete_production_order(
 # ============================================================
 # PRODUCTION MATERIALS
 # ============================================================
+
 
 @router.post(
     "/orders/{production_order_id}/materials",
@@ -360,7 +392,9 @@ def delete_production_material(
             detail="Production material not found",
         )
 
-    service.delete_material(existing_material)
+    service.delete_material(
+        existing_material
+    )
 
     return None
 
@@ -368,6 +402,7 @@ def delete_production_material(
 # ============================================================
 # PRODUCTION OPERATIONS
 # ============================================================
+
 
 @router.post(
     "/orders/{production_order_id}/operations",
@@ -479,6 +514,8 @@ def delete_production_operation(
             detail="Production operation not found",
         )
 
-    service.delete_operation(existing_operation)
+    service.delete_operation(
+        existing_operation
+    )
 
     return None

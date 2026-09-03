@@ -3,14 +3,17 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.product import Product
 from app.models.production_material import ProductionMaterial
 from app.models.production_operation import ProductionOperation
 from app.models.production_order import ProductionOrder
+from app.repositories.product_repository import ProductRepository
 from app.repositories.production import (
     ProductionMaterialRepository,
     ProductionOperationRepository,
     ProductionOrderRepository,
 )
+from app.repositories.proforma_repository import ProformaRepository
 from app.schemas.production import (
     ProductionMaterialCreate,
     ProductionMaterialUpdate,
@@ -29,6 +32,8 @@ class ProductionService:
         self.production_order_repository = ProductionOrderRepository(db)
         self.material_repository = ProductionMaterialRepository(db)
         self.operation_repository = ProductionOperationRepository(db)
+
+        self.proforma_repository = ProformaRepository(db)
 
     # ========================================================
     # PRODUCTION ORDER
@@ -56,7 +61,9 @@ class ProductionService:
             production_order
         )
 
-    def get_all_production_orders(self) -> list[ProductionOrder]:
+    def get_all_production_orders(
+        self,
+    ) -> list[ProductionOrder]:
         return self.production_order_repository.get_all()
 
     def get_production_order(
@@ -88,10 +95,16 @@ class ProductionService:
         production_order: ProductionOrder,
         data: ProductionOrderUpdate,
     ) -> ProductionOrder:
-        update_data = data.model_dump(exclude_unset=True)
+        update_data = data.model_dump(
+            exclude_unset=True
+        )
 
         for field, value in update_data.items():
-            setattr(production_order, field, value)
+            setattr(
+                production_order,
+                field,
+                value,
+            )
 
         return self.production_order_repository.update(
             production_order
@@ -101,7 +114,9 @@ class ProductionService:
         self,
         production_order: ProductionOrder,
     ) -> None:
-        self.production_order_repository.delete(production_order)
+        self.production_order_repository.delete(
+            production_order
+        )
 
     def update_production_status(
         self,
@@ -110,15 +125,199 @@ class ProductionService:
     ) -> ProductionOrder:
         production_order.status = status
 
-        if status == "In Progress" and production_order.actual_start_date is None:
-            production_order.actual_start_date = datetime.utcnow().date()
+        if (
+            status == "In Progress"
+            and production_order.actual_start_date is None
+        ):
+            production_order.actual_start_date = (
+                datetime.utcnow().date()
+            )
 
-        if status == "Completed" and production_order.actual_end_date is None:
-            production_order.actual_end_date = datetime.utcnow().date()
+        if (
+            status == "Completed"
+            and production_order.actual_end_date is None
+        ):
+            production_order.actual_end_date = (
+                datetime.utcnow().date()
+            )
 
         return self.production_order_repository.update(
             production_order
         )
+
+    # ========================================================
+    # PROFORMA -> PRODUCTION INTEGRATION
+    # ========================================================
+
+    def create_production_orders_from_proforma(
+        self,
+        proforma_id: int,
+    ) -> list[ProductionOrder]:
+        """
+        Create Production Orders from a confirmed Proforma.
+
+        Workflow:
+
+            Order Confirmed
+                    ↓
+            Production Orders
+                    ↓
+            Production Started
+
+        One Production Order is created for each Proforma item.
+
+        A Proforma item must:
+        - have a valid active product
+        - have a whole-number quantity because
+          ProductionOrder.quantity is currently an Integer
+        """
+
+        proforma = self.proforma_repository.get_by_id(
+            proforma_id
+        )
+
+        if proforma is None:
+            raise ValueError(
+                "Proforma not found."
+            )
+
+        # ----------------------------------------------------
+        # Only confirmed orders can enter production.
+        #
+        # Proforma status is normalized so that values such as:
+        # "Order Confirmed"
+        # "order confirmed"
+        # "ORDER CONFIRMED"
+        # are treated as the same workflow status.
+        # ----------------------------------------------------
+
+        proforma_status = (
+            (proforma.status or "")
+            .strip()
+            .lower()
+        )
+
+        if proforma_status != "order confirmed":
+            raise ValueError(
+                "Production can only be created from a Proforma "
+                "with status 'Order Confirmed'."
+            )
+
+        # ----------------------------------------------------
+        # Prevent duplicate production orders.
+        # ----------------------------------------------------
+
+        existing_orders = (
+            self.production_order_repository.get_by_proforma(
+                proforma_id
+            )
+        )
+
+        if existing_orders:
+            raise ValueError(
+                "Production orders already exist for this Proforma."
+            )
+
+        # ----------------------------------------------------
+        # Proforma must contain at least one item.
+        # ----------------------------------------------------
+
+        if not proforma.items:
+            raise ValueError(
+                "Proforma has no items."
+            )
+
+        # ----------------------------------------------------
+        # Validate every item BEFORE creating anything.
+        #
+        # This prevents invalid Proforma data from creating
+        # incomplete Production Orders.
+        # ----------------------------------------------------
+
+        validated_items: list[tuple[object, Product]] = []
+
+        for item in proforma.items:
+
+            if item.product_id is None:
+                raise ValueError(
+                    f"Proforma item {item.id} does not have a product."
+                )
+
+            product = ProductRepository.get_by_id(
+                self.db,
+                item.product_id,
+            )
+
+            if product is None:
+                raise ValueError(
+                    f"Product {item.product_id} is not found "
+                    "or is inactive."
+                )
+
+            quantity = Decimal(str(item.quantity))
+
+            if quantity <= 0:
+                raise ValueError(
+                    f"Quantity for Proforma item {item.id} "
+                    "must be greater than zero."
+                )
+
+            if quantity != quantity.to_integral_value():
+                raise ValueError(
+                    f"Quantity for Proforma item {item.id} "
+                    "must be a whole number because production "
+                    "quantity is currently stored as an integer."
+                )
+
+            validated_items.append(
+                (item, product)
+            )
+
+        # ----------------------------------------------------
+        # Create one Production Order per Proforma item.
+        # ----------------------------------------------------
+
+        production_orders: list[ProductionOrder] = []
+
+        for item, product in validated_items:
+
+            production_number = (
+                self._generate_production_number()
+            )
+
+            production_order = ProductionOrder(
+                production_number=production_number,
+                proforma_id=proforma.id,
+                product_id=product.id,
+                quantity=int(item.quantity),
+                status="Pending",
+                notes=(
+                    f"Created from Proforma "
+                    f"{proforma.proforma_number}"
+                ),
+            )
+
+            created_order = (
+                self.production_order_repository.create(
+                    production_order
+                )
+            )
+
+            production_orders.append(
+                created_order
+            )
+
+        # ----------------------------------------------------
+        # Advance the Proforma workflow after all Production
+        # Orders have been successfully created.
+        # ----------------------------------------------------
+
+        proforma.status = "Production Started"
+
+        self.db.commit()
+        self.db.refresh(proforma)
+
+        return production_orders
 
     # ========================================================
     # PRODUCTION ORDER DETAIL
@@ -128,31 +327,46 @@ class ProductionService:
         self,
         production_order_id: int,
     ) -> ProductionOrderDetailResponse | None:
-        production_order = self.production_order_repository.get_by_id(
-            production_order_id
+
+        production_order = (
+            self.production_order_repository.get_by_id(
+                production_order_id
+            )
         )
 
         if production_order is None:
             return None
 
-        materials = self.material_repository.get_by_production_order(
-            production_order_id
+        materials = (
+            self.material_repository.get_by_production_order(
+                production_order_id
+            )
         )
 
-        operations = self.operation_repository.get_by_production_order(
-            production_order_id
+        operations = (
+            self.operation_repository.get_by_production_order(
+                production_order_id
+            )
         )
 
         return ProductionOrderDetailResponse(
             id=production_order.id,
-            production_number=production_order.production_number,
+            production_number=(
+                production_order.production_number
+            ),
             proforma_id=production_order.proforma_id,
             product_id=production_order.product_id,
             quantity=production_order.quantity,
             status=production_order.status,
-            planned_start_date=production_order.planned_start_date,
-            actual_start_date=production_order.actual_start_date,
-            actual_end_date=production_order.actual_end_date,
+            planned_start_date=(
+                production_order.planned_start_date
+            ),
+            actual_start_date=(
+                production_order.actual_start_date
+            ),
+            actual_end_date=(
+                production_order.actual_end_date
+            ),
             notes=production_order.notes,
             created_at=production_order.created_at,
             updated_at=production_order.updated_at,
@@ -169,8 +383,10 @@ class ProductionService:
         production_order_id: int,
         data: ProductionMaterialCreate,
     ) -> ProductionMaterial:
+
         material_cost = (
-            data.quantity_issued * data.unit_cost
+            data.quantity_issued
+            * data.unit_cost
         )
 
         material = ProductionMaterial(
@@ -184,13 +400,17 @@ class ProductionService:
             material_cost=material_cost,
         )
 
-        return self.material_repository.create(material)
+        return self.material_repository.create(
+            material
+        )
 
     def get_material(
         self,
         material_id: int,
     ) -> ProductionMaterial | None:
-        return self.material_repository.get_by_id(material_id)
+        return self.material_repository.get_by_id(
+            material_id
+        )
 
     def get_materials(
         self,
@@ -205,24 +425,34 @@ class ProductionService:
         material: ProductionMaterial,
         data: ProductionMaterialUpdate,
     ) -> ProductionMaterial:
+
         update_data = data.model_dump(
             exclude_unset=True
         )
 
         for field, value in update_data.items():
-            setattr(material, field, value)
+            setattr(
+                material,
+                field,
+                value,
+            )
 
         material.material_cost = (
-            material.quantity_issued * material.unit_cost
+            material.quantity_issued
+            * material.unit_cost
         )
 
-        return self.material_repository.update(material)
+        return self.material_repository.update(
+            material
+        )
 
     def delete_material(
         self,
         material: ProductionMaterial,
     ) -> None:
-        self.material_repository.delete(material)
+        self.material_repository.delete(
+            material
+        )
 
     # ========================================================
     # OPERATIONS
@@ -233,8 +463,10 @@ class ProductionService:
         production_order_id: int,
         data: ProductionOperationCreate,
     ) -> ProductionOperation:
+
         operation_cost = (
-            data.actual_hours * data.hourly_rate
+            data.actual_hours
+            * data.hourly_rate
         )
 
         operation = ProductionOperation(
@@ -250,13 +482,17 @@ class ProductionService:
             completed_at=data.completed_at,
         )
 
-        return self.operation_repository.create(operation)
+        return self.operation_repository.create(
+            operation
+        )
 
     def get_operation(
         self,
         operation_id: int,
     ) -> ProductionOperation | None:
-        return self.operation_repository.get_by_id(operation_id)
+        return self.operation_repository.get_by_id(
+            operation_id
+        )
 
     def get_operations(
         self,
@@ -271,30 +507,43 @@ class ProductionService:
         operation: ProductionOperation,
         data: ProductionOperationUpdate,
     ) -> ProductionOperation:
+
         update_data = data.model_dump(
             exclude_unset=True
         )
 
         for field, value in update_data.items():
-            setattr(operation, field, value)
+            setattr(
+                operation,
+                field,
+                value
+            )
 
         operation.operation_cost = (
-            operation.actual_hours * operation.hourly_rate
+            operation.actual_hours
+            * operation.hourly_rate
         )
 
-        return self.operation_repository.update(operation)
+        return self.operation_repository.update(
+            operation
+        )
 
     def delete_operation(
         self,
         operation: ProductionOperation,
     ) -> None:
-        self.operation_repository.delete(operation)
+        self.operation_repository.delete(
+            operation
+        )
 
     # ========================================================
     # PRODUCTION NUMBER
     # ========================================================
 
-    def _generate_production_number(self) -> str:
+    def _generate_production_number(
+        self,
+    ) -> str:
+
         year = datetime.utcnow().year
 
         prefix = f"PROD-{year}-"
@@ -306,19 +555,30 @@ class ProductionService:
         highest_number = 0
 
         for order in existing_orders:
-            production_number = order.production_number
+
+            production_number = (
+                order.production_number
+            )
 
             if production_number.startswith(prefix):
+
                 try:
                     number = int(
-                        production_number.replace(prefix, "")
+                        production_number.replace(
+                            prefix,
+                            ""
+                        )
                     )
 
                     highest_number = max(
                         highest_number,
                         number,
                     )
+
                 except ValueError:
                     continue
 
-        return f"{prefix}{highest_number + 1:04d}"
+        return (
+            f"{prefix}"
+            f"{highest_number + 1:04d}"
+        )
