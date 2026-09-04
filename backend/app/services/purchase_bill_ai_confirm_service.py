@@ -17,16 +17,6 @@ class PurchaseBillAIConfirmService:
 
     @staticmethod
     def parse_bill_date(date_value: str):
-        """
-        Convert a purchase bill date into a Python date object.
-
-        Supported formats:
-        DD-MM-YYYY
-        DD-MMM-YYYY
-        DD-Month-YYYY
-        YYYY-MM-DD
-        """
-
         if date_value is None:
             raise ValueError(
                 "Purchase bill date is required."
@@ -69,12 +59,6 @@ class PurchaseBillAIConfirmService:
 
     @staticmethod
     def decimal(value):
-        """
-        Safely convert a value into Decimal.
-
-        Invalid or empty values become 0.00.
-        """
-
         if value is None:
             return Decimal("0.00")
 
@@ -102,10 +86,6 @@ class PurchaseBillAIConfirmService:
 
     @staticmethod
     def money(value):
-        """
-        Round monetary values to two decimal places.
-        """
-
         return (
             PurchaseBillAIConfirmService
             .decimal(value)
@@ -117,15 +97,9 @@ class PurchaseBillAIConfirmService:
     # ============================================================
 
     @staticmethod
-    def generate_product_code(db: Session):
-        """
-        Generate the next product code.
-
-        Example:
-        PROD00001
-        PROD00002
-        PROD00003
-        """
+    def generate_product_code(
+        db: Session,
+    ) -> str:
 
         latest_product = (
             db.query(Product)
@@ -134,23 +108,29 @@ class PurchaseBillAIConfirmService:
         )
 
         if latest_product:
-            next_number = latest_product.id + 1
+            next_number = (
+                latest_product.id + 1
+            )
         else:
             next_number = 1
 
-        product_code = f"PROD{next_number:05d}"
+        product_code = (
+            f"PROD{next_number:05d}"
+        )
 
-        # Safety check in case a code already exists.
         while (
             db.query(Product)
             .filter(
-                Product.product_code == product_code
+                Product.product_code
+                == product_code
             )
             .first()
             is not None
         ):
             next_number += 1
-            product_code = f"PROD{next_number:05d}"
+            product_code = (
+                f"PROD{next_number:05d}"
+            )
 
         return product_code
 
@@ -167,28 +147,18 @@ class PurchaseBillAIConfirmService:
         """
         Confirm an AI/manual purchase bill.
 
-        Process:
-        1. Parse and validate bill date
-        2. Find existing supplier
-        3. Create supplier if necessary
-        4. Check duplicate purchase bill
-        5. Create purchase bill
-        6. Find existing products
-        7. Create products when necessary
-        8. Generate product code for new products
-        9. Calculate missing product values
-        10. Create purchase bill items
-        11. Commit complete transaction
+        Everything is committed in one transaction.
+
+        Stock is increased only when the purchase bill
+        confirmation succeeds.
         """
 
         try:
 
-            # ====================================================
-            # INPUT DATA
-            # ====================================================
-
             supplier_data = data.supplier
-            purchase_bill_data = data.purchase_bill
+            purchase_bill_data = (
+                data.purchase_bill
+            )
             products_data = data.products
 
             # ====================================================
@@ -196,20 +166,17 @@ class PurchaseBillAIConfirmService:
             # ====================================================
 
             bill_date = (
-                PurchaseBillAIConfirmService.parse_bill_date(
+                PurchaseBillAIConfirmService
+                .parse_bill_date(
                     purchase_bill_data.bill_date
                 )
             )
 
             # ====================================================
-            # SUPPLIER
+            # SUPPLIER LOOKUP
             # ====================================================
 
             supplier = None
-
-            # ----------------------------------------------------
-            # 1. Search by supplier ID
-            # ----------------------------------------------------
 
             if supplier_data.supplier_id:
                 supplier = (
@@ -220,10 +187,6 @@ class PurchaseBillAIConfirmService:
                     )
                     .first()
                 )
-
-            # ----------------------------------------------------
-            # 2. Search by GST number
-            # ----------------------------------------------------
 
             if (
                 supplier is None
@@ -237,10 +200,6 @@ class PurchaseBillAIConfirmService:
                     )
                     .first()
                 )
-
-            # ----------------------------------------------------
-            # 3. Search by company name
-            # ----------------------------------------------------
 
             if (
                 supplier is None
@@ -319,14 +278,16 @@ class PurchaseBillAIConfirmService:
                         or ""
                     ),
                     is_active=True,
-                    created_by=current_user_id,
+                    created_by=(
+                        current_user_id
+                    ),
                 )
 
                 db.add(supplier)
                 db.flush()
 
             # ====================================================
-            # DUPLICATE PURCHASE BILL CHECK
+            # DUPLICATE BILL CHECK
             # ====================================================
 
             existing_bill = (
@@ -350,23 +311,26 @@ class PurchaseBillAIConfirmService:
                 )
 
             # ====================================================
-            # PURCHASE BILL TOTALS
+            # BILL TOTALS
             # ====================================================
 
             subtotal = (
-                PurchaseBillAIConfirmService.money(
+                PurchaseBillAIConfirmService
+                .money(
                     purchase_bill_data.subtotal
                 )
             )
 
             total_gst = (
-                PurchaseBillAIConfirmService.money(
+                PurchaseBillAIConfirmService
+                .money(
                     purchase_bill_data.total_gst
                 )
             )
 
             grand_total = (
-                PurchaseBillAIConfirmService.money(
+                PurchaseBillAIConfirmService
+                .money(
                     purchase_bill_data.grand_total
                 )
             )
@@ -397,14 +361,10 @@ class PurchaseBillAIConfirmService:
             db.flush()
 
             # ====================================================
-            # PRODUCTS
+            # PRODUCTS / BILL ITEMS / STOCK
             # ====================================================
 
             for product_data in products_data:
-
-                # ------------------------------------------------
-                # Ignore completely empty product rows
-                # ------------------------------------------------
 
                 if not (
                     product_data.product_name
@@ -416,7 +376,7 @@ class PurchaseBillAIConfirmService:
                 product = None
 
                 # ------------------------------------------------
-                # 1. Existing product by ID
+                # EXISTING PRODUCT BY ID
                 # ------------------------------------------------
 
                 if product_data.product_id:
@@ -424,13 +384,16 @@ class PurchaseBillAIConfirmService:
                         db.query(Product)
                         .filter(
                             Product.id
-                            == product_data.product_id
+                            == product_data.product_id,
+                            Product.is_active
+                            == True,
                         )
+                        .with_for_update()
                         .first()
                     )
 
                 # ------------------------------------------------
-                # 2. Existing product by exact name
+                # EXISTING PRODUCT BY NAME
                 # ------------------------------------------------
 
                 if (
@@ -441,8 +404,11 @@ class PurchaseBillAIConfirmService:
                         db.query(Product)
                         .filter(
                             Product.product_name
-                            == product_data.product_name
+                            == product_data.product_name,
+                            Product.is_active
+                            == True,
                         )
+                        .with_for_update()
                         .first()
                     )
 
@@ -477,81 +443,117 @@ class PurchaseBillAIConfirmService:
                             or ""
                         ),
                         gst_percentage=(
-                            PurchaseBillAIConfirmService.money(
-                                product_data.gst_percentage
+                            PurchaseBillAIConfirmService
+                            .money(
+                                product_data
+                                .gst_percentage
                             )
                         ),
                         purchase_price=(
-                            PurchaseBillAIConfirmService.money(
-                                product_data.purchase_price
+                            PurchaseBillAIConfirmService
+                            .money(
+                                product_data
+                                .purchase_price
                             )
                         ),
-                        selling_price=Decimal("0.00"),
-                        minimum_stock=0,
-                        maximum_stock=0,
-                        current_stock=0,
+                        selling_price=Decimal(
+                            "0.00"
+                        ),
+                        minimum_stock=Decimal(
+                            "0.00"
+                        ),
+                        maximum_stock=Decimal(
+                            "0.00"
+                        ),
+                        current_stock=Decimal(
+                            "0.00"
+                        ),
                         is_active=True,
-                        created_by=current_user_id,
                     )
 
                     db.add(product)
                     db.flush()
 
                 # =================================================
-                # PRODUCT VALUES
+                # VALUES
                 # =================================================
 
                 quantity = (
-                    PurchaseBillAIConfirmService.decimal(
+                    PurchaseBillAIConfirmService
+                    .decimal(
                         product_data.quantity
                     )
                 )
 
                 purchase_price = (
-                    PurchaseBillAIConfirmService.decimal(
+                    PurchaseBillAIConfirmService
+                    .decimal(
                         product_data.purchase_price
                     )
                 )
 
                 gst_percentage = (
-                    PurchaseBillAIConfirmService.decimal(
+                    PurchaseBillAIConfirmService
+                    .decimal(
                         product_data.gst_percentage
                     )
                 )
 
                 line_total = (
-                    PurchaseBillAIConfirmService.decimal(
+                    PurchaseBillAIConfirmService
+                    .decimal(
                         product_data.line_total
                     )
                 )
 
-                # ------------------------------------------------
-                # Prevent negative values
-                # ------------------------------------------------
+                # =================================================
+                # VALIDATION
+                # =================================================
 
-                if quantity < Decimal("0"):
-                    quantity = Decimal("0.00")
+                if quantity <= Decimal(
+                    "0.00"
+                ):
+                    raise ValueError(
+                        "Purchase quantity must be "
+                        "greater than zero."
+                    )
 
-                if purchase_price < Decimal("0"):
-                    purchase_price = Decimal("0.00")
+                if purchase_price < Decimal(
+                    "0.00"
+                ):
+                    raise ValueError(
+                        "Purchase price cannot be negative."
+                    )
 
-                if gst_percentage < Decimal("0"):
-                    gst_percentage = Decimal("0.00")
+                if gst_percentage < Decimal(
+                    "0.00"
+                ):
+                    raise ValueError(
+                        "GST percentage cannot be negative."
+                    )
 
-                if line_total < Decimal("0"):
-                    line_total = Decimal("0.00")
+                if line_total < Decimal(
+                    "0.00"
+                ):
+                    raise ValueError(
+                        "Line total cannot be negative."
+                    )
 
                 # =================================================
                 # CALCULATE PURCHASE PRICE
                 # =================================================
 
                 if (
-                    purchase_price == Decimal("0")
-                    and quantity > Decimal("0")
-                    and line_total > Decimal("0")
+                    purchase_price
+                    == Decimal("0.00")
+                    and quantity
+                    > Decimal("0.00")
+                    and line_total
+                    > Decimal("0.00")
                 ):
                     purchase_price = (
-                        line_total / quantity
+                        line_total
+                        / quantity
                     ).quantize(
                         Decimal("0.01")
                     )
@@ -561,33 +563,69 @@ class PurchaseBillAIConfirmService:
                 # =================================================
 
                 if (
-                    line_total == Decimal("0")
-                    and quantity > Decimal("0")
+                    line_total
+                    == Decimal("0.00")
+                    and quantity
+                    > Decimal("0.00")
                 ):
                     line_total = (
-                        quantity * purchase_price
+                        quantity
+                        * purchase_price
                     ).quantize(
                         Decimal("0.01")
                     )
 
                 # =================================================
-                # CREATE PURCHASE BILL ITEM
+                # PURCHASE BILL ITEM
                 # =================================================
 
-                purchase_bill_item = PurchaseBillItem(
-                    purchase_bill_id=purchase_bill.id,
-                    product_id=product.id,
-                    quantity=quantity,
-                    purchase_price=purchase_price,
-                    gst_percentage=gst_percentage,
-                    line_total=line_total,
-                    created_by=current_user_id,
+                purchase_bill_item = (
+                    PurchaseBillItem(
+                        purchase_bill_id=(
+                            purchase_bill.id
+                        ),
+                        product_id=product.id,
+                        quantity=quantity,
+                        purchase_price=(
+                            purchase_price
+                        ),
+                        gst_percentage=(
+                            gst_percentage
+                        ),
+                        line_total=line_total,
+                        created_by=(
+                            current_user_id
+                        ),
+                    )
                 )
 
-                db.add(purchase_bill_item)
+                db.add(
+                    purchase_bill_item
+                )
+
+                # =================================================
+                # STOCK INCREASE
+                # =================================================
+
+                current_stock = Decimal(
+                    str(
+                        product.current_stock
+                        or Decimal("0.00")
+                    )
+                )
+
+                product.current_stock = (
+                    current_stock
+                    + quantity
+                )
+
+                # Keep latest purchase price
+                product.purchase_price = (
+                    purchase_price
+                )
 
             # ====================================================
-            # COMMIT
+            # SINGLE TRANSACTION COMMIT
             # ====================================================
 
             db.commit()
@@ -600,15 +638,22 @@ class PurchaseBillAIConfirmService:
             db.refresh(purchase_bill)
 
             # ====================================================
-            # RETURN RESULT
+            # RETURN
             # ====================================================
 
             return {
                 "success": True,
                 "supplier_id": supplier.id,
-                "purchase_bill_id": purchase_bill.id,
-                "bill_number": purchase_bill.bill_number,
-                "bill_date": purchase_bill.bill_date.isoformat(),
+                "purchase_bill_id": (
+                    purchase_bill.id
+                ),
+                "bill_number": (
+                    purchase_bill.bill_number
+                ),
+                "bill_date": (
+                    purchase_bill.bill_date
+                    .isoformat()
+                ),
                 "subtotal": float(
                     purchase_bill.subtotal
                 ),
@@ -621,9 +666,5 @@ class PurchaseBillAIConfirmService:
             }
 
         except Exception:
-            # ====================================================
-            # ROLLBACK
-            # ====================================================
-
             db.rollback()
             raise
