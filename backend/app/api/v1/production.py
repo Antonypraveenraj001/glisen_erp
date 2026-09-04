@@ -50,9 +50,7 @@ PRODUCTION_ROLES = (
 
 @router.post(
     "/orders/from-proforma/{proforma_id}",
-    response_model=list[
-        ProductionOrderResponse
-    ],
+    response_model=list[ProductionOrderResponse],
     status_code=status.HTTP_201_CREATED,
 )
 def create_production_orders_from_proforma(
@@ -72,9 +70,7 @@ def create_production_orders_from_proforma(
         return (
             service
             .create_production_orders_from_proforma(
-                proforma_id=(
-                    proforma_id
-                )
+                proforma_id=proforma_id
             )
         )
 
@@ -83,9 +79,7 @@ def create_production_orders_from_proforma(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
 
@@ -107,16 +101,25 @@ def create_production_order(
         db
     )
 
-    return service.create_production_order(
-        data=production_order
-    )
+    try:
+        return (
+            service.create_production_order(
+                data=production_order
+            )
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
 
 
 @router.get(
     "/orders",
-    response_model=list[
-        ProductionOrderResponse
-    ],
+    response_model=list[ProductionOrderResponse],
 )
 def get_production_orders(
     db: Session = Depends(get_db),
@@ -133,8 +136,12 @@ def get_production_orders(
     )
 
 
-# Static routes must remain above
+# ============================================================
+# STATIC PRODUCTION ORDER ROUTES
+#
+# These must remain above:
 # /orders/{production_order_id}
+# ============================================================
 
 
 @router.get(
@@ -163,9 +170,7 @@ def get_production_order_by_number(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
     return production_order
@@ -173,9 +178,7 @@ def get_production_order_by_number(
 
 @router.get(
     "/orders/proforma/{proforma_id}",
-    response_model=list[
-        ProductionOrderResponse
-    ],
+    response_model=list[ProductionOrderResponse],
 )
 def get_production_orders_by_proforma(
     proforma_id: int,
@@ -189,18 +192,20 @@ def get_production_orders_by_proforma(
     )
 
     return (
-        service
-        .get_production_orders_by_proforma(
+        service.get_production_orders_by_proforma(
             proforma_id
         )
     )
 
 
+# ============================================================
+# PRODUCTION ORDER DETAIL
+# ============================================================
+
+
 @router.get(
     "/orders/{production_order_id}/detail",
-    response_model=(
-        ProductionOrderDetailResponse
-    ),
+    response_model=ProductionOrderDetailResponse,
 )
 def get_production_order_detail(
     production_order_id: int,
@@ -224,12 +229,132 @@ def get_production_order_detail(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
     return production_order
+
+
+# ============================================================
+# PRODUCTION ORDER STATUS WORKFLOW
+# ============================================================
+
+
+@router.patch(
+    "/orders/{production_order_id}/status",
+    response_model=ProductionOrderResponse,
+)
+def update_production_order_status(
+    production_order_id: int,
+    status_value: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            *PRODUCTION_ROLES
+        )
+    ),
+):
+    """
+    Change Production Order between controlled
+    non-completion states.
+
+    Completed cannot be set here.
+    Use /complete instead.
+    """
+
+    service = ProductionService(
+        db
+    )
+
+    existing_order = (
+        service.get_production_order(
+            production_order_id
+        )
+    )
+
+    if existing_order is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail="Production order not found",
+        )
+
+    try:
+        return (
+            service.update_production_status(
+                production_order=existing_order,
+                status=status_value,
+            )
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
+
+
+@router.patch(
+    "/orders/{production_order_id}/complete",
+    response_model=ProductionOrderResponse,
+)
+def complete_production_order(
+    production_order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            *PRODUCTION_ROLES
+        )
+    ),
+):
+    """
+    Complete Production Order only after the service verifies:
+
+    - Production Order is In Progress
+    - all required materials are fully issued
+    - all Production Operations are Completed
+    """
+
+    service = ProductionService(
+        db
+    )
+
+    existing_order = (
+        service.get_production_order(
+            production_order_id
+        )
+    )
+
+    if existing_order is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail="Production order not found",
+        )
+
+    try:
+        return (
+            service.complete_production_order(
+                existing_order
+            )
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
+
+
+# ============================================================
+# PRODUCTION ORDER CRUD
+# ============================================================
 
 
 @router.get(
@@ -258,9 +383,7 @@ def get_production_order(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
     return production_order
@@ -295,61 +418,24 @@ def update_production_order(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
-    return service.update_production_order(
-        production_order=(
-            existing_order
-        ),
-        data=production_order,
-    )
-
-
-@router.patch(
-    "/orders/{production_order_id}/status",
-    response_model=ProductionOrderResponse,
-)
-def update_production_order_status(
-    production_order_id: int,
-    status_value: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+    try:
+        return (
+            service.update_production_order(
+                production_order=existing_order,
+                data=production_order,
+            )
         )
-    ),
-):
-    service = ProductionService(
-        db
-    )
 
-    existing_order = (
-        service.get_production_order(
-            production_order_id
-        )
-    )
-
-    if existing_order is None:
+    except ValueError as exc:
         raise HTTPException(
             status_code=(
-                status.HTTP_404_NOT_FOUND
+                status.HTTP_400_BAD_REQUEST
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail=str(exc),
         )
-
-    return (
-        service.update_production_status(
-            production_order=(
-                existing_order
-            ),
-            status=status_value,
-        )
-    )
 
 
 @router.delete(
@@ -380,14 +466,21 @@ def delete_production_order(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
-    service.delete_production_order(
-        existing_order
-    )
+    try:
+        service.delete_production_order(
+            existing_order
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
 
     return None
 
@@ -427,17 +520,17 @@ def create_production_material(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
     try:
-        return service.create_material(
-            production_order_id=(
-                production_order_id
-            ),
-            data=material,
+        return (
+            service.create_material(
+                production_order_id=(
+                    production_order_id
+                ),
+                data=material,
+            )
         )
 
     except ValueError as exc:
@@ -445,17 +538,13 @@ def create_production_material(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
 
 @router.get(
     "/orders/{production_order_id}/materials",
-    response_model=list[
-        ProductionMaterialResponse
-    ],
+    response_model=list[ProductionMaterialResponse],
 )
 def get_production_materials(
     production_order_id: int,
@@ -479,21 +568,19 @@ def get_production_materials(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
-    return service.get_materials(
-        production_order_id
+    return (
+        service.get_materials(
+            production_order_id
+        )
     )
 
 
 @router.get(
     "/orders/{production_order_id}/materials/summary",
-    response_model=(
-        ProductionMaterialSummaryResponse
-    ),
+    response_model=ProductionMaterialSummaryResponse,
 )
 def get_production_material_summary(
     production_order_id: int,
@@ -517,9 +604,7 @@ def get_production_material_summary(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
     return (
@@ -558,15 +643,15 @@ def update_production_material(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production material not found"
-            ),
+            detail="Production material not found",
         )
 
     try:
-        return service.update_material(
-            material=existing_material,
-            data=material,
+        return (
+            service.update_material(
+                material=existing_material,
+                data=material,
+            )
         )
 
     except ValueError as exc:
@@ -574,9 +659,7 @@ def update_production_material(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
 
@@ -608,9 +691,7 @@ def delete_production_material(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production material not found"
-            ),
+            detail="Production material not found",
         )
 
     try:
@@ -623,9 +704,7 @@ def delete_production_material(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
     return None
@@ -666,17 +745,17 @@ def create_production_operation(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
     try:
-        return service.create_operation(
-            production_order_id=(
-                production_order_id
-            ),
-            data=operation,
+        return (
+            service.create_operation(
+                production_order_id=(
+                    production_order_id
+                ),
+                data=operation,
+            )
         )
 
     except ValueError as exc:
@@ -684,17 +763,13 @@ def create_production_operation(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
 
 @router.get(
     "/orders/{production_order_id}/operations",
-    response_model=list[
-        ProductionOperationResponse
-    ],
+    response_model=list[ProductionOperationResponse],
 )
 def get_production_operations(
     production_order_id: int,
@@ -718,21 +793,19 @@ def get_production_operations(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
-    return service.get_operations(
-        production_order_id
+    return (
+        service.get_operations(
+            production_order_id
+        )
     )
 
 
 @router.get(
     "/orders/{production_order_id}/operations/summary",
-    response_model=(
-        ProductionOperationSummaryResponse
-    ),
+    response_model=ProductionOperationSummaryResponse,
 )
 def get_production_operation_summary(
     production_order_id: int,
@@ -756,9 +829,7 @@ def get_production_operation_summary(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production order not found"
-            ),
+            detail="Production order not found",
         )
 
     return (
@@ -797,17 +868,15 @@ def update_production_operation(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production operation not found"
-            ),
+            detail="Production operation not found",
         )
 
     try:
-        return service.update_operation(
-            operation=(
-                existing_operation
-            ),
-            data=operation,
+        return (
+            service.update_operation(
+                operation=existing_operation,
+                data=operation,
+            )
         )
 
     except ValueError as exc:
@@ -815,9 +884,7 @@ def update_production_operation(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
 
@@ -849,14 +916,14 @@ def start_production_operation(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production operation not found"
-            ),
+            detail="Production operation not found",
         )
 
     try:
-        return service.start_operation(
-            operation
+        return (
+            service.start_operation(
+                operation
+            )
         )
 
     except ValueError as exc:
@@ -864,9 +931,7 @@ def start_production_operation(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
 
@@ -899,9 +964,7 @@ def complete_production_operation(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production operation not found"
-            ),
+            detail="Production operation not found",
         )
 
     try:
@@ -917,9 +980,7 @@ def complete_production_operation(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
 
@@ -951,9 +1012,7 @@ def delete_production_operation(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Production operation not found"
-            ),
+            detail="Production operation not found",
         )
 
     try:
@@ -966,9 +1025,7 @@ def delete_production_operation(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(
-                exc
-            ),
+            detail=str(exc),
         )
 
     return None

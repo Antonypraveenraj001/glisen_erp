@@ -9,46 +9,69 @@ from pydantic import BaseModel, ConfigDict, Field
 # ============================================================
 
 
-class ProductionOrderBase(BaseModel):
-    proforma_id: int
-    product_id: int
+class ProductionOrderCreate(BaseModel):
+    """
+    Create Production Order planning data.
+
+    Runtime status and actual dates are controlled by the
+    production workflow and cannot be supplied manually.
+    """
+
+    proforma_id: int = Field(
+        gt=0,
+    )
+
+    product_id: int = Field(
+        gt=0,
+    )
+
     quantity: int = Field(
         gt=0,
     )
 
-    status: str = "Pending"
-
     planned_start_date: date | None = None
-    actual_start_date: date | None = None
-    actual_end_date: date | None = None
 
     notes: str | None = None
 
 
-class ProductionOrderCreate(ProductionOrderBase):
-    pass
-
-
 class ProductionOrderUpdate(BaseModel):
-    product_id: int | None = None
+    """
+    Update Production Order planning data only.
+
+    status, actual_start_date and actual_end_date are
+    intentionally excluded from this schema.
+    """
+
+    product_id: int | None = Field(
+        default=None,
+        gt=0,
+    )
 
     quantity: int | None = Field(
         default=None,
         gt=0,
     )
 
-    status: str | None = None
+    planned_start_date: date | None = None
+
+    notes: str | None = None
+
+
+class ProductionOrderResponse(BaseModel):
+    id: int
+    production_number: str
+
+    proforma_id: int
+    product_id: int
+    quantity: int
+
+    status: str
 
     planned_start_date: date | None = None
     actual_start_date: date | None = None
     actual_end_date: date | None = None
 
     notes: str | None = None
-
-
-class ProductionOrderResponse(ProductionOrderBase):
-    id: int
-    production_number: str
 
     created_at: datetime
     updated_at: datetime
@@ -239,10 +262,6 @@ class ProductionOperationUpdate(BaseModel):
 
 
 class ProductionOperationComplete(BaseModel):
-    """
-    Runtime completion data for an operation.
-    """
-
     actual_hours: Decimal = Field(
         gt=0,
         max_digits=10,

@@ -59,6 +59,13 @@ class ProductionService:
         self,
         data: ProductionOrderCreate,
     ) -> ProductionOrder:
+        """
+        Create a Production Order in a controlled Pending state.
+
+        Runtime status and actual dates are controlled by the
+        production workflow and are never accepted from the client.
+        """
+
         production_number = (
             self._generate_production_number()
         )
@@ -68,10 +75,10 @@ class ProductionService:
             proforma_id=data.proforma_id,
             product_id=data.product_id,
             quantity=data.quantity,
-            status=data.status,
+            status="Pending",
             planned_start_date=data.planned_start_date,
-            actual_start_date=data.actual_start_date,
-            actual_end_date=data.actual_end_date,
+            actual_start_date=None,
+            actual_end_date=None,
             notes=data.notes,
         )
 
@@ -123,6 +130,22 @@ class ProductionService:
         production_order: ProductionOrder,
         data: ProductionOrderUpdate,
     ) -> ProductionOrder:
+        """
+        Update Production Order planning fields only.
+
+        Completed Production Orders are immutable.
+        """
+
+        production_status = (
+            production_order.status
+            or ""
+        ).strip().lower()
+
+        if production_status == "completed":
+            raise ValueError(
+                "Completed Production Orders cannot be edited."
+            )
+
         update_data = data.model_dump(
             exclude_unset=True,
         )
@@ -144,6 +167,43 @@ class ProductionService:
         self,
         production_order: ProductionOrder,
     ) -> None:
+        """
+        Only an untouched Pending Production Order can be deleted.
+
+        Once production starts or material is issued, the record
+        must remain for traceability.
+        """
+
+        production_status = (
+            production_order.status
+            or ""
+        ).strip().lower()
+
+        if production_status != "pending":
+            raise ValueError(
+                "Only Pending Production Orders can be deleted."
+            )
+
+        materials = (
+            self.material_repository
+            .get_by_production_order(
+                production_order.id
+            )
+        )
+
+        for material in materials:
+            quantity_issued = Decimal(
+                str(
+                    material.quantity_issued
+                )
+            )
+
+            if quantity_issued > Decimal("0.00"):
+                raise ValueError(
+                    "This Production Order cannot be deleted "
+                    "because material has already been issued."
+                )
+
         self.production_order_repository.delete(
             production_order
         )
@@ -153,23 +213,201 @@ class ProductionService:
         production_order: ProductionOrder,
         status: str,
     ) -> ProductionOrder:
-        production_order.status = status
+        """
+        Controlled status progression for non-completion states.
+
+        Completed is deliberately unavailable through this method.
+        The dedicated complete_production_order() method validates
+        materials and operations first.
+        """
+
+        current_status = (
+            production_order.status
+            or ""
+        ).strip().lower()
+
+        requested_status = (
+            status
+            or ""
+        ).strip().lower()
+
+        if current_status == "completed":
+            raise ValueError(
+                "Completed Production Orders cannot change status."
+            )
+
+        if requested_status == "completed":
+            raise ValueError(
+                "Use the Production Order completion endpoint "
+                "to mark production as Completed."
+            )
+
+        allowed_statuses = {
+            "pending": "Pending",
+            "in progress": "In Progress",
+        }
+
+        if requested_status not in allowed_statuses:
+            raise ValueError(
+                "Production status must be Pending or In Progress."
+            )
 
         if (
-            status == "In Progress"
+            current_status == "in progress"
+            and requested_status == "pending"
+        ):
+            raise ValueError(
+                "An In Progress Production Order cannot "
+                "return to Pending."
+            )
+
+        normalized_status = (
+            allowed_statuses[
+                requested_status
+            ]
+        )
+
+        production_order.status = (
+            normalized_status
+        )
+
+        if (
+            normalized_status == "In Progress"
             and production_order.actual_start_date is None
         ):
             production_order.actual_start_date = (
                 datetime.utcnow().date()
             )
 
-        if (
-            status == "Completed"
-            and production_order.actual_end_date is None
-        ):
-            production_order.actual_end_date = (
-                datetime.utcnow().date()
+        return (
+            self.production_order_repository.update(
+                production_order
             )
+        )
+
+    def complete_production_order(
+        self,
+        production_order: ProductionOrder,
+    ) -> ProductionOrder:
+        """
+        Complete a Production Order only after all production
+        requirements have been satisfied.
+
+        Rules:
+        - order must currently be In Progress
+        - every material requirement must be fully issued
+        - every Production Operation must be Completed
+        - actual_end_date is controlled by the backend
+        """
+
+        production_status = (
+            production_order.status
+            or ""
+        ).strip().lower()
+
+        if production_status == "completed":
+            raise ValueError(
+                "This Production Order is already Completed."
+            )
+
+        if production_status != "in progress":
+            raise ValueError(
+                "Only an In Progress Production Order "
+                "can be completed."
+            )
+
+        # ----------------------------------------------------
+        # Validate Production Materials
+        # ----------------------------------------------------
+
+        materials = (
+            self.material_repository
+            .get_by_production_order(
+                production_order.id
+            )
+        )
+
+        incomplete_materials: list[str] = []
+
+        for material in materials:
+            quantity_required = Decimal(
+                str(
+                    material.quantity_required
+                )
+            )
+
+            quantity_issued = Decimal(
+                str(
+                    material.quantity_issued
+                )
+            )
+
+            if quantity_issued < quantity_required:
+                remaining = (
+                    quantity_required
+                    - quantity_issued
+                )
+
+                incomplete_materials.append(
+                    f"{material.material_name} "
+                    f"(remaining {remaining:.2f})"
+                )
+
+        if incomplete_materials:
+            raise ValueError(
+                "Production cannot be completed because "
+                "required materials are not fully issued: "
+                + ", ".join(
+                    incomplete_materials
+                )
+                + "."
+            )
+
+        # ----------------------------------------------------
+        # Validate Production Operations
+        # ----------------------------------------------------
+
+        operations = (
+            self.operation_repository
+            .get_by_production_order(
+                production_order.id
+            )
+        )
+
+        incomplete_operations: list[str] = []
+
+        for operation in operations:
+            operation_status = (
+                operation.status
+                or ""
+            ).strip().lower()
+
+            if operation_status != "completed":
+                incomplete_operations.append(
+                    operation.operation_name
+                )
+
+        if incomplete_operations:
+            raise ValueError(
+                "Production cannot be completed because "
+                "these operations are not Completed: "
+                + ", ".join(
+                    incomplete_operations
+                )
+                + "."
+            )
+
+        # ----------------------------------------------------
+        # Complete Production Order
+        # ----------------------------------------------------
+
+        production_order.status = (
+            "Completed"
+        )
+
+        production_order.actual_end_date = (
+            datetime.utcnow().date()
+        )
 
         return (
             self.production_order_repository.update(
@@ -216,7 +454,8 @@ class ProductionService:
             )
 
         existing_orders = (
-            self.production_order_repository.get_by_proforma(
+            self.production_order_repository
+            .get_by_proforma(
                 proforma_id
             )
         )
@@ -254,7 +493,9 @@ class ProductionService:
                 )
 
             quantity = Decimal(
-                str(item.quantity)
+                str(
+                    item.quantity
+                )
             )
 
             if quantity <= 0:
@@ -277,7 +518,10 @@ class ProductionService:
                 )
 
             validated_items.append(
-                (item, product)
+                (
+                    item,
+                    product,
+                )
             )
 
         production_orders: list[
@@ -297,6 +541,9 @@ class ProductionService:
                     item.quantity
                 ),
                 status="Pending",
+                planned_start_date=None,
+                actual_start_date=None,
+                actual_end_date=None,
                 notes=(
                     f"Created from Proforma "
                     f"{proforma.proforma_number}"
@@ -304,7 +551,8 @@ class ProductionService:
             )
 
             created_order = (
-                self.production_order_repository.create(
+                self.production_order_repository
+                .create(
                     production_order
                 )
             )
@@ -333,7 +581,8 @@ class ProductionService:
         production_order_id: int,
     ) -> ProductionOrderDetailResponse | None:
         production_order = (
-            self.production_order_repository.get_by_id(
+            self.production_order_repository
+            .get_by_id(
                 production_order_id
             )
         )
@@ -412,6 +661,29 @@ class ProductionService:
         through Shop Floor Issue.
         """
 
+        production_order = (
+            self.production_order_repository
+            .get_by_id(
+                production_order_id
+            )
+        )
+
+        if production_order is None:
+            raise ValueError(
+                "Production order not found."
+            )
+
+        production_status = (
+            production_order.status
+            or ""
+        ).strip().lower()
+
+        if production_status == "completed":
+            raise ValueError(
+                "Materials cannot be added to a "
+                "Completed Production Order."
+            )
+
         material_name = (
             data.material_name.strip()
         )
@@ -443,7 +715,9 @@ class ProductionService:
 
         if product is not None:
             if not unit:
-                unit = product.unit
+                unit = (
+                    product.unit
+                )
 
             if (
                 material_name.lower()
@@ -588,14 +862,36 @@ class ProductionService:
         manually changed here.
         """
 
+        production_order = (
+            self.production_order_repository
+            .get_by_id(
+                material.production_order_id
+            )
+        )
+
+        if (
+            production_order is not None
+            and (
+                production_order.status
+                or ""
+            ).strip().lower()
+            == "completed"
+        ):
+            raise ValueError(
+                "Materials on a Completed Production Order "
+                "cannot be changed."
+            )
+
         update_data = data.model_dump(
             exclude_unset=True,
         )
 
         if "product_id" in update_data:
-            product_id = update_data[
-                "product_id"
-            ]
+            product_id = (
+                update_data[
+                    "product_id"
+                ]
+            )
 
             if product_id is not None:
                 product = ProductRepository.get_by_id(
@@ -623,7 +919,9 @@ class ProductionService:
                     )
 
             else:
-                material.product_id = None
+                material.product_id = (
+                    None
+                )
 
             update_data.pop(
                 "product_id",
@@ -653,9 +951,11 @@ class ProductionService:
             )
 
         if "unit" in update_data:
-            unit = update_data[
-                "unit"
-            ]
+            unit = (
+                update_data[
+                    "unit"
+                ]
+            )
 
             material.unit = (
                 unit.strip()
@@ -688,7 +988,29 @@ class ProductionService:
         """
         Material requirements can only be deleted before
         any quantity has been issued.
+
+        Completed Production Orders are immutable.
         """
+
+        production_order = (
+            self.production_order_repository
+            .get_by_id(
+                material.production_order_id
+            )
+        )
+
+        if (
+            production_order is not None
+            and (
+                production_order.status
+                or ""
+            ).strip().lower()
+            == "completed"
+        ):
+            raise ValueError(
+                "Materials on a Completed Production Order "
+                "cannot be changed."
+            )
 
         quantity_issued = Decimal(
             str(
@@ -726,6 +1048,29 @@ class ProductionService:
         Pending, zero actual hours, zero cost and no
         start/completion timestamps.
         """
+
+        production_order = (
+            self.production_order_repository
+            .get_by_id(
+                production_order_id
+            )
+        )
+
+        if production_order is None:
+            raise ValueError(
+                "Production order not found."
+            )
+
+        production_status = (
+            production_order.status
+            or ""
+        ).strip().lower()
+
+        if production_status == "completed":
+            raise ValueError(
+                "Operations cannot be added to a "
+                "Completed Production Order."
+            )
 
         operation_name = (
             data.operation_name.strip()
@@ -826,22 +1171,13 @@ class ProductionService:
                 or ""
             ).strip().lower()
 
-            if (
-                operation_status
-                == "pending"
-            ):
+            if operation_status == "pending":
                 pending_operations += 1
 
-            elif (
-                operation_status
-                == "in progress"
-            ):
+            elif operation_status == "in progress":
                 in_progress_operations += 1
 
-            elif (
-                operation_status
-                == "completed"
-            ):
+            elif operation_status == "completed":
                 completed_operations += 1
 
             total_planned_hours += Decimal(
@@ -899,19 +1235,36 @@ class ProductionService:
         """
         Update operation planning information.
 
-        Completed operations are locked to preserve
-        production history.
+        Completed operations and operations belonging to a
+        Completed Production Order cannot be modified.
         """
+
+        production_order = (
+            self.production_order_repository
+            .get_by_id(
+                operation.production_order_id
+            )
+        )
+
+        if (
+            production_order is not None
+            and (
+                production_order.status
+                or ""
+            ).strip().lower()
+            == "completed"
+        ):
+            raise ValueError(
+                "Operations on a Completed Production Order "
+                "cannot be changed."
+            )
 
         operation_status = (
             operation.status
             or ""
         ).strip().lower()
 
-        if (
-            operation_status
-            == "completed"
-        ):
+        if operation_status == "completed":
             raise ValueError(
                 "Completed operations cannot be edited."
             )
@@ -920,10 +1273,7 @@ class ProductionService:
             exclude_unset=True,
         )
 
-        if (
-            "operation_name"
-            in update_data
-        ):
+        if "operation_name" in update_data:
             operation_name = (
                 update_data[
                     "operation_name"
@@ -945,10 +1295,7 @@ class ProductionService:
                 None,
             )
 
-        if (
-            "machine_name"
-            in update_data
-        ):
+        if "machine_name" in update_data:
             machine_name = (
                 update_data[
                     "machine_name"
@@ -995,26 +1342,21 @@ class ProductionService:
             or ""
         ).strip().lower()
 
-        if (
-            operation_status
-            == "completed"
-        ):
+        if operation_status == "completed":
             raise ValueError(
                 "A completed operation cannot "
                 "be started again."
             )
 
-        if (
-            operation_status
-            == "in progress"
-        ):
+        if operation_status == "in progress":
             raise ValueError(
                 "This operation is already "
                 "in progress."
             )
 
         production_order = (
-            self.production_order_repository.get_by_id(
+            self.production_order_repository
+            .get_by_id(
                 operation.production_order_id
             )
         )
@@ -1029,10 +1371,7 @@ class ProductionService:
             or ""
         ).strip().lower()
 
-        if (
-            production_status
-            == "completed"
-        ):
+        if production_status == "completed":
             raise ValueError(
                 "Operations cannot be started "
                 "for a completed Production Order."
@@ -1046,10 +1385,7 @@ class ProductionService:
             datetime.utcnow()
         )
 
-        if (
-            production_status
-            != "in progress"
-        ):
+        if production_status != "in progress":
             production_order.status = (
                 "In Progress"
             )
@@ -1076,20 +1412,36 @@ class ProductionService:
         """
         Complete an operation and calculate its actual cost.
 
-        Production Order completion is deliberately handled
-        separately because materials and all operations must
-        eventually be validated together.
+        Production Order completion remains separate because
+        all materials and all operations must be validated.
         """
+
+        production_order = (
+            self.production_order_repository
+            .get_by_id(
+                operation.production_order_id
+            )
+        )
+
+        if (
+            production_order is not None
+            and (
+                production_order.status
+                or ""
+            ).strip().lower()
+            == "completed"
+        ):
+            raise ValueError(
+                "Operations on a Completed Production Order "
+                "cannot be changed."
+            )
 
         operation_status = (
             operation.status
             or ""
         ).strip().lower()
 
-        if (
-            operation_status
-            != "in progress"
-        ):
+        if operation_status != "in progress":
             raise ValueError(
                 "Only an operation that is "
                 "In Progress can be completed."
@@ -1138,17 +1490,37 @@ class ProductionService:
     ) -> None:
         """
         Only untouched Pending operations can be deleted.
+
+        Operations belonging to a Completed Production Order
+        are immutable.
         """
+
+        production_order = (
+            self.production_order_repository
+            .get_by_id(
+                operation.production_order_id
+            )
+        )
+
+        if (
+            production_order is not None
+            and (
+                production_order.status
+                or ""
+            ).strip().lower()
+            == "completed"
+        ):
+            raise ValueError(
+                "Operations on a Completed Production Order "
+                "cannot be changed."
+            )
 
         operation_status = (
             operation.status
             or ""
         ).strip().lower()
 
-        if (
-            operation_status
-            != "pending"
-        ):
+        if operation_status != "pending":
             raise ValueError(
                 "Only Pending operations can "
                 "be deleted."
