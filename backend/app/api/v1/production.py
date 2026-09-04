@@ -15,6 +15,7 @@ from app.schemas.production import (
     ProductionOrderDetailResponse,
     ProductionOrderResponse,
     ProductionOrderUpdate,
+    ProductionMaterialSummaryResponse,
 )
 from app.services.production import ProductionService
 
@@ -307,10 +308,17 @@ def create_production_material(
             detail="Production order not found",
         )
 
-    return service.create_material(
-        production_order_id=production_order_id,
-        data=material,
-    )
+    try:
+        return service.create_material(
+            production_order_id=production_order_id,
+            data=material,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.get(
@@ -339,6 +347,32 @@ def get_production_materials(
     )
 
 
+@router.get(
+    "/orders/{production_order_id}/materials/summary",
+    response_model=ProductionMaterialSummaryResponse,
+)
+def get_production_material_summary(
+    production_order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = ProductionService(db)
+
+    production_order = service.get_production_order(
+        production_order_id
+    )
+
+    if production_order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Production order not found",
+        )
+
+    return service.get_material_summary(
+        production_order_id
+    )
+
+
 @router.put(
     "/materials/{material_id}",
     response_model=ProductionMaterialResponse,
@@ -363,10 +397,17 @@ def update_production_material(
             detail="Production material not found",
         )
 
-    return service.update_material(
-        material=existing_material,
-        data=material,
-    )
+    try:
+        return service.update_material(
+            material=existing_material,
+            data=material,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
 
 @router.delete(
@@ -392,9 +433,16 @@ def delete_production_material(
             detail="Production material not found",
         )
 
-    service.delete_material(
-        existing_material
-    )
+    try:
+        service.delete_material(
+            existing_material
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
     return None
 

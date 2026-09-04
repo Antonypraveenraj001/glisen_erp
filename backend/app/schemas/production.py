@@ -29,7 +29,10 @@ class ProductionOrderCreate(ProductionOrderBase):
 
 class ProductionOrderUpdate(BaseModel):
     product_id: int | None = None
-    quantity: int | None = Field(default=None, gt=0)
+    quantity: int | None = Field(
+        default=None,
+        gt=0,
+    )
 
     status: str | None = None
 
@@ -57,69 +60,107 @@ class ProductionOrderResponse(ProductionOrderBase):
 # ============================================================
 
 
-class ProductionMaterialBase(BaseModel):
-    product_id: int | None = None
-    material_name: str
-    unit: str | None = None
+class ProductionMaterialCreate(BaseModel):
+    """
+    Defines a material requirement for a Production Order.
 
-    quantity_required: Decimal = Field(
-        default=Decimal("0.00"),
-        ge=0,
+    quantity_issued is intentionally NOT accepted here.
+    Actual material issue will be handled later through the
+    Shop Floor Issue workflow so stock movement remains controlled.
+    """
+
+    product_id: int | None = None
+
+    material_name: str = Field(
+        min_length=1,
+        max_length=200,
     )
 
-    quantity_issued: Decimal = Field(
-        default=Decimal("0.00"),
-        ge=0,
+    unit: str | None = Field(
+        default=None,
+        max_length=30,
+    )
+
+    quantity_required: Decimal = Field(
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
     )
 
     unit_cost: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
+        max_digits=14,
+        decimal_places=2,
     )
-
-    material_cost: Decimal = Field(
-        default=Decimal("0.00"),
-        ge=0,
-    )
-
-
-class ProductionMaterialCreate(ProductionMaterialBase):
-    pass
 
 
 class ProductionMaterialUpdate(BaseModel):
+    """
+    Updates material planning data only.
+
+    quantity_issued and material_cost are intentionally excluded.
+    They must not be manually changed through the planning API.
+    """
+
     product_id: int | None = None
-    material_name: str | None = None
-    unit: str | None = None
+
+    material_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+    )
+
+    unit: str | None = Field(
+        default=None,
+        max_length=30,
+    )
 
     quantity_required: Decimal | None = Field(
         default=None,
-        ge=0,
-    )
-
-    quantity_issued: Decimal | None = Field(
-        default=None,
-        ge=0,
+        gt=0,
+        max_digits=12,
+        decimal_places=2,
     )
 
     unit_cost: Decimal | None = Field(
         default=None,
         ge=0,
-    )
-
-    material_cost: Decimal | None = Field(
-        default=None,
-        ge=0,
+        max_digits=14,
+        decimal_places=2,
     )
 
 
-class ProductionMaterialResponse(ProductionMaterialBase):
+class ProductionMaterialResponse(BaseModel):
     id: int
     production_order_id: int
+
+    product_id: int | None = None
+
+    material_name: str
+    unit: str | None = None
+
+    quantity_required: Decimal
+    quantity_issued: Decimal
+
+    unit_cost: Decimal
+    material_cost: Decimal
 
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+
+class ProductionMaterialSummaryResponse(BaseModel):
+    production_order_id: int
+
+    total_materials: int
+
+    total_quantity_required: Decimal
+    total_quantity_issued: Decimal
+    total_quantity_remaining: Decimal
+
+    total_material_cost: Decimal
 
 
 # ============================================================
@@ -206,5 +247,10 @@ class ProductionOperationResponse(ProductionOperationBase):
 
 
 class ProductionOrderDetailResponse(ProductionOrderResponse):
-    materials: list[ProductionMaterialResponse] = []
-    operations: list[ProductionOperationResponse] = []
+    materials: list[ProductionMaterialResponse] = Field(
+        default_factory=list
+    )
+
+    operations: list[ProductionOperationResponse] = Field(
+        default_factory=list
+    )

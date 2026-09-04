@@ -16,6 +16,7 @@ from app.repositories.production import (
 from app.repositories.proforma_repository import ProformaRepository
 from app.schemas.production import (
     ProductionMaterialCreate,
+    ProductionMaterialSummaryResponse,
     ProductionMaterialUpdate,
     ProductionOperationCreate,
     ProductionOperationUpdate,
@@ -156,20 +157,8 @@ class ProductionService:
         """
         Create Production Orders from a confirmed Proforma.
 
-        Workflow:
-
-            Order Confirmed
-                    ↓
-            Production Orders
-                    ↓
-            Production Started
-
-        One Production Order is created for each Proforma item.
-
-        A Proforma item must:
-        - have a valid active product
-        - have a whole-number quantity because
-          ProductionOrder.quantity is currently an Integer
+        One Production Order is created for each valid
+        Proforma item.
         """
 
         proforma = self.proforma_repository.get_by_id(
@@ -180,16 +169,6 @@ class ProductionService:
             raise ValueError(
                 "Proforma not found."
             )
-
-        # ----------------------------------------------------
-        # Only confirmed orders can enter production.
-        #
-        # Proforma status is normalized so that values such as:
-        # "Order Confirmed"
-        # "order confirmed"
-        # "ORDER CONFIRMED"
-        # are treated as the same workflow status.
-        # ----------------------------------------------------
 
         proforma_status = (
             (proforma.status or "")
@@ -203,10 +182,6 @@ class ProductionService:
                 "with status 'Order Confirmed'."
             )
 
-        # ----------------------------------------------------
-        # Prevent duplicate production orders.
-        # ----------------------------------------------------
-
         existing_orders = (
             self.production_order_repository.get_by_proforma(
                 proforma_id
@@ -218,26 +193,14 @@ class ProductionService:
                 "Production orders already exist for this Proforma."
             )
 
-        # ----------------------------------------------------
-        # Proforma must contain at least one item.
-        # ----------------------------------------------------
-
         if not proforma.items:
             raise ValueError(
                 "Proforma has no items."
             )
 
-        # ----------------------------------------------------
-        # Validate every item BEFORE creating anything.
-        #
-        # This prevents invalid Proforma data from creating
-        # incomplete Production Orders.
-        # ----------------------------------------------------
-
         validated_items: list[tuple[object, Product]] = []
 
         for item in proforma.items:
-
             if item.product_id is None:
                 raise ValueError(
                     f"Proforma item {item.id} does not have a product."
@@ -254,7 +217,9 @@ class ProductionService:
                     "or is inactive."
                 )
 
-            quantity = Decimal(str(item.quantity))
+            quantity = Decimal(
+                str(item.quantity)
+            )
 
             if quantity <= 0:
                 raise ValueError(
@@ -273,14 +238,9 @@ class ProductionService:
                 (item, product)
             )
 
-        # ----------------------------------------------------
-        # Create one Production Order per Proforma item.
-        # ----------------------------------------------------
-
         production_orders: list[ProductionOrder] = []
 
         for item, product in validated_items:
-
             production_number = (
                 self._generate_production_number()
             )
@@ -307,11 +267,6 @@ class ProductionService:
                 created_order
             )
 
-        # ----------------------------------------------------
-        # Advance the Proforma workflow after all Production
-        # Orders have been successfully created.
-        # ----------------------------------------------------
-
         proforma.status = "Production Started"
 
         self.db.commit()
@@ -327,7 +282,6 @@ class ProductionService:
         self,
         production_order_id: int,
     ) -> ProductionOrderDetailResponse | None:
-
         production_order = (
             self.production_order_repository.get_by_id(
                 production_order_id
@@ -375,7 +329,7 @@ class ProductionService:
         )
 
     # ========================================================
-    # MATERIALS
+    # PRODUCTION MATERIALS
     # ========================================================
 
     def create_material(
@@ -383,21 +337,61 @@ class ProductionService:
         production_order_id: int,
         data: ProductionMaterialCreate,
     ) -> ProductionMaterial:
+        """
+        Add a planned material requirement.
 
-        material_cost = (
-            data.quantity_issued
-            * data.unit_cost
+        No stock is deducted here.
+
+        quantity_issued starts at zero and will later be
+        controlled by Shop Floor Issue.
+        """
+
+        material_name = data.material_name.strip()
+
+        if not material_name:
+            raise ValueError(
+                "Material name is required."
+            )
+
+        product = None
+
+        if data.product_id is not None:
+            product = ProductRepository.get_by_id(
+                self.db,
+                data.product_id,
+            )
+
+            if product is None:
+                raise ValueError(
+                    f"Product {data.product_id} is not found "
+                    "or is inactive."
+                )
+
+        unit = (
+            data.unit.strip()
+            if data.unit
+            else None
         )
+
+        if product is not None:
+            if not unit:
+                unit = product.unit
+
+            if (
+                material_name.lower()
+                != product.product_name.strip().lower()
+            ):
+                material_name = product.product_name.strip()
 
         material = ProductionMaterial(
             production_order_id=production_order_id,
             product_id=data.product_id,
-            material_name=data.material_name,
-            unit=data.unit,
+            material_name=material_name,
+            unit=unit,
             quantity_required=data.quantity_required,
-            quantity_issued=data.quantity_issued,
+            quantity_issued=Decimal("0.00"),
             unit_cost=data.unit_cost,
-            material_cost=material_cost,
+            material_cost=Decimal("0.00"),
         )
 
         return self.material_repository.create(
@@ -420,15 +414,125 @@ class ProductionService:
             production_order_id
         )
 
+    def get_material_summary(
+        self,
+        production_order_id: int,
+    ) -> ProductionMaterialSummaryResponse:
+        materials = self.get_materials(
+            production_order_id
+        )
+
+        total_quantity_required = Decimal("0.00")
+        total_quantity_issued = Decimal("0.00")
+        total_material_cost = Decimal("0.00")
+
+        for material in materials:
+            total_quantity_required += Decimal(
+                str(material.quantity_required)
+            )
+
+            total_quantity_issued += Decimal(
+                str(material.quantity_issued)
+            )
+
+            total_material_cost += Decimal(
+                str(material.material_cost)
+            )
+
+        total_quantity_remaining = (
+            total_quantity_required
+            - total_quantity_issued
+        )
+
+        if total_quantity_remaining < Decimal("0.00"):
+            total_quantity_remaining = Decimal("0.00")
+
+        return ProductionMaterialSummaryResponse(
+            production_order_id=production_order_id,
+            total_materials=len(materials),
+            total_quantity_required=total_quantity_required,
+            total_quantity_issued=total_quantity_issued,
+            total_quantity_remaining=total_quantity_remaining,
+            total_material_cost=total_material_cost,
+        )
+
     def update_material(
         self,
         material: ProductionMaterial,
         data: ProductionMaterialUpdate,
     ) -> ProductionMaterial:
+        """
+        Update material planning information only.
+
+        quantity_issued and material_cost are deliberately
+        not editable here.
+        """
 
         update_data = data.model_dump(
             exclude_unset=True
         )
+
+        if "product_id" in update_data:
+            product_id = update_data["product_id"]
+
+            if product_id is not None:
+                product = ProductRepository.get_by_id(
+                    self.db,
+                    product_id,
+                )
+
+                if product is None:
+                    raise ValueError(
+                        f"Product {product_id} is not found "
+                        "or is inactive."
+                    )
+
+                material.product_id = product.id
+                material.material_name = (
+                    product.product_name.strip()
+                )
+
+                if not material.unit:
+                    material.unit = product.unit
+
+            else:
+                material.product_id = None
+
+            update_data.pop(
+                "product_id",
+                None,
+            )
+
+        if "material_name" in update_data:
+            material_name = (
+                update_data["material_name"] or ""
+            ).strip()
+
+            if not material_name:
+                raise ValueError(
+                    "Material name is required."
+                )
+
+            material.material_name = material_name
+
+            update_data.pop(
+                "material_name",
+                None,
+            )
+
+        if "unit" in update_data:
+            unit = update_data["unit"]
+
+            material.unit = (
+                unit.strip()
+                if unit
+                else None
+            )
+
+            update_data.pop(
+                "unit",
+                None,
+            )
 
         for field, value in update_data.items():
             setattr(
@@ -436,11 +540,6 @@ class ProductionService:
                 field,
                 value,
             )
-
-        material.material_cost = (
-            material.quantity_issued
-            * material.unit_cost
-        )
 
         return self.material_repository.update(
             material
@@ -450,12 +549,29 @@ class ProductionService:
         self,
         material: ProductionMaterial,
     ) -> None:
+        """
+        Material requirements can only be deleted before any
+        quantity has been issued.
+
+        This protects future Shop Floor Issue traceability.
+        """
+
+        quantity_issued = Decimal(
+            str(material.quantity_issued)
+        )
+
+        if quantity_issued > Decimal("0.00"):
+            raise ValueError(
+                "This material cannot be deleted because "
+                "a quantity has already been issued."
+            )
+
         self.material_repository.delete(
             material
         )
 
     # ========================================================
-    # OPERATIONS
+    # PRODUCTION OPERATIONS
     # ========================================================
 
     def create_operation(
@@ -463,7 +579,6 @@ class ProductionService:
         production_order_id: int,
         data: ProductionOperationCreate,
     ) -> ProductionOperation:
-
         operation_cost = (
             data.actual_hours
             * data.hourly_rate
@@ -507,7 +622,6 @@ class ProductionService:
         operation: ProductionOperation,
         data: ProductionOperationUpdate,
     ) -> ProductionOperation:
-
         update_data = data.model_dump(
             exclude_unset=True
         )
@@ -516,7 +630,7 @@ class ProductionService:
             setattr(
                 operation,
                 field,
-                value
+                value,
             )
 
         operation.operation_cost = (
@@ -543,7 +657,6 @@ class ProductionService:
     def _generate_production_number(
         self,
     ) -> str:
-
         year = datetime.utcnow().year
 
         prefix = f"PROD-{year}-"
@@ -555,18 +668,16 @@ class ProductionService:
         highest_number = 0
 
         for order in existing_orders:
-
             production_number = (
                 order.production_number
             )
 
             if production_number.startswith(prefix):
-
                 try:
                     number = int(
                         production_number.replace(
                             prefix,
-                            ""
+                            "",
                         )
                     )
 
