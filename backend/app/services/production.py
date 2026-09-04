@@ -18,7 +18,9 @@ from app.schemas.production import (
     ProductionMaterialCreate,
     ProductionMaterialSummaryResponse,
     ProductionMaterialUpdate,
+    ProductionOperationComplete,
     ProductionOperationCreate,
+    ProductionOperationSummaryResponse,
     ProductionOperationUpdate,
     ProductionOrderCreate,
     ProductionOrderDetailResponse,
@@ -27,14 +29,27 @@ from app.schemas.production import (
 
 
 class ProductionService:
-    def __init__(self, db: Session):
+    def __init__(
+        self,
+        db: Session,
+    ):
         self.db = db
 
-        self.production_order_repository = ProductionOrderRepository(db)
-        self.material_repository = ProductionMaterialRepository(db)
-        self.operation_repository = ProductionOperationRepository(db)
+        self.production_order_repository = ProductionOrderRepository(
+            db
+        )
 
-        self.proforma_repository = ProformaRepository(db)
+        self.material_repository = ProductionMaterialRepository(
+            db
+        )
+
+        self.operation_repository = ProductionOperationRepository(
+            db
+        )
+
+        self.proforma_repository = ProformaRepository(
+            db
+        )
 
     # ========================================================
     # PRODUCTION ORDER
@@ -44,7 +59,9 @@ class ProductionService:
         self,
         data: ProductionOrderCreate,
     ) -> ProductionOrder:
-        production_number = self._generate_production_number()
+        production_number = (
+            self._generate_production_number()
+        )
 
         production_order = ProductionOrder(
             production_number=production_number,
@@ -58,37 +75,47 @@ class ProductionService:
             notes=data.notes,
         )
 
-        return self.production_order_repository.create(
-            production_order
+        return (
+            self.production_order_repository.create(
+                production_order
+            )
         )
 
     def get_all_production_orders(
         self,
     ) -> list[ProductionOrder]:
-        return self.production_order_repository.get_all()
+        return (
+            self.production_order_repository.get_all()
+        )
 
     def get_production_order(
         self,
         production_order_id: int,
     ) -> ProductionOrder | None:
-        return self.production_order_repository.get_by_id(
-            production_order_id
+        return (
+            self.production_order_repository.get_by_id(
+                production_order_id
+            )
         )
 
     def get_production_order_by_number(
         self,
         production_number: str,
     ) -> ProductionOrder | None:
-        return self.production_order_repository.get_by_number(
-            production_number
+        return (
+            self.production_order_repository.get_by_number(
+                production_number
+            )
         )
 
     def get_production_orders_by_proforma(
         self,
         proforma_id: int,
     ) -> list[ProductionOrder]:
-        return self.production_order_repository.get_by_proforma(
-            proforma_id
+        return (
+            self.production_order_repository.get_by_proforma(
+                proforma_id
+            )
         )
 
     def update_production_order(
@@ -97,7 +124,7 @@ class ProductionService:
         data: ProductionOrderUpdate,
     ) -> ProductionOrder:
         update_data = data.model_dump(
-            exclude_unset=True
+            exclude_unset=True,
         )
 
         for field, value in update_data.items():
@@ -107,8 +134,10 @@ class ProductionService:
                 value,
             )
 
-        return self.production_order_repository.update(
-            production_order
+        return (
+            self.production_order_repository.update(
+                production_order
+            )
         )
 
     def delete_production_order(
@@ -142,8 +171,10 @@ class ProductionService:
                 datetime.utcnow().date()
             )
 
-        return self.production_order_repository.update(
-            production_order
+        return (
+            self.production_order_repository.update(
+                production_order
+            )
         )
 
     # ========================================================
@@ -161,8 +192,10 @@ class ProductionService:
         Proforma item.
         """
 
-        proforma = self.proforma_repository.get_by_id(
-            proforma_id
+        proforma = (
+            self.proforma_repository.get_by_id(
+                proforma_id
+            )
         )
 
         if proforma is None:
@@ -198,12 +231,15 @@ class ProductionService:
                 "Proforma has no items."
             )
 
-        validated_items: list[tuple[object, Product]] = []
+        validated_items: list[
+            tuple[object, Product]
+        ] = []
 
         for item in proforma.items:
             if item.product_id is None:
                 raise ValueError(
-                    f"Proforma item {item.id} does not have a product."
+                    f"Proforma item {item.id} "
+                    "does not have a product."
                 )
 
             product = ProductRepository.get_by_id(
@@ -213,8 +249,8 @@ class ProductionService:
 
             if product is None:
                 raise ValueError(
-                    f"Product {item.product_id} is not found "
-                    "or is inactive."
+                    f"Product {item.product_id} "
+                    "is not found or is inactive."
                 )
 
             quantity = Decimal(
@@ -223,22 +259,30 @@ class ProductionService:
 
             if quantity <= 0:
                 raise ValueError(
-                    f"Quantity for Proforma item {item.id} "
-                    "must be greater than zero."
+                    f"Quantity for Proforma item "
+                    f"{item.id} must be greater "
+                    "than zero."
                 )
 
-            if quantity != quantity.to_integral_value():
+            if (
+                quantity
+                != quantity.to_integral_value()
+            ):
                 raise ValueError(
-                    f"Quantity for Proforma item {item.id} "
-                    "must be a whole number because production "
-                    "quantity is currently stored as an integer."
+                    f"Quantity for Proforma item "
+                    f"{item.id} must be a whole "
+                    "number because production "
+                    "quantity is currently stored "
+                    "as an integer."
                 )
 
             validated_items.append(
                 (item, product)
             )
 
-        production_orders: list[ProductionOrder] = []
+        production_orders: list[
+            ProductionOrder
+        ] = []
 
         for item, product in validated_items:
             production_number = (
@@ -249,7 +293,9 @@ class ProductionService:
                 production_number=production_number,
                 proforma_id=proforma.id,
                 product_id=product.id,
-                quantity=int(item.quantity),
+                quantity=int(
+                    item.quantity
+                ),
                 status="Pending",
                 notes=(
                     f"Created from Proforma "
@@ -267,10 +313,14 @@ class ProductionService:
                 created_order
             )
 
-        proforma.status = "Production Started"
+        proforma.status = (
+            "Production Started"
+        )
 
         self.db.commit()
-        self.db.refresh(proforma)
+        self.db.refresh(
+            proforma
+        )
 
         return production_orders
 
@@ -292,13 +342,15 @@ class ProductionService:
             return None
 
         materials = (
-            self.material_repository.get_by_production_order(
+            self.material_repository
+            .get_by_production_order(
                 production_order_id
             )
         )
 
         operations = (
-            self.operation_repository.get_by_production_order(
+            self.operation_repository
+            .get_by_production_order(
                 production_order_id
             )
         )
@@ -308,10 +360,18 @@ class ProductionService:
             production_number=(
                 production_order.production_number
             ),
-            proforma_id=production_order.proforma_id,
-            product_id=production_order.product_id,
-            quantity=production_order.quantity,
-            status=production_order.status,
+            proforma_id=(
+                production_order.proforma_id
+            ),
+            product_id=(
+                production_order.product_id
+            ),
+            quantity=(
+                production_order.quantity
+            ),
+            status=(
+                production_order.status
+            ),
             planned_start_date=(
                 production_order.planned_start_date
             ),
@@ -321,9 +381,15 @@ class ProductionService:
             actual_end_date=(
                 production_order.actual_end_date
             ),
-            notes=production_order.notes,
-            created_at=production_order.created_at,
-            updated_at=production_order.updated_at,
+            notes=(
+                production_order.notes
+            ),
+            created_at=(
+                production_order.created_at
+            ),
+            updated_at=(
+                production_order.updated_at
+            ),
             materials=materials,
             operations=operations,
         )
@@ -342,11 +408,13 @@ class ProductionService:
 
         No stock is deducted here.
 
-        quantity_issued starts at zero and will later be
-        controlled by Shop Floor Issue.
+        quantity_issued starts at zero and is controlled
+        through Shop Floor Issue.
         """
 
-        material_name = data.material_name.strip()
+        material_name = (
+            data.material_name.strip()
+        )
 
         if not material_name:
             raise ValueError(
@@ -363,8 +431,8 @@ class ProductionService:
 
             if product is None:
                 raise ValueError(
-                    f"Product {data.product_id} is not found "
-                    "or is inactive."
+                    f"Product {data.product_id} "
+                    "is not found or is inactive."
                 )
 
         unit = (
@@ -379,39 +447,58 @@ class ProductionService:
 
             if (
                 material_name.lower()
-                != product.product_name.strip().lower()
+                != product.product_name
+                .strip()
+                .lower()
             ):
-                material_name = product.product_name.strip()
+                material_name = (
+                    product.product_name.strip()
+                )
 
         material = ProductionMaterial(
-            production_order_id=production_order_id,
+            production_order_id=(
+                production_order_id
+            ),
             product_id=data.product_id,
             material_name=material_name,
             unit=unit,
-            quantity_required=data.quantity_required,
-            quantity_issued=Decimal("0.00"),
+            quantity_required=(
+                data.quantity_required
+            ),
+            quantity_issued=Decimal(
+                "0.00"
+            ),
             unit_cost=data.unit_cost,
-            material_cost=Decimal("0.00"),
+            material_cost=Decimal(
+                "0.00"
+            ),
         )
 
-        return self.material_repository.create(
-            material
+        return (
+            self.material_repository.create(
+                material
+            )
         )
 
     def get_material(
         self,
         material_id: int,
     ) -> ProductionMaterial | None:
-        return self.material_repository.get_by_id(
-            material_id
+        return (
+            self.material_repository.get_by_id(
+                material_id
+            )
         )
 
     def get_materials(
         self,
         production_order_id: int,
     ) -> list[ProductionMaterial]:
-        return self.material_repository.get_by_production_order(
-            production_order_id
+        return (
+            self.material_repository
+            .get_by_production_order(
+                production_order_id
+            )
         )
 
     def get_material_summary(
@@ -422,21 +509,35 @@ class ProductionService:
             production_order_id
         )
 
-        total_quantity_required = Decimal("0.00")
-        total_quantity_issued = Decimal("0.00")
-        total_material_cost = Decimal("0.00")
+        total_quantity_required = Decimal(
+            "0.00"
+        )
+
+        total_quantity_issued = Decimal(
+            "0.00"
+        )
+
+        total_material_cost = Decimal(
+            "0.00"
+        )
 
         for material in materials:
             total_quantity_required += Decimal(
-                str(material.quantity_required)
+                str(
+                    material.quantity_required
+                )
             )
 
             total_quantity_issued += Decimal(
-                str(material.quantity_issued)
+                str(
+                    material.quantity_issued
+                )
             )
 
             total_material_cost += Decimal(
-                str(material.material_cost)
+                str(
+                    material.material_cost
+                )
             )
 
         total_quantity_remaining = (
@@ -444,16 +545,35 @@ class ProductionService:
             - total_quantity_issued
         )
 
-        if total_quantity_remaining < Decimal("0.00"):
-            total_quantity_remaining = Decimal("0.00")
+        if (
+            total_quantity_remaining
+            < Decimal("0.00")
+        ):
+            total_quantity_remaining = (
+                Decimal("0.00")
+            )
 
-        return ProductionMaterialSummaryResponse(
-            production_order_id=production_order_id,
-            total_materials=len(materials),
-            total_quantity_required=total_quantity_required,
-            total_quantity_issued=total_quantity_issued,
-            total_quantity_remaining=total_quantity_remaining,
-            total_material_cost=total_material_cost,
+        return (
+            ProductionMaterialSummaryResponse(
+                production_order_id=(
+                    production_order_id
+                ),
+                total_materials=len(
+                    materials
+                ),
+                total_quantity_required=(
+                    total_quantity_required
+                ),
+                total_quantity_issued=(
+                    total_quantity_issued
+                ),
+                total_quantity_remaining=(
+                    total_quantity_remaining
+                ),
+                total_material_cost=(
+                    total_material_cost
+                ),
+            )
         )
 
     def update_material(
@@ -464,16 +584,18 @@ class ProductionService:
         """
         Update material planning information only.
 
-        quantity_issued and material_cost are deliberately
-        not editable here.
+        quantity_issued and material_cost cannot be
+        manually changed here.
         """
 
         update_data = data.model_dump(
-            exclude_unset=True
+            exclude_unset=True,
         )
 
         if "product_id" in update_data:
-            product_id = update_data["product_id"]
+            product_id = update_data[
+                "product_id"
+            ]
 
             if product_id is not None:
                 product = ProductRepository.get_by_id(
@@ -483,17 +605,22 @@ class ProductionService:
 
                 if product is None:
                     raise ValueError(
-                        f"Product {product_id} is not found "
-                        "or is inactive."
+                        f"Product {product_id} "
+                        "is not found or is inactive."
                     )
 
-                material.product_id = product.id
+                material.product_id = (
+                    product.id
+                )
+
                 material.material_name = (
                     product.product_name.strip()
                 )
 
                 if not material.unit:
-                    material.unit = product.unit
+                    material.unit = (
+                        product.unit
+                    )
 
             else:
                 material.product_id = None
@@ -505,7 +632,10 @@ class ProductionService:
 
         if "material_name" in update_data:
             material_name = (
-                update_data["material_name"] or ""
+                update_data[
+                    "material_name"
+                ]
+                or ""
             ).strip()
 
             if not material_name:
@@ -513,7 +643,9 @@ class ProductionService:
                     "Material name is required."
                 )
 
-            material.material_name = material_name
+            material.material_name = (
+                material_name
+            )
 
             update_data.pop(
                 "material_name",
@@ -521,7 +653,9 @@ class ProductionService:
             )
 
         if "unit" in update_data:
-            unit = update_data["unit"]
+            unit = update_data[
+                "unit"
+            ]
 
             material.unit = (
                 unit.strip()
@@ -541,8 +675,10 @@ class ProductionService:
                 value,
             )
 
-        return self.material_repository.update(
-            material
+        return (
+            self.material_repository.update(
+                material
+            )
         )
 
     def delete_material(
@@ -550,20 +686,24 @@ class ProductionService:
         material: ProductionMaterial,
     ) -> None:
         """
-        Material requirements can only be deleted before any
-        quantity has been issued.
-
-        This protects future Shop Floor Issue traceability.
+        Material requirements can only be deleted before
+        any quantity has been issued.
         """
 
         quantity_issued = Decimal(
-            str(material.quantity_issued)
+            str(
+                material.quantity_issued
+            )
         )
 
-        if quantity_issued > Decimal("0.00"):
+        if (
+            quantity_issued
+            > Decimal("0.00")
+        ):
             raise ValueError(
-                "This material cannot be deleted because "
-                "a quantity has already been issued."
+                "This material cannot be deleted "
+                "because a quantity has already "
+                "been issued."
             )
 
         self.material_repository.delete(
@@ -579,42 +719,176 @@ class ProductionService:
         production_order_id: int,
         data: ProductionOperationCreate,
     ) -> ProductionOperation:
-        operation_cost = (
-            data.actual_hours
-            * data.hourly_rate
+        """
+        Create a planned Production Operation.
+
+        Runtime values start from a controlled state:
+        Pending, zero actual hours, zero cost and no
+        start/completion timestamps.
+        """
+
+        operation_name = (
+            data.operation_name.strip()
+        )
+
+        if not operation_name:
+            raise ValueError(
+                "Operation name is required."
+            )
+
+        machine_name = (
+            data.machine_name.strip()
+            if data.machine_name
+            else None
         )
 
         operation = ProductionOperation(
-            production_order_id=production_order_id,
-            operation_name=data.operation_name,
-            machine_name=data.machine_name,
-            hourly_rate=data.hourly_rate,
-            planned_hours=data.planned_hours,
-            actual_hours=data.actual_hours,
-            operation_cost=operation_cost,
-            status=data.status,
-            started_at=data.started_at,
-            completed_at=data.completed_at,
+            production_order_id=(
+                production_order_id
+            ),
+            operation_name=(
+                operation_name
+            ),
+            machine_name=(
+                machine_name
+            ),
+            hourly_rate=(
+                data.hourly_rate
+            ),
+            planned_hours=(
+                data.planned_hours
+            ),
+            actual_hours=Decimal(
+                "0.00"
+            ),
+            operation_cost=Decimal(
+                "0.00"
+            ),
+            status="Pending",
+            started_at=None,
+            completed_at=None,
         )
 
-        return self.operation_repository.create(
-            operation
+        return (
+            self.operation_repository.create(
+                operation
+            )
         )
 
     def get_operation(
         self,
         operation_id: int,
     ) -> ProductionOperation | None:
-        return self.operation_repository.get_by_id(
-            operation_id
+        return (
+            self.operation_repository.get_by_id(
+                operation_id
+            )
         )
 
     def get_operations(
         self,
         production_order_id: int,
     ) -> list[ProductionOperation]:
-        return self.operation_repository.get_by_production_order(
+        return (
+            self.operation_repository
+            .get_by_production_order(
+                production_order_id
+            )
+        )
+
+    def get_operation_summary(
+        self,
+        production_order_id: int,
+    ) -> ProductionOperationSummaryResponse:
+        operations = self.get_operations(
             production_order_id
+        )
+
+        pending_operations = 0
+        in_progress_operations = 0
+        completed_operations = 0
+
+        total_planned_hours = Decimal(
+            "0.00"
+        )
+
+        total_actual_hours = Decimal(
+            "0.00"
+        )
+
+        total_operation_cost = Decimal(
+            "0.00"
+        )
+
+        for operation in operations:
+            operation_status = (
+                operation.status
+                or ""
+            ).strip().lower()
+
+            if (
+                operation_status
+                == "pending"
+            ):
+                pending_operations += 1
+
+            elif (
+                operation_status
+                == "in progress"
+            ):
+                in_progress_operations += 1
+
+            elif (
+                operation_status
+                == "completed"
+            ):
+                completed_operations += 1
+
+            total_planned_hours += Decimal(
+                str(
+                    operation.planned_hours
+                )
+            )
+
+            total_actual_hours += Decimal(
+                str(
+                    operation.actual_hours
+                )
+            )
+
+            total_operation_cost += Decimal(
+                str(
+                    operation.operation_cost
+                )
+            )
+
+        return (
+            ProductionOperationSummaryResponse(
+                production_order_id=(
+                    production_order_id
+                ),
+                total_operations=len(
+                    operations
+                ),
+                pending_operations=(
+                    pending_operations
+                ),
+                in_progress_operations=(
+                    in_progress_operations
+                ),
+                completed_operations=(
+                    completed_operations
+                ),
+                total_planned_hours=(
+                    total_planned_hours
+                ),
+                total_actual_hours=(
+                    total_actual_hours
+                ),
+                total_operation_cost=(
+                    total_operation_cost
+                ),
+            )
         )
 
     def update_operation(
@@ -622,9 +896,75 @@ class ProductionService:
         operation: ProductionOperation,
         data: ProductionOperationUpdate,
     ) -> ProductionOperation:
+        """
+        Update operation planning information.
+
+        Completed operations are locked to preserve
+        production history.
+        """
+
+        operation_status = (
+            operation.status
+            or ""
+        ).strip().lower()
+
+        if (
+            operation_status
+            == "completed"
+        ):
+            raise ValueError(
+                "Completed operations cannot be edited."
+            )
+
         update_data = data.model_dump(
-            exclude_unset=True
+            exclude_unset=True,
         )
+
+        if (
+            "operation_name"
+            in update_data
+        ):
+            operation_name = (
+                update_data[
+                    "operation_name"
+                ]
+                or ""
+            ).strip()
+
+            if not operation_name:
+                raise ValueError(
+                    "Operation name is required."
+                )
+
+            operation.operation_name = (
+                operation_name
+            )
+
+            update_data.pop(
+                "operation_name",
+                None,
+            )
+
+        if (
+            "machine_name"
+            in update_data
+        ):
+            machine_name = (
+                update_data[
+                    "machine_name"
+                ]
+            )
+
+            operation.machine_name = (
+                machine_name.strip()
+                if machine_name
+                else None
+            )
+
+            update_data.pop(
+                "machine_name",
+                None,
+            )
 
         for field, value in update_data.items():
             setattr(
@@ -633,19 +973,187 @@ class ProductionService:
                 value,
             )
 
-        operation.operation_cost = (
-            operation.actual_hours
-            * operation.hourly_rate
+        return (
+            self.operation_repository.update(
+                operation
+            )
         )
 
-        return self.operation_repository.update(
-            operation
+    def start_operation(
+        self,
+        operation: ProductionOperation,
+    ) -> ProductionOperation:
+        """
+        Start a Pending operation.
+
+        Starting the first operation also advances the
+        Production Order itself to In Progress.
+        """
+
+        operation_status = (
+            operation.status
+            or ""
+        ).strip().lower()
+
+        if (
+            operation_status
+            == "completed"
+        ):
+            raise ValueError(
+                "A completed operation cannot "
+                "be started again."
+            )
+
+        if (
+            operation_status
+            == "in progress"
+        ):
+            raise ValueError(
+                "This operation is already "
+                "in progress."
+            )
+
+        production_order = (
+            self.production_order_repository.get_by_id(
+                operation.production_order_id
+            )
+        )
+
+        if production_order is None:
+            raise ValueError(
+                "Production order not found."
+            )
+
+        production_status = (
+            production_order.status
+            or ""
+        ).strip().lower()
+
+        if (
+            production_status
+            == "completed"
+        ):
+            raise ValueError(
+                "Operations cannot be started "
+                "for a completed Production Order."
+            )
+
+        operation.status = (
+            "In Progress"
+        )
+
+        operation.started_at = (
+            datetime.utcnow()
+        )
+
+        if (
+            production_status
+            != "in progress"
+        ):
+            production_order.status = (
+                "In Progress"
+            )
+
+            if (
+                production_order.actual_start_date
+                is None
+            ):
+                production_order.actual_start_date = (
+                    datetime.utcnow().date()
+                )
+
+        return (
+            self.operation_repository.update(
+                operation
+            )
+        )
+
+    def complete_operation(
+        self,
+        operation: ProductionOperation,
+        data: ProductionOperationComplete,
+    ) -> ProductionOperation:
+        """
+        Complete an operation and calculate its actual cost.
+
+        Production Order completion is deliberately handled
+        separately because materials and all operations must
+        eventually be validated together.
+        """
+
+        operation_status = (
+            operation.status
+            or ""
+        ).strip().lower()
+
+        if (
+            operation_status
+            != "in progress"
+        ):
+            raise ValueError(
+                "Only an operation that is "
+                "In Progress can be completed."
+            )
+
+        actual_hours = Decimal(
+            str(
+                data.actual_hours
+            )
+        )
+
+        hourly_rate = Decimal(
+            str(
+                operation.hourly_rate
+            )
+        )
+
+        operation.actual_hours = (
+            actual_hours
+        )
+
+        operation.operation_cost = (
+            actual_hours
+            * hourly_rate
+        ).quantize(
+            Decimal("0.01")
+        )
+
+        operation.status = (
+            "Completed"
+        )
+
+        operation.completed_at = (
+            datetime.utcnow()
+        )
+
+        return (
+            self.operation_repository.update(
+                operation
+            )
         )
 
     def delete_operation(
         self,
         operation: ProductionOperation,
     ) -> None:
+        """
+        Only untouched Pending operations can be deleted.
+        """
+
+        operation_status = (
+            operation.status
+            or ""
+        ).strip().lower()
+
+        if (
+            operation_status
+            != "pending"
+        ):
+            raise ValueError(
+                "Only Pending operations can "
+                "be deleted."
+            )
+
         self.operation_repository.delete(
             operation
         )
@@ -657,9 +1165,13 @@ class ProductionService:
     def _generate_production_number(
         self,
     ) -> str:
-        year = datetime.utcnow().year
+        year = (
+            datetime.utcnow().year
+        )
 
-        prefix = f"PROD-{year}-"
+        prefix = (
+            f"PROD-{year}-"
+        )
 
         existing_orders = (
             self.production_order_repository.get_all()
@@ -672,7 +1184,9 @@ class ProductionService:
                 order.production_number
             )
 
-            if production_number.startswith(prefix):
+            if production_number.startswith(
+                prefix
+            ):
                 try:
                     number = int(
                         production_number.replace(

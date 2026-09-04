@@ -12,7 +12,9 @@ from pydantic import BaseModel, ConfigDict, Field
 class ProductionOrderBase(BaseModel):
     proforma_id: int
     product_id: int
-    quantity: int = Field(gt=0)
+    quantity: int = Field(
+        gt=0,
+    )
 
     status: str = "Pending"
 
@@ -29,6 +31,7 @@ class ProductionOrderCreate(ProductionOrderBase):
 
 class ProductionOrderUpdate(BaseModel):
     product_id: int | None = None
+
     quantity: int | None = Field(
         default=None,
         gt=0,
@@ -65,8 +68,8 @@ class ProductionMaterialCreate(BaseModel):
     Defines a material requirement for a Production Order.
 
     quantity_issued is intentionally NOT accepted here.
-    Actual material issue will be handled later through the
-    Shop Floor Issue workflow so stock movement remains controlled.
+    Actual material issue is handled through Shop Floor Issue
+    so stock movement remains controlled and auditable.
     """
 
     product_id: int | None = None
@@ -97,10 +100,10 @@ class ProductionMaterialCreate(BaseModel):
 
 class ProductionMaterialUpdate(BaseModel):
     """
-    Updates material planning data only.
+    Updates material planning information only.
 
     quantity_issued and material_cost are intentionally excluded.
-    They must not be manually changed through the planning API.
+    Those values are controlled by Shop Floor Issue.
     """
 
     product_id: int | None = None
@@ -168,77 +171,121 @@ class ProductionMaterialSummaryResponse(BaseModel):
 # ============================================================
 
 
-class ProductionOperationBase(BaseModel):
-    operation_name: str
-    machine_name: str | None = None
+class ProductionOperationCreate(BaseModel):
+    """
+    Create the planned definition of a Production Operation.
+
+    Runtime values such as actual hours, operation cost,
+    status and timestamps are controlled by workflow endpoints.
+    """
+
+    operation_name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    machine_name: str | None = Field(
+        default=None,
+        max_length=150,
+    )
 
     hourly_rate: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
+        max_digits=12,
+        decimal_places=2,
     )
 
     planned_hours: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
+        max_digits=10,
+        decimal_places=2,
     )
-
-    actual_hours: Decimal = Field(
-        default=Decimal("0.00"),
-        ge=0,
-    )
-
-    operation_cost: Decimal = Field(
-        default=Decimal("0.00"),
-        ge=0,
-    )
-
-    status: str = "Pending"
-
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-
-
-class ProductionOperationCreate(ProductionOperationBase):
-    pass
 
 
 class ProductionOperationUpdate(BaseModel):
-    operation_name: str | None = None
-    machine_name: str | None = None
+    """
+    Update planning information only.
+
+    actual_hours, operation_cost, status, started_at and
+    completed_at cannot be manually changed here.
+    """
+
+    operation_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+
+    machine_name: str | None = Field(
+        default=None,
+        max_length=150,
+    )
 
     hourly_rate: Decimal | None = Field(
         default=None,
         ge=0,
+        max_digits=12,
+        decimal_places=2,
     )
 
     planned_hours: Decimal | None = Field(
         default=None,
         ge=0,
+        max_digits=10,
+        decimal_places=2,
     )
 
-    actual_hours: Decimal | None = Field(
-        default=None,
-        ge=0,
+
+class ProductionOperationComplete(BaseModel):
+    """
+    Runtime completion data for an operation.
+    """
+
+    actual_hours: Decimal = Field(
+        gt=0,
+        max_digits=10,
+        decimal_places=2,
     )
 
-    operation_cost: Decimal | None = Field(
-        default=None,
-        ge=0,
-    )
 
-    status: str | None = None
+class ProductionOperationResponse(BaseModel):
+    id: int
+    production_order_id: int
+
+    operation_name: str
+    machine_name: str | None = None
+
+    hourly_rate: Decimal
+    planned_hours: Decimal
+    actual_hours: Decimal
+
+    operation_cost: Decimal
+
+    status: str
 
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
-
-class ProductionOperationResponse(ProductionOperationBase):
-    id: int
-    production_order_id: int
-
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+
+class ProductionOperationSummaryResponse(BaseModel):
+    production_order_id: int
+
+    total_operations: int
+
+    pending_operations: int
+    in_progress_operations: int
+    completed_operations: int
+
+    total_planned_hours: Decimal
+    total_actual_hours: Decimal
+
+    total_operation_cost: Decimal
 
 
 # ============================================================
@@ -248,9 +295,9 @@ class ProductionOperationResponse(ProductionOperationBase):
 
 class ProductionOrderDetailResponse(ProductionOrderResponse):
     materials: list[ProductionMaterialResponse] = Field(
-        default_factory=list
+        default_factory=list,
     )
 
     operations: list[ProductionOperationResponse] = Field(
-        default_factory=list
+        default_factory=list,
     )
