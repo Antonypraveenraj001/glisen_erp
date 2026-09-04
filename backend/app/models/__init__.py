@@ -1,5 +1,6 @@
 from app.models.customer import Customer
 from app.models.enquiry import Enquiry
+from app.models.finished_goods_receipt import FinishedGoodsReceipt
 from app.models.permission import Permission
 from app.models.product import Product
 from app.models.production_material import ProductionMaterial
@@ -31,6 +32,7 @@ __all__ = [
     "ProductionOperation",
     "ProductionMaterial",
     "ShopFloorIssue",
+    "FinishedGoodsReceipt",
     "PurchaseBill",
     "PurchaseBillItem",
 ]
