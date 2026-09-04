@@ -71,20 +71,20 @@ class Product(Base):
         nullable=False,
     )
 
-    minimum_stock: Mapped[int] = mapped_column(
-        Integer,
+    minimum_stock: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
         default=0,
         nullable=False,
     )
 
-    maximum_stock: Mapped[int] = mapped_column(
-        Integer,
+    maximum_stock: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
         default=0,
         nullable=False,
     )
 
-    current_stock: Mapped[int] = mapped_column(
-        Integer,
+    current_stock: Mapped[Decimal] = mapped_column(
+        Numeric(12, 2),
         default=0,
         nullable=False,
     )
