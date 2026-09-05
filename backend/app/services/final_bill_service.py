@@ -10,6 +10,7 @@ from app.models.finished_goods_receipt import FinishedGoodsReceipt
 from app.models.product import Product
 from app.models.production_order import ProductionOrder
 from app.models.proforma import Proforma
+from app.schemas.final_bill import FinalBillUpdate
 
 
 class FinalBillService:
@@ -66,10 +67,6 @@ class FinalBillService:
                 "this Proforma has no Production Orders."
             )
 
-        # --------------------------------------------------------
-        # ALL PRODUCTION ORDERS MUST BE COMPLETED
-        # --------------------------------------------------------
-
         incomplete_orders = [
             order
             for order in production_orders
@@ -91,10 +88,6 @@ class FinalBillService:
                 "all Production Orders are completed. "
                 f"Incomplete: {numbers}"
             )
-
-        # --------------------------------------------------------
-        # EVERY PRODUCTION ORDER MUST HAVE FINISHED GOODS RECEIPT
-        # --------------------------------------------------------
 
         for order in production_orders:
 
@@ -153,10 +146,6 @@ class FinalBillService:
 
         try:
 
-            # ====================================================
-            # PROFORMA
-            # ====================================================
-
             proforma = (
                 db.query(Proforma)
                 .options(
@@ -177,10 +166,6 @@ class FinalBillService:
                     "Proforma not found."
                 )
 
-            # ====================================================
-            # DUPLICATE FINAL BILL CHECK
-            # ====================================================
-
             existing_bill = (
                 db.query(FinalBill)
                 .filter(
@@ -197,10 +182,6 @@ class FinalBillService:
                     "A Final Bill already exists "
                     "for this Proforma."
                 )
-
-            # ====================================================
-            # CUSTOMER
-            # ====================================================
 
             customer = (
                 db.query(Customer)
@@ -219,28 +200,16 @@ class FinalBillService:
                     "for this Proforma."
                 )
 
-            # ====================================================
-            # PROFORMA ITEMS
-            # ====================================================
-
             if not proforma.items:
                 raise ValueError(
                     "Final Bill cannot be created "
                     "because the Proforma has no items."
                 )
 
-            # ====================================================
-            # PRODUCTION + FINISHED GOODS VALIDATION
-            # ====================================================
-
             FinalBillService.validate_proforma_eligibility(
                 db=db,
                 proforma=proforma,
             )
-
-            # ====================================================
-            # INVOICE DATE
-            # ====================================================
 
             final_invoice_date = (
                 invoice_date
@@ -271,10 +240,6 @@ class FinalBillService:
                     "Generated invoice number "
                     "already exists."
                 )
-
-            # ====================================================
-            # FINAL BILL HEADER
-            # ====================================================
 
             final_bill = FinalBill(
                 invoice_number=(
@@ -366,10 +331,6 @@ class FinalBillService:
 
             db.flush()
 
-            # ====================================================
-            # TOTALS
-            # ====================================================
-
             subtotal = Decimal(
                 "0.00"
             )
@@ -389,10 +350,6 @@ class FinalBillService:
             grand_total = Decimal(
                 "0.00"
             )
-
-            # ====================================================
-            # COPY PROFORMA ITEMS
-            # ====================================================
 
             for proforma_item in (
                 proforma.items
@@ -478,20 +435,6 @@ class FinalBillService:
                     else None
                 )
 
-                # ------------------------------------------------
-                # GST JURISDICTION
-                # ------------------------------------------------
-                #
-                # We retain total GST from the Proforma here.
-                #
-                # CGST / SGST / IGST allocation will be handled
-                # separately once company GST state configuration
-                # is available.
-                #
-                # This prevents us from incorrectly assuming
-                # intra-state or inter-state taxation.
-                # ------------------------------------------------
-
                 final_item = FinalBillItem(
                     final_bill_id=(
                         final_bill.id
@@ -568,10 +511,6 @@ class FinalBillService:
                     line_total
                 )
 
-            # ====================================================
-            # HEADER TOTALS
-            # ====================================================
-
             final_bill.subtotal = (
                 subtotal.quantize(
                     Decimal("0.01")
@@ -602,10 +541,6 @@ class FinalBillService:
                 )
             )
 
-            # ====================================================
-            # SINGLE TRANSACTION
-            # ====================================================
-
             db.commit()
 
             db.refresh(
@@ -613,6 +548,114 @@ class FinalBillService:
             )
 
             return final_bill
+
+        except Exception:
+            db.rollback()
+            raise
+
+    # ============================================================
+    # UPDATE DRAFT FINAL BILL
+    # ============================================================
+
+    @staticmethod
+    def update_draft(
+        db: Session,
+        final_bill_id: int,
+        data: FinalBillUpdate,
+    ) -> FinalBill:
+
+        try:
+
+            final_bill = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.id
+                    == final_bill_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if final_bill is None:
+                raise ValueError(
+                    "Final Bill not found."
+                )
+
+            if (
+                final_bill.status
+                or ""
+            ).strip().lower() != "draft":
+                raise ValueError(
+                    "Only Draft Final Bills "
+                    "can be edited."
+                )
+
+            update_data = (
+                data.model_dump(
+                    exclude_unset=True
+                )
+            )
+
+            if (
+                "invoice_date"
+                in update_data
+                and update_data[
+                    "invoice_date"
+                ]
+                is None
+            ):
+                raise ValueError(
+                    "Invoice date cannot be empty."
+                )
+
+            allowed_fields = {
+                "invoice_date",
+                "company_name",
+                "contact_person",
+                "phone",
+                "email",
+                "gst_number",
+                "billing_address",
+                "shipping_address",
+                "payment_terms",
+                "delivery_terms",
+                "notes",
+            }
+
+            for (
+                field_name,
+                value,
+            ) in update_data.items():
+
+                if (
+                    field_name
+                    in allowed_fields
+                ):
+                    setattr(
+                        final_bill,
+                        field_name,
+                        value,
+                    )
+
+            if not (
+                final_bill.company_name
+                or ""
+            ).strip():
+                raise ValueError(
+                    "Company name is required."
+                )
+
+            db.commit()
+
+            return (
+                FinalBillService
+                .get_by_id(
+                    db=db,
+                    final_bill_id=(
+                        final_bill.id
+                    ),
+                )
+            )
 
         except Exception:
             db.rollback()

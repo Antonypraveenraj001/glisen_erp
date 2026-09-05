@@ -15,6 +15,7 @@ from app.models.user import User
 from app.schemas.final_bill import (
     FinalBillCreateFromProforma,
     FinalBillResponse,
+    FinalBillUpdate,
 )
 from app.services.final_bill_service import (
     FinalBillService,
@@ -99,6 +100,46 @@ def get_all_final_bills(
             db
         )
     )
+
+
+# ============================================================
+# UPDATE DRAFT FINAL BILL
+# ============================================================
+
+
+@router.put(
+    "/{final_bill_id}",
+    response_model=FinalBillResponse,
+)
+def update_final_bill(
+    final_bill_id: int,
+    data: FinalBillUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            *FINAL_BILL_WRITE_ROLES
+        )
+    ),
+):
+    try:
+        return (
+            FinalBillService
+            .update_draft(
+                db=db,
+                final_bill_id=(
+                    final_bill_id
+                ),
+                data=data,
+            )
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
 
 
 # ============================================================
