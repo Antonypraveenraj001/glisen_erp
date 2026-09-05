@@ -9,6 +9,9 @@ from app.api.v1.customers import (
 from app.api.v1.enquiries import (
     router as enquiries_router,
 )
+from app.api.v1.final_bills import (
+    router as final_bills_router,
+)
 from app.api.v1.finished_goods_receipts import (
     router as finished_goods_receipts_router,
 )
@@ -99,6 +102,10 @@ api_router.include_router(
 
 api_router.include_router(
     finished_goods_receipts_router
+)
+
+api_router.include_router(
+    final_bills_router
 )
 
 api_router.include_router(
