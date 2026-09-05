@@ -13,6 +13,7 @@ from app.models.purchase_bill_item import PurchaseBillItem
 from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.shop_floor_issue import ShopFloorIssue
+from app.models.stock_movement import StockMovement
 from app.models.supplier import Supplier
 from app.models.user import User
 
@@ -33,6 +34,7 @@ __all__ = [
     "ProductionMaterial",
     "ShopFloorIssue",
     "FinishedGoodsReceipt",
+    "StockMovement",
     "PurchaseBill",
     "PurchaseBillItem",
 ]

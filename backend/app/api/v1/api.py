@@ -33,6 +33,9 @@ from app.api.v1.purchase_bills import (
 from app.api.v1.shop_floor_issues import (
     router as shop_floor_issues_router,
 )
+from app.api.v1.stock_report import (
+    router as stock_report_router,
+)
 from app.api.v1.suppliers import (
     router as suppliers_router,
 )
@@ -96,4 +99,8 @@ api_router.include_router(
 
 api_router.include_router(
     finished_goods_receipts_router
+)
+
+api_router.include_router(
+    stock_report_router
 )

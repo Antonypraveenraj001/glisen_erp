@@ -7,7 +7,10 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import get_current_user, require_role
+from app.dependencies.auth import (
+    get_current_user,
+    require_role,
+)
 from app.dependencies.database import get_db
 from app.models.user import User
 from app.repositories.purchase_bill_repository import (
@@ -19,7 +22,10 @@ from app.schemas.purchase_bill import (
     PurchaseBillResponse,
     PurchaseBillUpdate,
 )
-from app.services.purchase_bill_service import PurchaseBillService
+from app.services.purchase_bill_service import (
+    PurchaseBillService,
+)
+
 
 router = APIRouter(
     prefix="/purchase-bills",
@@ -55,7 +61,9 @@ def create_purchase_bill(
 )
 def get_purchase_bill_statistics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     return PurchaseBillRepository.get_statistics(
         db,
@@ -69,10 +77,15 @@ def get_purchase_bill_statistics(
 def get_purchase_bills(
     search: str | None = Query(
         default=None,
-        description="Search by Purchase Bill Number or Supplier Name",
+        description=(
+            "Search by Purchase Bill Number "
+            "or Supplier Name"
+        ),
     ),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     return PurchaseBillRepository.get_all(
         db,
@@ -87,18 +100,26 @@ def get_purchase_bills(
 def get_purchase_bill(
     purchase_bill_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
 
-    purchase_bill = PurchaseBillRepository.get_by_id(
-        db,
-        purchase_bill_id,
+    purchase_bill = (
+        PurchaseBillRepository.get_by_id(
+            db,
+            purchase_bill_id,
+        )
     )
 
     if purchase_bill is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Purchase Bill not found",
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Purchase Bill not found"
+            ),
         )
 
     return purchase_bill
@@ -120,16 +141,26 @@ def update_purchase_bill(
     ),
 ):
 
-    updated_purchase_bill = PurchaseBillService.update(
-        db=db,
-        purchase_bill_id=purchase_bill_id,
-        purchase_bill=purchase_bill,
+    updated_purchase_bill = (
+        PurchaseBillService.update(
+            db=db,
+            purchase_bill_id=(
+                purchase_bill_id
+            ),
+            purchase_bill=(
+                purchase_bill
+            ),
+        )
     )
 
     if updated_purchase_bill is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Purchase Bill not found",
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Purchase Bill not found"
+            ),
         )
 
     return updated_purchase_bill
@@ -149,17 +180,30 @@ def deactivate_purchase_bill(
     ),
 ):
 
-    purchase_bill = PurchaseBillService.deactivate(
-        db=db,
-        purchase_bill_id=purchase_bill_id,
+    purchase_bill = (
+        PurchaseBillService.deactivate(
+            db=db,
+            purchase_bill_id=(
+                purchase_bill_id
+            ),
+            cancelled_by=(
+                current_user.id
+            ),
+        )
     )
 
     if purchase_bill is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Purchase Bill not found",
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Purchase Bill not found"
+            ),
         )
 
     return {
-        "message": "Purchase Bill cancelled successfully."
+        "message": (
+            "Purchase Bill cancelled successfully."
+        )
     }

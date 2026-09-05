@@ -3,7 +3,12 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models.finished_goods_receipt import FinishedGoodsReceipt
+from app.models.finished_goods_receipt import (
+    FinishedGoodsReceipt,
+)
+from app.models.stock_movement import (
+    StockMovement,
+)
 from app.repositories.finished_goods_receipt import (
     FinishedGoodsReceiptRepository,
 )
@@ -19,8 +24,10 @@ class FinishedGoodsReceiptService:
     ):
         self.db = db
 
-        self.repository = FinishedGoodsReceiptRepository(
-            db
+        self.repository = (
+            FinishedGoodsReceiptRepository(
+                db
+            )
         )
 
     # ========================================================
@@ -45,7 +52,8 @@ class FinishedGoodsReceiptService:
         5. Increase Product.current_stock.
         6. Record stock_before and stock_after.
         7. Create immutable FinishedGoodsReceipt history.
-        8. Commit everything together.
+        8. Create immutable StockMovement ledger entry.
+        9. Commit everything together.
 
         One Production Order may only be received once.
         """
@@ -175,15 +183,11 @@ class FinishedGoodsReceiptService:
             # ====================================================
 
             receipt = FinishedGoodsReceipt(
-                receipt_number=(
-                    receipt_number
-                ),
+                receipt_number=receipt_number,
                 production_order_id=(
                     production_order.id
                 ),
-                product_id=(
-                    product.id
-                ),
+                product_id=product.id,
                 quantity_received=(
                     quantity_received
                 ),
@@ -205,6 +209,68 @@ class FinishedGoodsReceiptService:
                 self.repository.create(
                     receipt
                 )
+            )
+
+            # ====================================================
+            # STOCK MOVEMENT LEDGER
+            # ====================================================
+
+            unit_cost = Decimal(
+                str(
+                    product.purchase_price
+                    or Decimal("0.00")
+                )
+            )
+
+            movement_value = (
+                quantity_received
+                * unit_cost
+            ).quantize(
+                Decimal("0.01")
+            )
+
+            stock_movement = StockMovement(
+                product_id=product.id,
+                movement_type=(
+                    "FINISHED_GOODS_IN"
+                ),
+                source_type=(
+                    "FINISHED_GOODS_RECEIPT"
+                ),
+                source_id=(
+                    created_receipt.id
+                ),
+                source_number=(
+                    created_receipt.receipt_number
+                ),
+                quantity_in=(
+                    quantity_received
+                ),
+                quantity_out=Decimal(
+                    "0.00"
+                ),
+                stock_before=(
+                    stock_before
+                ),
+                stock_after=(
+                    stock_after
+                ),
+                unit_cost=(
+                    unit_cost
+                ),
+                movement_value=(
+                    movement_value
+                ),
+                performed_by=(
+                    received_by
+                ),
+                remarks=(
+                    remarks
+                ),
+            )
+
+            self.db.add(
+                stock_movement
             )
 
             # ====================================================

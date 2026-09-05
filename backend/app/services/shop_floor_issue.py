@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.models.shop_floor_issue import ShopFloorIssue
+from app.models.stock_movement import StockMovement
 from app.repositories.shop_floor_issue import (
     ShopFloorIssueRepository,
 )
@@ -48,8 +49,9 @@ class ShopFloorIssueService:
         6. Reduce Product.current_stock.
         7. Increase ProductionMaterial.quantity_issued.
         8. Recalculate ProductionMaterial.material_cost.
-        9. Create an immutable ShopFloorIssue history record.
-        10. Commit everything together.
+        9. Create immutable ShopFloorIssue history.
+        10. Create immutable StockMovement ledger entry.
+        11. Commit everything together.
         """
 
         try:
@@ -263,6 +265,54 @@ class ShopFloorIssueService:
                 self.repository.create(
                     issue
                 )
+            )
+
+            # ====================================================
+            # STOCK MOVEMENT LEDGER
+            # ====================================================
+
+            stock_movement = StockMovement(
+                product_id=product.id,
+                movement_type=(
+                    "SHOP_FLOOR_OUT"
+                ),
+                source_type=(
+                    "SHOP_FLOOR_ISSUE"
+                ),
+                source_id=(
+                    created_issue.id
+                ),
+                source_number=(
+                    created_issue.issue_number
+                ),
+                quantity_in=Decimal(
+                    "0.00"
+                ),
+                quantity_out=(
+                    issue_quantity
+                ),
+                stock_before=(
+                    stock_before
+                ),
+                stock_after=(
+                    stock_after
+                ),
+                unit_cost=(
+                    unit_cost
+                ),
+                movement_value=(
+                    total_cost
+                ),
+                performed_by=(
+                    issued_by
+                ),
+                remarks=(
+                    remarks
+                ),
+            )
+
+            self.db.add(
+                stock_movement
             )
 
             # ====================================================

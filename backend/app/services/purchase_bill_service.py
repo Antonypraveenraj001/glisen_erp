@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.product import Product
 from app.models.purchase_bill import PurchaseBill
 from app.models.purchase_bill_item import PurchaseBillItem
+from app.models.stock_movement import StockMovement
 from app.repositories.purchase_bill_repository import (
     PurchaseBillRepository,
 )
@@ -33,8 +34,8 @@ class PurchaseBillService:
         """
         Create a manual Purchase Bill and increase stock.
 
-        Purchase Bill, items and stock changes are committed
-        together in a single transaction.
+        Purchase Bill, items, stock changes and stock ledger
+        movements are committed together in one transaction.
         """
 
         try:
@@ -133,7 +134,7 @@ class PurchaseBillService:
             db.flush()
 
             # ====================================================
-            # ITEMS + STOCK
+            # ITEMS + STOCK + LEDGER
             # ====================================================
 
             for item in purchase_bill.items:
@@ -232,6 +233,29 @@ class PurchaseBillService:
                     )
 
                 # ================================================
+                # STOCK VALUES
+                # ================================================
+
+                stock_before = Decimal(
+                    str(
+                        product.current_stock
+                        or Decimal("0.00")
+                    )
+                )
+
+                stock_after = (
+                    stock_before
+                    + quantity
+                )
+
+                movement_value = (
+                    quantity
+                    * purchase_price
+                ).quantize(
+                    Decimal("0.01")
+                )
+
+                # ================================================
                 # PURCHASE BILL ITEM
                 # ================================================
 
@@ -259,25 +283,71 @@ class PurchaseBillService:
                     db_item
                 )
 
+                # Required so db_item.id exists for
+                # the immutable ledger source_id.
+                db.flush()
+
                 # ================================================
                 # STOCK INCREASE
                 # ================================================
 
-                current_stock = Decimal(
-                    str(
-                        product.current_stock
-                        or Decimal("0.00")
-                    )
-                )
-
                 product.current_stock = (
-                    current_stock
-                    + quantity
+                    stock_after
                 )
 
                 # Keep latest purchase price
                 product.purchase_price = (
                     purchase_price
+                )
+
+                # ================================================
+                # STOCK MOVEMENT LEDGER
+                # ================================================
+
+                stock_movement = StockMovement(
+                    product_id=(
+                        product.id
+                    ),
+                    movement_type=(
+                        "PURCHASE_IN"
+                    ),
+                    source_type=(
+                        "PURCHASE_BILL_ITEM"
+                    ),
+                    source_id=(
+                        db_item.id
+                    ),
+                    source_number=(
+                        db_purchase_bill.bill_number
+                    ),
+                    quantity_in=(
+                        quantity
+                    ),
+                    quantity_out=Decimal(
+                        "0.00"
+                    ),
+                    stock_before=(
+                        stock_before
+                    ),
+                    stock_after=(
+                        stock_after
+                    ),
+                    unit_cost=(
+                        purchase_price
+                    ),
+                    movement_value=(
+                        movement_value
+                    ),
+                    performed_by=(
+                        created_by
+                    ),
+                    remarks=(
+                        db_purchase_bill.remarks
+                    ),
+                )
+
+                db.add(
+                    stock_movement
                 )
 
             # ====================================================
@@ -354,19 +424,16 @@ class PurchaseBillService:
     def deactivate(
         db: Session,
         purchase_bill_id: int,
+        cancelled_by: int,
     ):
         """
-        Cancel a Purchase Bill and reverse its stock movement.
+        Cancel a Purchase Bill and reverse its stock.
 
-        Rules:
-        1. Purchase Bill must exist and be active.
-        2. Lock Purchase Bill.
-        3. Lock all referenced products.
-        4. Reverse each purchased quantity.
-        5. Cancellation is blocked if reversal would make
-           any product stock negative.
-        6. Mark Purchase Bill inactive.
-        7. Commit everything together.
+        Purchase reversal ledger rows are generated per
+        PurchaseBillItem so duplicate product lines remain
+        independently auditable.
+
+        Everything is committed in one transaction.
         """
 
         try:
@@ -446,7 +513,7 @@ class PurchaseBillService:
                 )
 
             # ====================================================
-            # LOCK PRODUCTS AND VALIDATE REVERSAL
+            # LOCK PRODUCTS + VALIDATE COMPLETE REVERSAL
             # ====================================================
 
             locked_products: dict[
@@ -513,30 +580,95 @@ class PurchaseBillService:
                 ] = product
 
             # ====================================================
-            # REVERSE STOCK
+            # REVERSE EACH ITEM + CREATE LEDGER
             # ====================================================
 
-            for (
-                product_id,
-                quantity_to_reverse,
-            ) in quantities_by_product.items():
+            for item in bill_items:
 
                 product = (
                     locked_products[
-                        product_id
+                        item.product_id
                     ]
                 )
 
-                current_stock = Decimal(
+                quantity = Decimal(
+                    str(item.quantity)
+                )
+
+                unit_cost = Decimal(
+                    str(
+                        item.purchase_price
+                        or Decimal("0.00")
+                    )
+                )
+
+                stock_before = Decimal(
                     str(
                         product.current_stock
                         or Decimal("0.00")
                     )
                 )
 
+                stock_after = (
+                    stock_before
+                    - quantity
+                )
+
+                movement_value = (
+                    quantity
+                    * unit_cost
+                ).quantize(
+                    Decimal("0.01")
+                )
+
                 product.current_stock = (
-                    current_stock
-                    - quantity_to_reverse
+                    stock_after
+                )
+
+                reversal_movement = StockMovement(
+                    product_id=(
+                        item.product_id
+                    ),
+                    movement_type=(
+                        "PURCHASE_REVERSAL_OUT"
+                    ),
+                    source_type=(
+                        "PURCHASE_BILL_ITEM"
+                    ),
+                    source_id=(
+                        item.id
+                    ),
+                    source_number=(
+                        purchase_bill.bill_number
+                    ),
+                    quantity_in=Decimal(
+                        "0.00"
+                    ),
+                    quantity_out=(
+                        quantity
+                    ),
+                    stock_before=(
+                        stock_before
+                    ),
+                    stock_after=(
+                        stock_after
+                    ),
+                    unit_cost=(
+                        unit_cost
+                    ),
+                    movement_value=(
+                        movement_value
+                    ),
+                    performed_by=(
+                        cancelled_by
+                    ),
+                    remarks=(
+                        "Purchase Bill cancellation"
+                    ),
+                )
+
+                db.add(
+                    reversal_movement
                 )
 
             # ====================================================
