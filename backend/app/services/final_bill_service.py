@@ -1,5 +1,5 @@
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -10,13 +10,16 @@ from app.models.finished_goods_receipt import FinishedGoodsReceipt
 from app.models.product import Product
 from app.models.production_order import ProductionOrder
 from app.models.proforma import Proforma
-from app.schemas.final_bill import FinalBillUpdate
+from app.schemas.final_bill import (
+    FinalBillItemUpdate,
+    FinalBillUpdate,
+)
 
 
 class FinalBillService:
 
     # ============================================================
-    # DECIMAL HELPER
+    # DECIMAL HELPERS
     # ============================================================
 
     @staticmethod
@@ -25,6 +28,17 @@ class FinalBillService:
             str(
                 value
                 or Decimal("0.00")
+            )
+        )
+
+    @staticmethod
+    def money(value) -> Decimal:
+        return (
+            FinalBillService
+            .decimal(value)
+            .quantize(
+                Decimal("0.01"),
+                rounding=ROUND_HALF_UP,
             )
         )
 
@@ -40,6 +54,270 @@ class FinalBillService:
         return (
             f"INV-{invoice_date.year}-"
             f"{proforma.id:05d}"
+        )
+
+    # ============================================================
+    # CALCULATE ITEM TOTALS
+    # ============================================================
+
+    @staticmethod
+    def calculate_item_totals(
+        item: FinalBillItem,
+    ) -> None:
+
+        quantity = (
+            FinalBillService.decimal(
+                item.quantity
+            )
+        )
+
+        unit_price = (
+            FinalBillService.decimal(
+                item.unit_price
+            )
+        )
+
+        discount_percent = (
+            FinalBillService.decimal(
+                item.discount_percent
+            )
+        )
+
+        gst_percent = (
+            FinalBillService.decimal(
+                item.gst_percent
+            )
+        )
+
+        if quantity <= Decimal("0.00"):
+            raise ValueError(
+                "Final Bill item quantity "
+                "must be greater than zero."
+            )
+
+        if unit_price < Decimal("0.00"):
+            raise ValueError(
+                "Unit price cannot be negative."
+            )
+
+        if (
+            discount_percent
+            < Decimal("0.00")
+            or discount_percent
+            > Decimal("100.00")
+        ):
+            raise ValueError(
+                "Discount percentage must be "
+                "between 0 and 100."
+            )
+
+        if (
+            gst_percent
+            < Decimal("0.00")
+            or gst_percent
+            > Decimal("100.00")
+        ):
+            raise ValueError(
+                "GST percentage must be "
+                "between 0 and 100."
+            )
+
+        gross_amount = (
+            quantity
+            * unit_price
+        )
+
+        discount_amount = (
+            gross_amount
+            * discount_percent
+            / Decimal("100.00")
+        )
+
+        taxable_amount = (
+            gross_amount
+            - discount_amount
+        )
+
+        tax_amount = (
+            taxable_amount
+            * gst_percent
+            / Decimal("100.00")
+        )
+
+        line_total = (
+            taxable_amount
+            + tax_amount
+        )
+
+        item.discount_amount = (
+            FinalBillService.money(
+                discount_amount
+            )
+        )
+
+        item.taxable_amount = (
+            FinalBillService.money(
+                taxable_amount
+            )
+        )
+
+        # GST split will be implemented after
+        # company GST state configuration exists.
+        item.cgst_amount = Decimal(
+            "0.00"
+        )
+        item.sgst_amount = Decimal(
+            "0.00"
+        )
+        item.igst_amount = Decimal(
+            "0.00"
+        )
+
+        item.tax_amount = (
+            FinalBillService.money(
+                tax_amount
+            )
+        )
+
+        item.line_total = (
+            FinalBillService.money(
+                line_total
+            )
+        )
+
+    # ============================================================
+    # RECALCULATE FINAL BILL TOTALS
+    # ============================================================
+
+    @staticmethod
+    def recalculate_bill_totals(
+        db: Session,
+        final_bill: FinalBill,
+    ) -> None:
+
+        items = (
+            db.query(FinalBillItem)
+            .filter(
+                FinalBillItem.final_bill_id
+                == final_bill.id
+            )
+            .all()
+        )
+
+        if not items:
+            raise ValueError(
+                "Final Bill must contain "
+                "at least one item."
+            )
+
+        subtotal = Decimal("0.00")
+        discount_total = Decimal("0.00")
+        taxable_total = Decimal("0.00")
+        cgst_total = Decimal("0.00")
+        sgst_total = Decimal("0.00")
+        igst_total = Decimal("0.00")
+        tax_total = Decimal("0.00")
+        grand_total = Decimal("0.00")
+
+        for item in items:
+
+            subtotal += (
+                FinalBillService.decimal(
+                    item.quantity
+                )
+                * FinalBillService.decimal(
+                    item.unit_price
+                )
+            )
+
+            discount_total += (
+                FinalBillService.decimal(
+                    item.discount_amount
+                )
+            )
+
+            taxable_total += (
+                FinalBillService.decimal(
+                    item.taxable_amount
+                )
+            )
+
+            cgst_total += (
+                FinalBillService.decimal(
+                    item.cgst_amount
+                )
+            )
+
+            sgst_total += (
+                FinalBillService.decimal(
+                    item.sgst_amount
+                )
+            )
+
+            igst_total += (
+                FinalBillService.decimal(
+                    item.igst_amount
+                )
+            )
+
+            tax_total += (
+                FinalBillService.decimal(
+                    item.tax_amount
+                )
+            )
+
+            grand_total += (
+                FinalBillService.decimal(
+                    item.line_total
+                )
+            )
+
+        final_bill.subtotal = (
+            FinalBillService.money(
+                subtotal
+            )
+        )
+
+        final_bill.discount_amount = (
+            FinalBillService.money(
+                discount_total
+            )
+        )
+
+        final_bill.taxable_amount = (
+            FinalBillService.money(
+                taxable_total
+            )
+        )
+
+        final_bill.cgst_amount = (
+            FinalBillService.money(
+                cgst_total
+            )
+        )
+
+        final_bill.sgst_amount = (
+            FinalBillService.money(
+                sgst_total
+            )
+        )
+
+        final_bill.igst_amount = (
+            FinalBillService.money(
+                igst_total
+            )
+        )
+
+        final_bill.tax_amount = (
+            FinalBillService.money(
+                tax_total
+            )
+        )
+
+        final_bill.grand_total = (
+            FinalBillService.money(
+                grand_total
+            )
         )
 
     # ============================================================
@@ -292,33 +570,15 @@ class FinalBillService:
                     if notes is not None
                     else proforma.notes
                 ),
-                subtotal=Decimal(
-                    "0.00"
-                ),
-                discount_amount=Decimal(
-                    "0.00"
-                ),
-                taxable_amount=Decimal(
-                    "0.00"
-                ),
-                cgst_amount=Decimal(
-                    "0.00"
-                ),
-                sgst_amount=Decimal(
-                    "0.00"
-                ),
-                igst_amount=Decimal(
-                    "0.00"
-                ),
-                tax_amount=Decimal(
-                    "0.00"
-                ),
-                grand_total=Decimal(
-                    "0.00"
-                ),
-                invoice_type=(
-                    "Tax Invoice"
-                ),
+                subtotal=Decimal("0.00"),
+                discount_amount=Decimal("0.00"),
+                taxable_amount=Decimal("0.00"),
+                cgst_amount=Decimal("0.00"),
+                sgst_amount=Decimal("0.00"),
+                igst_amount=Decimal("0.00"),
+                tax_amount=Decimal("0.00"),
+                grand_total=Decimal("0.00"),
+                invoice_type="Tax Invoice",
                 status="Draft",
                 revision_number=0,
                 parent_invoice_id=None,
@@ -330,26 +590,6 @@ class FinalBillService:
             )
 
             db.flush()
-
-            subtotal = Decimal(
-                "0.00"
-            )
-
-            discount_total = Decimal(
-                "0.00"
-            )
-
-            taxable_total = Decimal(
-                "0.00"
-            )
-
-            tax_total = Decimal(
-                "0.00"
-            )
-
-            grand_total = Decimal(
-                "0.00"
-            )
 
             for proforma_item in (
                 proforma.items
@@ -374,45 +614,11 @@ class FinalBillService:
                     )
                 )
 
-                discount_amount = (
-                    FinalBillService.decimal(
-                        proforma_item
-                        .discount_amount
-                    )
-                )
-
-                taxable_amount = (
-                    FinalBillService.decimal(
-                        proforma_item
-                        .taxable_amount
-                    )
-                )
-
                 gst_percent = (
                     FinalBillService.decimal(
                         proforma_item.tax_percent
                     )
                 )
-
-                tax_amount = (
-                    FinalBillService.decimal(
-                        proforma_item.tax_amount
-                    )
-                )
-
-                line_total = (
-                    FinalBillService.decimal(
-                        proforma_item.line_total
-                    )
-                )
-
-                if quantity <= Decimal(
-                    "0.00"
-                ):
-                    raise ValueError(
-                        "Final Bill item quantity "
-                        "must be greater than zero."
-                    )
 
                 product = None
 
@@ -429,12 +635,6 @@ class FinalBillService:
                         .first()
                     )
 
-                hsn_code = (
-                    product.hsn_code
-                    if product
-                    else None
-                )
-
                 final_item = FinalBillItem(
                     final_bill_id=(
                         final_bill.id
@@ -446,25 +646,23 @@ class FinalBillService:
                         proforma_item.description
                     ),
                     hsn_code=(
-                        hsn_code
+                        product.hsn_code
+                        if product
+                        else None
                     ),
-                    quantity=(
-                        quantity
-                    ),
+                    quantity=quantity,
                     unit=(
                         proforma_item.unit
                     ),
-                    unit_price=(
-                        unit_price
-                    ),
+                    unit_price=unit_price,
                     discount_percent=(
                         discount_percent
                     ),
-                    discount_amount=(
-                        discount_amount
+                    discount_amount=Decimal(
+                        "0.00"
                     ),
-                    taxable_amount=(
-                        taxable_amount
+                    taxable_amount=Decimal(
+                        "0.00"
                     ),
                     gst_percent=(
                         gst_percent
@@ -478,83 +676,47 @@ class FinalBillService:
                     igst_amount=Decimal(
                         "0.00"
                     ),
-                    tax_amount=(
-                        tax_amount
+                    tax_amount=Decimal(
+                        "0.00"
                     ),
-                    line_total=(
-                        line_total
+                    line_total=Decimal(
+                        "0.00"
                     ),
+                )
+
+                FinalBillService.calculate_item_totals(
+                    final_item
                 )
 
                 db.add(
                     final_item
                 )
 
-                subtotal += (
-                    quantity
-                    * unit_price
-                )
+            db.flush()
 
-                discount_total += (
-                    discount_amount
-                )
-
-                taxable_total += (
-                    taxable_amount
-                )
-
-                tax_total += (
-                    tax_amount
-                )
-
-                grand_total += (
-                    line_total
-                )
-
-            final_bill.subtotal = (
-                subtotal.quantize(
-                    Decimal("0.01")
-                )
-            )
-
-            final_bill.discount_amount = (
-                discount_total.quantize(
-                    Decimal("0.01")
-                )
-            )
-
-            final_bill.taxable_amount = (
-                taxable_total.quantize(
-                    Decimal("0.01")
-                )
-            )
-
-            final_bill.tax_amount = (
-                tax_total.quantize(
-                    Decimal("0.01")
-                )
-            )
-
-            final_bill.grand_total = (
-                grand_total.quantize(
-                    Decimal("0.01")
-                )
+            FinalBillService.recalculate_bill_totals(
+                db=db,
+                final_bill=final_bill,
             )
 
             db.commit()
 
-            db.refresh(
-                final_bill
+            return (
+                FinalBillService
+                .get_by_id(
+                    db=db,
+                    final_bill_id=(
+                        final_bill.id
+                    ),
+                )
             )
-
-            return final_bill
 
         except Exception:
             db.rollback()
             raise
 
     # ============================================================
-    # UPDATE DRAFT FINAL BILL
+    # UPDATE DRAFT FINAL BILL HEADER
     # ============================================================
 
     @staticmethod
@@ -644,6 +806,143 @@ class FinalBillService:
                 raise ValueError(
                     "Company name is required."
                 )
+
+            db.commit()
+
+            return (
+                FinalBillService
+                .get_by_id(
+                    db=db,
+                    final_bill_id=(
+                        final_bill.id
+                    ),
+                )
+            )
+
+        except Exception:
+            db.rollback()
+            raise
+
+    # ============================================================
+    # UPDATE DRAFT FINAL BILL ITEM
+    # ============================================================
+
+    @staticmethod
+    def update_draft_item(
+        db: Session,
+        final_bill_id: int,
+        item_id: int,
+        data: FinalBillItemUpdate,
+    ) -> FinalBill:
+
+        try:
+
+            final_bill = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.id
+                    == final_bill_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if final_bill is None:
+                raise ValueError(
+                    "Final Bill not found."
+                )
+
+            if (
+                final_bill.status
+                or ""
+            ).strip().lower() != "draft":
+                raise ValueError(
+                    "Only Draft Final Bills "
+                    "can be edited."
+                )
+
+            final_item = (
+                db.query(FinalBillItem)
+                .filter(
+                    FinalBillItem.id
+                    == item_id,
+                    FinalBillItem.final_bill_id
+                    == final_bill.id,
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if final_item is None:
+                raise ValueError(
+                    "Final Bill item not found."
+                )
+
+            update_data = (
+                data.model_dump(
+                    exclude_unset=True
+                )
+            )
+
+            editable_fields = {
+                "description",
+                "hsn_code",
+                "quantity",
+                "unit",
+                "unit_price",
+                "discount_percent",
+                "gst_percent",
+            }
+
+            for (
+                field_name,
+                value,
+            ) in update_data.items():
+
+                if (
+                    field_name
+                    not in editable_fields
+                ):
+                    continue
+
+                if (
+                    field_name
+                    in {
+                        "quantity",
+                        "unit_price",
+                        "discount_percent",
+                        "gst_percent",
+                    }
+                    and value is None
+                ):
+                    raise ValueError(
+                        f"{field_name} cannot be empty."
+                    )
+
+                setattr(
+                    final_item,
+                    field_name,
+                    value,
+                )
+
+            if not (
+                final_item.description
+                or ""
+            ).strip():
+                raise ValueError(
+                    "Item description is required."
+                )
+
+            FinalBillService.calculate_item_totals(
+                final_item
+            )
+
+            db.flush()
+
+            FinalBillService.recalculate_bill_totals(
+                db=db,
+                final_bill=final_bill,
+            )
 
             db.commit()
 

@@ -1,52 +1,84 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
+
+
+# ============================================================
+# FINAL BILL ITEM BASE
+# ============================================================
 
 
 class FinalBillItemBase(BaseModel):
     product_id: int | None = None
     description: str | None = None
     hsn_code: str | None = None
-    quantity: Decimal = Field(gt=0)
+
+    quantity: Decimal = Field(
+        gt=0
+    )
+
     unit: str | None = None
-    unit_price: Decimal = Field(ge=0)
+
+    unit_price: Decimal = Field(
+        ge=0
+    )
+
     discount_percent: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
+        le=100,
     )
+
     discount_amount: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
     )
+
     taxable_amount: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
     )
+
     gst_percent: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
+        le=100,
     )
+
     cgst_amount: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
     )
+
     sgst_amount: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
     )
+
     igst_amount: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
     )
+
     tax_amount: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
     )
+
     line_total: Decimal = Field(
         default=Decimal("0.00"),
         ge=0,
     )
+
+
+# ============================================================
+# FINAL BILL ITEM RESPONSE
+# ============================================================
 
 
 class FinalBillItemResponse(
@@ -60,11 +92,21 @@ class FinalBillItemResponse(
     )
 
 
+# ============================================================
+# CREATE FINAL BILL FROM PROFORMA
+# ============================================================
+
+
 class FinalBillCreateFromProforma(
     BaseModel
 ):
     invoice_date: date | None = None
     notes: str | None = None
+
+
+# ============================================================
+# UPDATE FINAL BILL HEADER
+# ============================================================
 
 
 class FinalBillUpdate(BaseModel):
@@ -79,6 +121,46 @@ class FinalBillUpdate(BaseModel):
     payment_terms: str | None = None
     delivery_terms: str | None = None
     notes: str | None = None
+
+
+# ============================================================
+# UPDATE DRAFT FINAL BILL ITEM
+# ============================================================
+
+
+class FinalBillItemUpdate(BaseModel):
+
+    description: str | None = None
+    hsn_code: str | None = None
+
+    quantity: Decimal | None = Field(
+        default=None,
+        gt=0,
+    )
+
+    unit: str | None = None
+
+    unit_price: Decimal | None = Field(
+        default=None,
+        ge=0,
+    )
+
+    discount_percent: Decimal | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+    gst_percent: Decimal | None = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
+
+
+# ============================================================
+# FINAL BILL RESPONSE
+# ============================================================
 
 
 class FinalBillResponse(BaseModel):
@@ -123,7 +205,9 @@ class FinalBillResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    items: list[FinalBillItemResponse]
+    items: list[
+        FinalBillItemResponse
+    ]
 
     model_config = ConfigDict(
         from_attributes=True
