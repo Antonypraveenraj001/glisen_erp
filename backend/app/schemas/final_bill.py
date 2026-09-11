@@ -117,6 +117,18 @@ class FinalBillRevisionCreate(
 
 
 # ============================================================
+# CREATE CREDIT NOTE
+# ============================================================
+
+
+class FinalBillCreditNoteCreate(
+    BaseModel
+):
+    invoice_date: date | None = None
+    notes: str | None = None
+
+
+# ============================================================
 # UPDATE FINAL BILL HEADER
 # ============================================================
 

@@ -51,6 +51,7 @@ class FinalBillService:
         proforma: Proforma,
         invoice_date: date,
     ) -> str:
+
         return (
             f"INV-{invoice_date.year}-"
             f"{proforma.id:05d}"
@@ -166,9 +167,11 @@ class FinalBillService:
         item.cgst_amount = Decimal(
             "0.00"
         )
+
         item.sgst_amount = Decimal(
             "0.00"
         )
+
         item.igst_amount = Decimal(
             "0.00"
         )
@@ -356,6 +359,7 @@ class FinalBillService:
         ]
 
         if incomplete_orders:
+
             numbers = ", ".join(
                 order.production_number
                 for order in incomplete_orders
@@ -570,14 +574,30 @@ class FinalBillService:
                     if notes is not None
                     else proforma.notes
                 ),
-                subtotal=Decimal("0.00"),
-                discount_amount=Decimal("0.00"),
-                taxable_amount=Decimal("0.00"),
-                cgst_amount=Decimal("0.00"),
-                sgst_amount=Decimal("0.00"),
-                igst_amount=Decimal("0.00"),
-                tax_amount=Decimal("0.00"),
-                grand_total=Decimal("0.00"),
+                subtotal=Decimal(
+                    "0.00"
+                ),
+                discount_amount=Decimal(
+                    "0.00"
+                ),
+                taxable_amount=Decimal(
+                    "0.00"
+                ),
+                cgst_amount=Decimal(
+                    "0.00"
+                ),
+                sgst_amount=Decimal(
+                    "0.00"
+                ),
+                igst_amount=Decimal(
+                    "0.00"
+                ),
+                tax_amount=Decimal(
+                    "0.00"
+                ),
+                grand_total=Decimal(
+                    "0.00"
+                ),
                 invoice_type="Tax Invoice",
                 status="Draft",
                 revision_number=0,
@@ -626,6 +646,7 @@ class FinalBillService:
                     proforma_item.product_id
                     is not None
                 ):
+
                     product = (
                         db.query(Product)
                         .filter(
@@ -793,6 +814,7 @@ class FinalBillService:
                     field_name
                     in allowed_fields
                 ):
+
                     setattr(
                         final_bill,
                         field_name,
@@ -959,9 +981,9 @@ class FinalBillService:
         except Exception:
             db.rollback()
             raise
-        
+
     # ============================================================
-    # ISSUE FINAL BILL
+    # ISSUE FINAL BILL / REVISION / CREDIT NOTE
     # ============================================================
 
     @staticmethod
@@ -1048,6 +1070,118 @@ class FinalBillService:
                 final_bill=final_bill,
             )
 
+            # ====================================================
+            # CREDIT NOTE ISSUE VALIDATION
+            # ====================================================
+
+            if (
+                final_bill.invoice_type
+                or ""
+            ).strip().lower() == "credit note":
+
+                if final_bill.parent_invoice_id is None:
+                    raise ValueError(
+                        "Credit Note must reference "
+                        "an original invoice."
+                    )
+
+                source_bill = (
+                    db.query(FinalBill)
+                    .filter(
+                        FinalBill.id
+                        == final_bill.parent_invoice_id
+                    )
+                    .with_for_update()
+                    .first()
+                )
+
+                if source_bill is None:
+                    raise ValueError(
+                        "Source invoice for Credit Note "
+                        "was not found."
+                    )
+
+                if (
+                    source_bill.status
+                    or ""
+                ).strip().lower() != "issued":
+                    raise ValueError(
+                        "Credit Note can be issued only "
+                        "against an Issued invoice."
+                    )
+
+                if (
+                    source_bill.invoice_type
+                    or ""
+                ).strip().lower() == "credit note":
+                    raise ValueError(
+                        "Credit Note cannot reference "
+                        "another Credit Note."
+                    )
+
+                credit_note_total = (
+                    FinalBillService.decimal(
+                        final_bill.grand_total
+                    )
+                )
+
+                if (
+                    credit_note_total
+                    <= Decimal("0.00")
+                ):
+                    raise ValueError(
+                        "Credit Note amount must be "
+                        "greater than zero."
+                    )
+
+                issued_credit_notes = (
+                    db.query(FinalBill)
+                    .filter(
+                        FinalBill.parent_invoice_id
+                        == source_bill.id,
+                        FinalBill.invoice_type
+                        == "Credit Note",
+                        FinalBill.status
+                        == "Issued",
+                        FinalBill.id
+                        != final_bill.id,
+                    )
+                    .all()
+                )
+
+                already_credited = sum(
+                    (
+                        FinalBillService.decimal(
+                            credit_note.grand_total
+                        )
+                        for credit_note
+                        in issued_credit_notes
+                    ),
+                    Decimal("0.00"),
+                )
+
+                source_total = (
+                    FinalBillService.decimal(
+                        source_bill.grand_total
+                    )
+                )
+
+                remaining_credit = (
+                    source_total
+                    - already_credited
+                )
+
+                if (
+                    credit_note_total
+                    > remaining_credit
+                ):
+                    raise ValueError(
+                        "Credit Note amount exceeds "
+                        "the remaining creditable "
+                        f"invoice amount of "
+                        f"{FinalBillService.money(remaining_credit)}."
+                    )
+
             final_bill.status = "Issued"
 
             db.commit()
@@ -1066,7 +1200,7 @@ class FinalBillService:
             db.rollback()
             raise
 
-        # ============================================================
+    # ============================================================
     # CREATE REVISED FINAL BILL
     # ============================================================
 
@@ -1114,6 +1248,15 @@ class FinalBillService:
                     "can be revised."
                 )
 
+            if (
+                source_bill.invoice_type
+                or ""
+            ).strip().lower() == "credit note":
+                raise ValueError(
+                    "A Credit Note cannot be revised "
+                    "as a Final Bill revision."
+                )
+
             if not source_bill.items:
                 raise ValueError(
                     "Final Bill cannot be revised "
@@ -1152,6 +1295,8 @@ class FinalBillService:
                 .filter(
                     FinalBill.parent_invoice_id
                     == root_invoice_id,
+                    FinalBill.invoice_type
+                    == "Revised Invoice",
                     FinalBill.status
                     == "Draft",
                 )
@@ -1172,7 +1317,9 @@ class FinalBillService:
                 db.query(FinalBill)
                 .filter(
                     FinalBill.parent_invoice_id
-                    == root_invoice_id
+                    == root_invoice_id,
+                    FinalBill.invoice_type
+                    == "Revised Invoice",
                 )
                 .all()
             )
@@ -1389,10 +1536,6 @@ class FinalBillService:
                 final_bill=revised_bill,
             )
 
-            # ====================================================
-            # SINGLE TRANSACTION
-            # ====================================================
-
             db.commit()
 
             return (
@@ -1401,6 +1544,307 @@ class FinalBillService:
                     db=db,
                     final_bill_id=(
                         revised_bill.id
+                    ),
+                )
+            )
+
+        except Exception:
+            db.rollback()
+            raise
+
+    # ============================================================
+    # CREATE CREDIT NOTE
+    # ============================================================
+
+    @staticmethod
+    def create_credit_note(
+        db: Session,
+        final_bill_id: int,
+        created_by: int,
+        invoice_date: date | None = None,
+        notes: str | None = None,
+    ) -> FinalBill:
+
+        try:
+
+            # ====================================================
+            # SOURCE INVOICE
+            # ====================================================
+
+            source_bill = (
+                db.query(FinalBill)
+                .options(
+                    joinedload(
+                        FinalBill.items
+                    )
+                )
+                .filter(
+                    FinalBill.id
+                    == final_bill_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if source_bill is None:
+                raise ValueError(
+                    "Final Bill not found."
+                )
+
+            if (
+                source_bill.status
+                or ""
+            ).strip().lower() != "issued":
+                raise ValueError(
+                    "Credit Note can be created "
+                    "only from an Issued invoice."
+                )
+
+            if (
+                source_bill.invoice_type
+                or ""
+            ).strip().lower() == "credit note":
+                raise ValueError(
+                    "A Credit Note cannot be created "
+                    "from another Credit Note."
+                )
+
+            if not source_bill.items:
+                raise ValueError(
+                    "Credit Note cannot be created "
+                    "because the source invoice "
+                    "has no items."
+                )
+
+            # ====================================================
+            # BLOCK MULTIPLE OPEN DRAFT CREDIT NOTES
+            # ====================================================
+
+            existing_draft = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.parent_invoice_id
+                    == source_bill.id,
+                    FinalBill.invoice_type
+                    == "Credit Note",
+                    FinalBill.status
+                    == "Draft",
+                )
+                .first()
+            )
+
+            if existing_draft:
+                raise ValueError(
+                    "A Draft Credit Note already "
+                    "exists for this invoice."
+                )
+
+            # ====================================================
+            # GENERATE CREDIT NOTE NUMBER
+            # ====================================================
+
+            sequence = 1
+
+            while True:
+
+                credit_note_number = (
+                    f"{source_bill.invoice_number}"
+                    f"-CN{sequence}"
+                )
+
+                duplicate = (
+                    db.query(FinalBill)
+                    .filter(
+                        FinalBill.invoice_number
+                        == credit_note_number
+                    )
+                    .first()
+                )
+
+                if duplicate is None:
+                    break
+
+                sequence += 1
+
+            credit_note_date = (
+                invoice_date
+                or date.today()
+            )
+
+            # ====================================================
+            # CREATE CREDIT NOTE HEADER
+            # ====================================================
+
+            credit_note = FinalBill(
+                invoice_number=(
+                    credit_note_number
+                ),
+                invoice_date=(
+                    credit_note_date
+                ),
+                proforma_id=(
+                    source_bill.proforma_id
+                ),
+                customer_id=(
+                    source_bill.customer_id
+                ),
+                company_name=(
+                    source_bill.company_name
+                ),
+                contact_person=(
+                    source_bill.contact_person
+                ),
+                phone=(
+                    source_bill.phone
+                ),
+                email=(
+                    source_bill.email
+                ),
+                gst_number=(
+                    source_bill.gst_number
+                ),
+                billing_address=(
+                    source_bill.billing_address
+                ),
+                shipping_address=(
+                    source_bill.shipping_address
+                ),
+                payment_terms=(
+                    source_bill.payment_terms
+                ),
+                delivery_terms=(
+                    source_bill.delivery_terms
+                ),
+                notes=(
+                    notes
+                    if notes is not None
+                    else source_bill.notes
+                ),
+                subtotal=Decimal(
+                    "0.00"
+                ),
+                discount_amount=Decimal(
+                    "0.00"
+                ),
+                taxable_amount=Decimal(
+                    "0.00"
+                ),
+                cgst_amount=Decimal(
+                    "0.00"
+                ),
+                sgst_amount=Decimal(
+                    "0.00"
+                ),
+                igst_amount=Decimal(
+                    "0.00"
+                ),
+                tax_amount=Decimal(
+                    "0.00"
+                ),
+                grand_total=Decimal(
+                    "0.00"
+                ),
+                invoice_type="Credit Note",
+                status="Draft",
+                revision_number=0,
+                parent_invoice_id=(
+                    source_bill.id
+                ),
+                created_by=created_by,
+            )
+
+            db.add(
+                credit_note
+            )
+
+            db.flush()
+
+            # ====================================================
+            # COPY SOURCE ITEMS
+            # ====================================================
+
+            for source_item in (
+                source_bill.items
+            ):
+
+                credit_item = FinalBillItem(
+                    final_bill_id=(
+                        credit_note.id
+                    ),
+                    product_id=(
+                        source_item.product_id
+                    ),
+                    description=(
+                        source_item.description
+                    ),
+                    hsn_code=(
+                        source_item.hsn_code
+                    ),
+                    quantity=(
+                        source_item.quantity
+                    ),
+                    unit=(
+                        source_item.unit
+                    ),
+                    unit_price=(
+                        source_item.unit_price
+                    ),
+                    discount_percent=(
+                        source_item.discount_percent
+                    ),
+                    discount_amount=Decimal(
+                        "0.00"
+                    ),
+                    taxable_amount=Decimal(
+                        "0.00"
+                    ),
+                    gst_percent=(
+                        source_item.gst_percent
+                    ),
+                    cgst_amount=Decimal(
+                        "0.00"
+                    ),
+                    sgst_amount=Decimal(
+                        "0.00"
+                    ),
+                    igst_amount=Decimal(
+                        "0.00"
+                    ),
+                    tax_amount=Decimal(
+                        "0.00"
+                    ),
+                    line_total=Decimal(
+                        "0.00"
+                    ),
+                )
+
+                FinalBillService.calculate_item_totals(
+                    credit_item
+                )
+
+                db.add(
+                    credit_item
+                )
+
+            db.flush()
+
+            # ====================================================
+            # RECALCULATE CREDIT NOTE TOTALS
+            # ====================================================
+
+            FinalBillService.recalculate_bill_totals(
+                db=db,
+                final_bill=credit_note,
+            )
+
+            db.commit()
+
+            return (
+                FinalBillService
+                .get_by_id(
+                    db=db,
+                    final_bill_id=(
+                        credit_note.id
                     ),
                 )
             )

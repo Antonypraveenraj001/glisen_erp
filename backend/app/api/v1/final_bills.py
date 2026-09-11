@@ -14,6 +14,7 @@ from app.dependencies.database import get_db
 from app.models.user import User
 from app.schemas.final_bill import (
     FinalBillCreateFromProforma,
+    FinalBillCreditNoteCreate,
     FinalBillItemUpdate,
     FinalBillResponse,
     FinalBillRevisionCreate,
@@ -128,6 +129,47 @@ def create_revised_final_bill(
         return (
             FinalBillService
             .create_revision(
+                db=db,
+                final_bill_id=final_bill_id,
+                created_by=current_user.id,
+                invoice_date=data.invoice_date,
+                notes=data.notes,
+            )
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
+
+
+# ============================================================
+# CREATE CREDIT NOTE
+# ============================================================
+
+
+@router.post(
+    "/{final_bill_id}/credit-note",
+    response_model=FinalBillResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_credit_note(
+    final_bill_id: int,
+    data: FinalBillCreditNoteCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            *FINAL_BILL_WRITE_ROLES
+        )
+    ),
+):
+    try:
+        return (
+            FinalBillService
+            .create_credit_note(
                 db=db,
                 final_bill_id=final_bill_id,
                 created_by=current_user.id,
