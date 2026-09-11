@@ -959,6 +959,112 @@ class FinalBillService:
         except Exception:
             db.rollback()
             raise
+        
+    # ============================================================
+    # ISSUE FINAL BILL
+    # ============================================================
+
+    @staticmethod
+    def issue_final_bill(
+        db: Session,
+        final_bill_id: int,
+    ) -> FinalBill:
+
+        try:
+
+            final_bill = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.id
+                    == final_bill_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if final_bill is None:
+                raise ValueError(
+                    "Final Bill not found."
+                )
+
+            if (
+                final_bill.status
+                or ""
+            ).strip().lower() != "draft":
+                raise ValueError(
+                    "Only Draft Final Bills "
+                    "can be issued."
+                )
+
+            if not (
+                final_bill.company_name
+                or ""
+            ).strip():
+                raise ValueError(
+                    "Company name is required "
+                    "before issuing the Final Bill."
+                )
+
+            if final_bill.invoice_date is None:
+                raise ValueError(
+                    "Invoice date is required "
+                    "before issuing the Final Bill."
+                )
+
+            items = (
+                db.query(FinalBillItem)
+                .filter(
+                    FinalBillItem.final_bill_id
+                    == final_bill.id
+                )
+                .all()
+            )
+
+            if not items:
+                raise ValueError(
+                    "Final Bill cannot be issued "
+                    "without items."
+                )
+
+            for item in items:
+
+                if not (
+                    item.description
+                    or ""
+                ).strip():
+                    raise ValueError(
+                        "Every Final Bill item must "
+                        "have a description."
+                    )
+
+                FinalBillService.calculate_item_totals(
+                    item
+                )
+
+            db.flush()
+
+            FinalBillService.recalculate_bill_totals(
+                db=db,
+                final_bill=final_bill,
+            )
+
+            final_bill.status = "Issued"
+
+            db.commit()
+
+            return (
+                FinalBillService
+                .get_by_id(
+                    db=db,
+                    final_bill_id=(
+                        final_bill.id
+                    ),
+                )
+            )
+
+        except Exception:
+            db.rollback()
+            raise
 
     # ============================================================
     # GET BY ID

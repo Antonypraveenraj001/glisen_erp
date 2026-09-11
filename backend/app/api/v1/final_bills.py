@@ -144,6 +144,42 @@ def update_final_bill_item(
 
 
 # ============================================================
+# ISSUE FINAL BILL
+# ============================================================
+
+
+@router.patch(
+    "/{final_bill_id}/issue",
+    response_model=FinalBillResponse,
+)
+def issue_final_bill(
+    final_bill_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            *FINAL_BILL_WRITE_ROLES
+        )
+    ),
+):
+    try:
+        return (
+            FinalBillService
+            .issue_final_bill(
+                db=db,
+                final_bill_id=final_bill_id,
+            )
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
+
+
+# ============================================================
 # UPDATE DRAFT FINAL BILL HEADER
 # ============================================================
 
@@ -210,9 +246,7 @@ def get_final_bill(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail=(
-                "Final Bill not found."
-            ),
+            detail="Final Bill not found.",
         )
 
     return final_bill
