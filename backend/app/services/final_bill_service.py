@@ -1066,6 +1066,349 @@ class FinalBillService:
             db.rollback()
             raise
 
+        # ============================================================
+    # CREATE REVISED FINAL BILL
+    # ============================================================
+
+    @staticmethod
+    def create_revision(
+        db: Session,
+        final_bill_id: int,
+        created_by: int,
+        invoice_date: date | None = None,
+        notes: str | None = None,
+    ) -> FinalBill:
+
+        try:
+
+            # ====================================================
+            # SOURCE INVOICE
+            # ====================================================
+
+            source_bill = (
+                db.query(FinalBill)
+                .options(
+                    joinedload(
+                        FinalBill.items
+                    )
+                )
+                .filter(
+                    FinalBill.id
+                    == final_bill_id
+                )
+                .with_for_update()
+                .first()
+            )
+
+            if source_bill is None:
+                raise ValueError(
+                    "Final Bill not found."
+                )
+
+            if (
+                source_bill.status
+                or ""
+            ).strip().lower() != "issued":
+                raise ValueError(
+                    "Only Issued Final Bills "
+                    "can be revised."
+                )
+
+            if not source_bill.items:
+                raise ValueError(
+                    "Final Bill cannot be revised "
+                    "because it has no items."
+                )
+
+            # ====================================================
+            # ROOT INVOICE
+            # ====================================================
+
+            root_invoice_id = (
+                source_bill.parent_invoice_id
+                or source_bill.id
+            )
+
+            root_bill = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.id
+                    == root_invoice_id
+                )
+                .first()
+            )
+
+            if root_bill is None:
+                raise ValueError(
+                    "Original Final Bill not found."
+                )
+
+            # ====================================================
+            # BLOCK MULTIPLE OPEN DRAFT REVISIONS
+            # ====================================================
+
+            existing_draft_revision = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.parent_invoice_id
+                    == root_invoice_id,
+                    FinalBill.status
+                    == "Draft",
+                )
+                .first()
+            )
+
+            if existing_draft_revision:
+                raise ValueError(
+                    "A Draft revised invoice "
+                    "already exists for this Final Bill."
+                )
+
+            # ====================================================
+            # NEXT REVISION NUMBER
+            # ====================================================
+
+            revisions = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.parent_invoice_id
+                    == root_invoice_id
+                )
+                .all()
+            )
+
+            highest_revision = max(
+                [
+                    bill.revision_number
+                    for bill in revisions
+                ]
+                or [0]
+            )
+
+            next_revision_number = (
+                highest_revision
+                + 1
+            )
+
+            # ====================================================
+            # REVISION INVOICE NUMBER
+            # ====================================================
+
+            revision_invoice_number = (
+                f"{root_bill.invoice_number}"
+                f"-R{next_revision_number}"
+            )
+
+            duplicate_number = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.invoice_number
+                    == revision_invoice_number
+                )
+                .first()
+            )
+
+            if duplicate_number:
+                raise ValueError(
+                    "Generated revised invoice "
+                    "number already exists."
+                )
+
+            revision_invoice_date = (
+                invoice_date
+                or date.today()
+            )
+
+            # ====================================================
+            # CREATE REVISION HEADER
+            # ====================================================
+
+            revised_bill = FinalBill(
+                invoice_number=(
+                    revision_invoice_number
+                ),
+                invoice_date=(
+                    revision_invoice_date
+                ),
+                proforma_id=(
+                    source_bill.proforma_id
+                ),
+                customer_id=(
+                    source_bill.customer_id
+                ),
+                company_name=(
+                    source_bill.company_name
+                ),
+                contact_person=(
+                    source_bill.contact_person
+                ),
+                phone=(
+                    source_bill.phone
+                ),
+                email=(
+                    source_bill.email
+                ),
+                gst_number=(
+                    source_bill.gst_number
+                ),
+                billing_address=(
+                    source_bill.billing_address
+                ),
+                shipping_address=(
+                    source_bill.shipping_address
+                ),
+                payment_terms=(
+                    source_bill.payment_terms
+                ),
+                delivery_terms=(
+                    source_bill.delivery_terms
+                ),
+                notes=(
+                    notes
+                    if notes is not None
+                    else source_bill.notes
+                ),
+                subtotal=Decimal(
+                    "0.00"
+                ),
+                discount_amount=Decimal(
+                    "0.00"
+                ),
+                taxable_amount=Decimal(
+                    "0.00"
+                ),
+                cgst_amount=Decimal(
+                    "0.00"
+                ),
+                sgst_amount=Decimal(
+                    "0.00"
+                ),
+                igst_amount=Decimal(
+                    "0.00"
+                ),
+                tax_amount=Decimal(
+                    "0.00"
+                ),
+                grand_total=Decimal(
+                    "0.00"
+                ),
+                invoice_type=(
+                    "Revised Invoice"
+                ),
+                status="Draft",
+                revision_number=(
+                    next_revision_number
+                ),
+                parent_invoice_id=(
+                    root_invoice_id
+                ),
+                created_by=created_by,
+            )
+
+            db.add(
+                revised_bill
+            )
+
+            db.flush()
+
+            # ====================================================
+            # COPY ITEMS
+            # ====================================================
+
+            for source_item in (
+                source_bill.items
+            ):
+
+                revised_item = FinalBillItem(
+                    final_bill_id=(
+                        revised_bill.id
+                    ),
+                    product_id=(
+                        source_item.product_id
+                    ),
+                    description=(
+                        source_item.description
+                    ),
+                    hsn_code=(
+                        source_item.hsn_code
+                    ),
+                    quantity=(
+                        source_item.quantity
+                    ),
+                    unit=(
+                        source_item.unit
+                    ),
+                    unit_price=(
+                        source_item.unit_price
+                    ),
+                    discount_percent=(
+                        source_item.discount_percent
+                    ),
+                    discount_amount=Decimal(
+                        "0.00"
+                    ),
+                    taxable_amount=Decimal(
+                        "0.00"
+                    ),
+                    gst_percent=(
+                        source_item.gst_percent
+                    ),
+                    cgst_amount=Decimal(
+                        "0.00"
+                    ),
+                    sgst_amount=Decimal(
+                        "0.00"
+                    ),
+                    igst_amount=Decimal(
+                        "0.00"
+                    ),
+                    tax_amount=Decimal(
+                        "0.00"
+                    ),
+                    line_total=Decimal(
+                        "0.00"
+                    ),
+                )
+
+                FinalBillService.calculate_item_totals(
+                    revised_item
+                )
+
+                db.add(
+                    revised_item
+                )
+
+            db.flush()
+
+            # ====================================================
+            # RECALCULATE REVISION TOTALS
+            # ====================================================
+
+            FinalBillService.recalculate_bill_totals(
+                db=db,
+                final_bill=revised_bill,
+            )
+
+            # ====================================================
+            # SINGLE TRANSACTION
+            # ====================================================
+
+            db.commit()
+
+            return (
+                FinalBillService
+                .get_by_id(
+                    db=db,
+                    final_bill_id=(
+                        revised_bill.id
+                    ),
+                )
+            )
+
+        except Exception:
+            db.rollback()
+            raise
+
     # ============================================================
     # GET BY ID
     # ============================================================

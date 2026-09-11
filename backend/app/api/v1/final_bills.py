@@ -16,6 +16,7 @@ from app.schemas.final_bill import (
     FinalBillCreateFromProforma,
     FinalBillItemUpdate,
     FinalBillResponse,
+    FinalBillRevisionCreate,
     FinalBillUpdate,
 )
 from app.services.final_bill_service import (
@@ -101,6 +102,47 @@ def get_all_final_bills(
             db
         )
     )
+
+
+# ============================================================
+# CREATE REVISED FINAL BILL
+# ============================================================
+
+
+@router.post(
+    "/{final_bill_id}/revise",
+    response_model=FinalBillResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_revised_final_bill(
+    final_bill_id: int,
+    data: FinalBillRevisionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            *FINAL_BILL_WRITE_ROLES
+        )
+    ),
+):
+    try:
+        return (
+            FinalBillService
+            .create_revision(
+                db=db,
+                final_bill_id=final_bill_id,
+                created_by=current_user.id,
+                invoice_date=data.invoice_date,
+                notes=data.notes,
+            )
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
 
 
 # ============================================================

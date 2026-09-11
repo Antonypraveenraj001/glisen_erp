@@ -105,6 +105,18 @@ class FinalBillCreateFromProforma(
 
 
 # ============================================================
+# CREATE REVISED FINAL BILL
+# ============================================================
+
+
+class FinalBillRevisionCreate(
+    BaseModel
+):
+    invoice_date: date | None = None
+    notes: str | None = None
+
+
+# ============================================================
 # UPDATE FINAL BILL HEADER
 # ============================================================
 
