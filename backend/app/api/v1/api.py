@@ -3,6 +3,9 @@ from fastapi import APIRouter
 from app.api.v1.auth import (
     router as auth_router,
 )
+from app.api.v1.company_settings import (
+    router as company_settings_router,
+)
 from app.api.v1.customers import (
     router as customers_router,
 )
@@ -62,6 +65,10 @@ api_router.include_router(
 
 api_router.include_router(
     users_router
+)
+
+api_router.include_router(
+    company_settings_router
 )
 
 api_router.include_router(

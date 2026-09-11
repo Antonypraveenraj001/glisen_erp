@@ -10,6 +10,7 @@ from app.models.finished_goods_receipt import FinishedGoodsReceipt
 from app.models.product import Product
 from app.models.production_order import ProductionOrder
 from app.models.proforma import Proforma
+from app.models.company_settings import CompanySettings
 from app.schemas.final_bill import (
     FinalBillItemUpdate,
     FinalBillUpdate,
@@ -188,7 +189,7 @@ class FinalBillService:
             )
         )
 
-    # ============================================================
+        # ============================================================
     # RECALCULATE FINAL BILL TOTALS
     # ============================================================
 
@@ -213,6 +214,65 @@ class FinalBillService:
                 "at least one item."
             )
 
+        # ========================================================
+        # COMPANY GST CONFIGURATION
+        # ========================================================
+
+        company_settings = (
+            db.query(CompanySettings)
+            .first()
+        )
+
+        if company_settings is None:
+            raise ValueError(
+                "Company GST settings have not "
+                "been configured."
+            )
+
+        company_state_code = (
+            company_settings.state_code
+            or ""
+        ).strip()
+
+        if (
+            len(company_state_code) != 2
+            or not company_state_code.isdigit()
+        ):
+            raise ValueError(
+                "Company GST state code is invalid."
+            )
+
+        # ========================================================
+        # CUSTOMER GST STATE
+        # ========================================================
+
+        customer_gst_number = (
+            final_bill.gst_number
+            or ""
+        ).strip().upper()
+
+        if (
+            len(customer_gst_number) != 15
+            or not customer_gst_number[:2].isdigit()
+        ):
+            raise ValueError(
+                "Customer GST number is invalid "
+                "for GST calculation."
+            )
+
+        customer_state_code = (
+            customer_gst_number[:2]
+        )
+
+        is_intra_state = (
+            company_state_code
+            == customer_state_code
+        )
+
+        # ========================================================
+        # TOTALS
+        # ========================================================
+
         subtotal = Decimal("0.00")
         discount_total = Decimal("0.00")
         taxable_total = Decimal("0.00")
@@ -223,6 +283,64 @@ class FinalBillService:
         grand_total = Decimal("0.00")
 
         for item in items:
+
+            item_tax_amount = (
+                FinalBillService.money(
+                    item.tax_amount
+                )
+            )
+
+            # ====================================================
+            # GST SPLIT
+            # ====================================================
+
+            if is_intra_state:
+
+                cgst_amount = (
+                    FinalBillService.money(
+                        item_tax_amount
+                        / Decimal("2")
+                    )
+                )
+
+                # Keep total exactly equal to tax_amount,
+                # including any rounding difference.
+                sgst_amount = (
+                    FinalBillService.money(
+                        item_tax_amount
+                        - cgst_amount
+                    )
+                )
+
+                item.cgst_amount = (
+                    cgst_amount
+                )
+
+                item.sgst_amount = (
+                    sgst_amount
+                )
+
+                item.igst_amount = Decimal(
+                    "0.00"
+                )
+
+            else:
+
+                item.cgst_amount = Decimal(
+                    "0.00"
+                )
+
+                item.sgst_amount = Decimal(
+                    "0.00"
+                )
+
+                item.igst_amount = (
+                    item_tax_amount
+                )
+
+            # ====================================================
+            # BILL TOTALS
+            # ====================================================
 
             subtotal += (
                 FinalBillService.decimal(
@@ -264,9 +382,7 @@ class FinalBillService:
             )
 
             tax_total += (
-                FinalBillService.decimal(
-                    item.tax_amount
-                )
+                item_tax_amount
             )
 
             grand_total += (
@@ -1200,7 +1316,7 @@ class FinalBillService:
             db.rollback()
             raise
 
-    # ============================================================
+        # ============================================================
     # CREATE REVISED FINAL BILL
     # ============================================================
 
@@ -1278,6 +1394,7 @@ class FinalBillService:
                     FinalBill.id
                     == root_invoice_id
                 )
+                .with_for_update()
                 .first()
             )
 
@@ -1285,6 +1402,57 @@ class FinalBillService:
                 raise ValueError(
                     "Original Final Bill not found."
                 )
+
+            # ====================================================
+            # EXISTING REVISIONS
+            # ====================================================
+
+            revisions = (
+                db.query(FinalBill)
+                .filter(
+                    FinalBill.parent_invoice_id
+                    == root_invoice_id,
+                    FinalBill.invoice_type
+                    == "Revised Invoice",
+                )
+                .order_by(
+                    FinalBill.revision_number.asc()
+                )
+                .all()
+            )
+
+            # ====================================================
+            # ONLY LATEST VERSION MAY BE REVISED
+            # ====================================================
+
+            if revisions:
+
+                latest_revision = max(
+                    revisions,
+                    key=lambda bill: (
+                        bill.revision_number
+                    ),
+                )
+
+                if (
+                    source_bill.id
+                    != latest_revision.id
+                ):
+                    raise ValueError(
+                        "Only the latest Issued invoice "
+                        "revision can be revised."
+                    )
+
+            else:
+
+                if (
+                    source_bill.id
+                    != root_bill.id
+                ):
+                    raise ValueError(
+                        "Only the latest Issued invoice "
+                        "revision can be revised."
+                    )
 
             # ====================================================
             # BLOCK MULTIPLE OPEN DRAFT REVISIONS
@@ -1312,17 +1480,6 @@ class FinalBillService:
             # ====================================================
             # NEXT REVISION NUMBER
             # ====================================================
-
-            revisions = (
-                db.query(FinalBill)
-                .filter(
-                    FinalBill.parent_invoice_id
-                    == root_invoice_id,
-                    FinalBill.invoice_type
-                    == "Revised Invoice",
-                )
-                .all()
-            )
 
             highest_revision = max(
                 [
@@ -1459,7 +1616,7 @@ class FinalBillService:
             db.flush()
 
             # ====================================================
-            # COPY ITEMS
+            # COPY ITEMS FROM LATEST SOURCE VERSION
             # ====================================================
 
             for source_item in (
