@@ -48,6 +48,9 @@ from app.api.v1.suppliers import (
 from app.api.v1.users import (
     router as users_router,
 )
+from app.api.v1.gst_report import (
+    router as gst_report_router,
+)
 
 
 api_router = APIRouter(
@@ -117,4 +120,7 @@ api_router.include_router(
 
 api_router.include_router(
     stock_report_router
+)
+api_router.include_router(
+    gst_report_router
 )
