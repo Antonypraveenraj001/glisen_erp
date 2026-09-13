@@ -19,6 +19,7 @@ from app.models.shop_floor_issue import ShopFloorIssue
 from app.models.stock_movement import StockMovement
 from app.models.supplier import Supplier
 from app.models.user import User
+from app.models.expense import Expense
 
 
 __all__ = [
@@ -43,4 +44,5 @@ __all__ = [
     "PurchaseBillItem",
     "FinalBill",
     "FinalBillItem",
+    "Expense"
 ]
