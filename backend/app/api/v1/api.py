@@ -54,6 +54,9 @@ from app.api.v1.gst_report import (
 from app.api.v1.expenses import (
     router as expenses_router,
 )
+from app.api.v1.financial_analyzer import (
+    router as financial_analyzer_router,
+)
 
 api_router = APIRouter(
     prefix="/api/v1"
@@ -128,4 +131,7 @@ api_router.include_router(
 )
 api_router.include_router(
     expenses_router
+)
+api_router.include_router(
+    financial_analyzer_router
 )
