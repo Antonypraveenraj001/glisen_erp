@@ -19,16 +19,21 @@ import EnquiryList from "../pages/Enquiries/EnquiryList";
 
 import ProformaPage from "../pages/Proformas/ProformaPage";
 
+import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
+
+
 function DashboardPage() {
   return (
     <div>
       <h1>Glisen ERP Dashboard</h1>
+
       <p>
         Dashboard coming soon.
       </p>
     </div>
   );
 }
+
 
 export default function AppRouter() {
   return (
@@ -44,6 +49,7 @@ export default function AppRouter() {
           element={<Login />}
         />
 
+
         {/* =========================
             PROTECTED ROUTES
         ========================== */}
@@ -56,7 +62,9 @@ export default function AppRouter() {
           }
         >
 
-          {/* ROOT */}
+          {/* =========================
+              ROOT
+          ========================== */}
 
           <Route
             path="/"
@@ -68,7 +76,10 @@ export default function AppRouter() {
             }
           />
 
-          {/* DASHBOARD */}
+
+          {/* =========================
+              DASHBOARD
+          ========================== */}
 
           <Route
             path="/dashboard"
@@ -76,6 +87,7 @@ export default function AppRouter() {
               <DashboardPage />
             }
           />
+
 
           {/* =========================
               ENQUIRIES
@@ -87,6 +99,7 @@ export default function AppRouter() {
               <EnquiryList />
             }
           />
+
 
           {/* =========================
               PROFORMAS
@@ -112,6 +125,7 @@ export default function AppRouter() {
               <ProformaPage />
             }
           />
+
 
           {/* =========================
               PURCHASE BILLS
@@ -145,7 +159,20 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* =========================
+              FINANCIAL ANALYZER
+          ========================== */}
+
+          <Route
+            path="/financial"
+            element={
+              <FinancialAnalyzerPage />
+            }
+          />
+
         </Route>
+
 
         {/* =========================
             404
@@ -156,6 +183,7 @@ export default function AppRouter() {
           element={
             <div>
               <h1>404</h1>
+
               <p>
                 Page Not Found
               </p>
