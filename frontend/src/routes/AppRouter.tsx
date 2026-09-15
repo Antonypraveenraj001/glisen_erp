@@ -19,6 +19,8 @@ import EnquiryList from "../pages/Enquiries/EnquiryList";
 
 import ProformaPage from "../pages/Proformas/ProformaPage";
 
+import ProductPage from "../pages/products/ProductPage";
+
 import GSTReportPage from "../pages/gst/GSTReportPage";
 import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
 
@@ -157,6 +159,18 @@ export default function AppRouter() {
             path="/purchase-bills/:id"
             element={
               <PurchaseBillDetails />
+            }
+          />
+
+
+          {/* =========================
+              PRODUCTS
+          ========================== */}
+
+          <Route
+            path="/products"
+            element={
+              <ProductPage />
             }
           />
 
