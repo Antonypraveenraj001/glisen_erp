@@ -21,6 +21,7 @@ import ProformaPage from "../pages/Proformas/ProformaPage";
 
 import ProductPage from "../pages/products/ProductPage";
 import SupplierPage from "../pages/suppliers/SupplierPage";
+import CustomerPage from "../pages/customers/CustomerPage";
 
 import GSTReportPage from "../pages/gst/GSTReportPage";
 import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
@@ -184,6 +185,18 @@ export default function AppRouter() {
             path="/suppliers"
             element={
               <SupplierPage />
+            }
+          />
+
+
+          {/* =========================
+              CUSTOMERS
+          ========================== */}
+
+          <Route
+            path="/customers"
+            element={
+              <CustomerPage />
             }
           />
 
