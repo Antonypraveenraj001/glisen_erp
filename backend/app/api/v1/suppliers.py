@@ -1,15 +1,34 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+)
+
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import get_current_user, require_role
-from app.dependencies.database import get_db
+from app.dependencies.auth import (
+    get_current_user,
+    require_role,
+)
+
+from app.dependencies.database import (
+    get_db,
+)
+
 from app.models.user import User
+
 from app.schemas.supplier import (
     SupplierCreate,
     SupplierResponse,
     SupplierUpdate,
 )
-from app.services.supplier_service import SupplierService
+
+from app.services.supplier_service import (
+    SupplierService,
+)
+
 
 router = APIRouter(
     prefix="/suppliers",
@@ -34,8 +53,9 @@ def create_supplier(
     ),
 ):
     return SupplierService.create(
-        db,
-        supplier,
+        db=db,
+        supplier=supplier,
+        created_by=current_user.id,
     )
 
 
@@ -46,10 +66,15 @@ def create_supplier(
 def get_suppliers(
     search: str | None = Query(
         default=None,
-        description="Search by code, company, contact or phone",
+        description=(
+            "Search by code, company, "
+            "contact or phone"
+        ),
     ),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     return SupplierService.get_all(
         db,
@@ -64,7 +89,9 @@ def get_suppliers(
 def get_supplier(
     supplier_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     supplier = SupplierService.get_by_id(
         db,
@@ -73,7 +100,9 @@ def get_supplier(
 
     if supplier is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail="Supplier not found",
         )
 
@@ -96,15 +125,19 @@ def update_supplier(
         )
     ),
 ):
-    updated_supplier = SupplierService.update(
-        db=db,
-        supplier_id=supplier_id,
-        supplier_data=supplier,
+    updated_supplier = (
+        SupplierService.update(
+            db=db,
+            supplier_id=supplier_id,
+            supplier_data=supplier,
+        )
     )
 
     if updated_supplier is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail="Supplier not found",
         )
 
@@ -124,17 +157,23 @@ def deactivate_supplier(
         )
     ),
 ):
-    supplier = SupplierService.deactivate(
-        db,
-        supplier_id,
+    supplier = (
+        SupplierService.deactivate(
+            db,
+            supplier_id,
+        )
     )
 
     if supplier is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail="Supplier not found",
         )
 
     return {
-        "message": "Supplier deactivated successfully."
+        "message": (
+            "Supplier deactivated successfully."
+        )
     }

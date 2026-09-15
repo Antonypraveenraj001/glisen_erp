@@ -20,6 +20,7 @@ import EnquiryList from "../pages/Enquiries/EnquiryList";
 import ProformaPage from "../pages/Proformas/ProformaPage";
 
 import ProductPage from "../pages/products/ProductPage";
+import SupplierPage from "../pages/suppliers/SupplierPage";
 
 import GSTReportPage from "../pages/gst/GSTReportPage";
 import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
@@ -171,6 +172,18 @@ export default function AppRouter() {
             path="/products"
             element={
               <ProductPage />
+            }
+          />
+
+
+          {/* =========================
+              SUPPLIERS
+          ========================== */}
+
+          <Route
+            path="/suppliers"
+            element={
+              <SupplierPage />
             }
           />
 
