@@ -1,4 +1,9 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+  NavLink,
+  Outlet,
+  useNavigate,
+} from "react-router-dom";
+
 import {
   BarChart3,
   Boxes,
@@ -15,14 +20,50 @@ import {
   WalletCards,
 } from "lucide-react";
 
+import { useAuth } from "../context/AuthContext";
+
+
 interface MenuItem {
   label: string;
   path: string;
   icon: React.ReactNode;
 }
 
+
+function getInitials(
+  fullName?: string,
+  username?: string
+) {
+  const source =
+    fullName?.trim() ||
+    username?.trim() ||
+    "User";
+
+  const parts = source
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return (
+    parts[0][0] +
+    parts[parts.length - 1][0]
+  ).toUpperCase();
+}
+
+
 export default function MainLayout() {
   const navigate = useNavigate();
+
+  const {
+    user,
+    logout,
+  } = useAuth();
+
 
   const menuItems: MenuItem[] = [
     {
@@ -87,20 +128,44 @@ export default function MainLayout() {
     },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("user");
 
-    navigate("/login");
+  const handleLogout = () => {
+    logout();
+
+    navigate(
+      "/login",
+      {
+        replace: true,
+      }
+    );
   };
+
+
+  const displayName =
+    user?.full_name?.trim() ||
+    user?.username ||
+    "ERP User";
+
+  const displayRole =
+    user?.role ||
+    "Authenticated User";
+
+  const initials =
+    getInitials(
+      user?.full_name,
+      user?.username
+    );
+
 
   return (
     <div className="erp-shell">
+
       {/* =========================
           SIDEBAR
       ========================== */}
 
       <aside className="erp-sidebar">
+
         <div className="erp-brand">
           <div className="erp-brand-mark">
             G
@@ -117,12 +182,15 @@ export default function MainLayout() {
           </div>
         </div>
 
+
         <div className="erp-sidebar-section">
+
           <div className="erp-sidebar-label">
             WORKSPACE
           </div>
 
           <nav className="erp-navigation">
+
             {menuItems.map((item) => (
               <NavLink
                 key={item.path}
@@ -137,30 +205,40 @@ export default function MainLayout() {
                   {item.icon}
                 </span>
 
-                <span>{item.label}</span>
+                <span>
+                  {item.label}
+                </span>
               </NavLink>
             ))}
+
           </nav>
         </div>
 
+
         <div className="erp-sidebar-bottom">
+
           <button
             type="button"
             onClick={handleLogout}
             className="erp-logout-button"
           >
             <LogOut size={17} />
+
             Logout
           </button>
+
         </div>
       </aside>
+
 
       {/* =========================
           CONTENT
       ========================== */}
 
       <div className="erp-content-shell">
+
         <header className="erp-topbar">
+
           <div>
             <div className="erp-topbar-title">
               Glisen ERP
@@ -171,26 +249,33 @@ export default function MainLayout() {
             </div>
           </div>
 
+
           <div className="erp-user-area">
+
             <div className="erp-user-avatar">
-              U
+              {initials}
             </div>
 
             <div className="erp-user-details">
+
               <div className="erp-user-name">
-                ERP User
+                {displayName}
               </div>
 
               <div className="erp-user-role">
-                Authenticated User
+                {displayRole}
               </div>
+
             </div>
           </div>
+
         </header>
+
 
         <main className="erp-main-content">
           <Outlet />
         </main>
+
       </div>
     </div>
   );
