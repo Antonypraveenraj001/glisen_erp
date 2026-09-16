@@ -10,6 +10,8 @@ import MainLayout from "../layouts/MainLayout";
 
 import Login from "../pages/auth/Login";
 
+import DashboardPage from "../pages/dashboard/DashboardPage";
+
 import PurchaseBillList from "../pages/PurchaseBills/PurchaseBillList";
 import PurchaseBillScanner from "../pages/PurchaseBills/PurchaseBillScanner";
 import PurchaseBillReview from "../pages/PurchaseBills/PurchaseBillReview";
@@ -29,21 +31,6 @@ import FinalBillingPage from "../pages/finalBilling/FinalBillingPage";
 import GSTReportPage from "../pages/gst/GSTReportPage";
 import ExpensePage from "../pages/expenses/ExpensePage";
 import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
-
-
-function DashboardPage() {
-  return (
-    <div>
-      <h1>
-        Glisen ERP Dashboard
-      </h1>
-
-      <p>
-        Dashboard coming soon.
-      </p>
-    </div>
-  );
-}
 
 
 export default function AppRouter() {
