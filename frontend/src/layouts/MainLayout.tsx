@@ -13,6 +13,7 @@ import {
   Gauge,
   LogOut,
   Package,
+  PackageCheck,
   ReceiptText,
   Settings,
   ShoppingCart,
@@ -104,6 +105,19 @@ export default function MainLayout() {
 
     {
       label:
+        "Proformas",
+
+      path:
+        "/proformas",
+
+      icon:
+        <FileText
+          size={17}
+        />,
+    },
+
+    {
+      label:
         "Purchase Bills",
 
       path:
@@ -182,13 +196,13 @@ export default function MainLayout() {
 
     {
       label:
-        "Proformas",
+        "Finished Products",
 
       path:
-        "/proformas",
+        "/finished-products",
 
       icon:
-        <FileText
+        <PackageCheck
           size={17}
         />,
     },

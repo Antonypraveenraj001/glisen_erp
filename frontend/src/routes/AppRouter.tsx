@@ -25,7 +25,12 @@ import ProductPage from "../pages/products/ProductPage";
 import SupplierPage from "../pages/suppliers/SupplierPage";
 import CustomerPage from "../pages/customers/CustomerPage";
 import StockPage from "../pages/stock/StockPage";
+
 import ProductionPage from "../pages/production/ProductionPage";
+
+import FinishedProductsPage from "../pages/finishedProducts/FinishedProductsPage";
+import FinishedProductDetailPage from "../pages/finishedProducts/FinishedProductDetailPage";
+
 import FinalBillingPage from "../pages/finalBilling/FinalBillingPage";
 
 import GSTReportPage from "../pages/gst/GSTReportPage";
@@ -38,7 +43,9 @@ export default function AppRouter() {
     <BrowserRouter>
       <Routes>
 
-        {/* PUBLIC ROUTES */}
+        {/* =====================================================
+            PUBLIC ROUTES
+        ====================================================== */}
 
         <Route
           path="/login"
@@ -48,7 +55,9 @@ export default function AppRouter() {
         />
 
 
-        {/* PROTECTED ROUTES */}
+        {/* =====================================================
+            PROTECTED ROUTES
+        ====================================================== */}
 
         <Route
           element={
@@ -57,6 +66,10 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         >
+
+          {/* ===================================================
+              DEFAULT
+          ==================================================== */}
 
           <Route
             path="/"
@@ -69,6 +82,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ===================================================
+              DASHBOARD
+          ==================================================== */}
+
           <Route
             path="/dashboard"
             element={
@@ -77,6 +94,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ===================================================
+              ENQUIRIES
+          ==================================================== */}
+
           <Route
             path="/enquiries"
             element={
@@ -84,6 +105,10 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* ===================================================
+              PROFORMAS
+          ==================================================== */}
 
           <Route
             path="/proformas"
@@ -106,6 +131,10 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* ===================================================
+              PURCHASE BILLS
+          ==================================================== */}
 
           <Route
             path="/purchase-bills"
@@ -136,6 +165,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ===================================================
+              PRODUCTS
+          ==================================================== */}
+
           <Route
             path="/products"
             element={
@@ -143,6 +176,10 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* ===================================================
+              SUPPLIERS
+          ==================================================== */}
 
           <Route
             path="/suppliers"
@@ -152,6 +189,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ===================================================
+              CUSTOMERS
+          ==================================================== */}
+
           <Route
             path="/customers"
             element={
@@ -159,6 +200,10 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* ===================================================
+              STOCK
+          ==================================================== */}
 
           <Route
             path="/stock"
@@ -168,6 +213,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ===================================================
+              PRODUCTION
+          ==================================================== */}
+
           <Route
             path="/production"
             element={
@@ -175,6 +224,29 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* ===================================================
+              FINISHED PRODUCTS
+          ==================================================== */}
+
+          <Route
+            path="/finished-products"
+            element={
+              <FinishedProductsPage />
+            }
+          />
+
+          <Route
+            path="/finished-products/:id"
+            element={
+              <FinishedProductDetailPage />
+            }
+          />
+
+
+          {/* ===================================================
+              FINAL BILLING
+          ==================================================== */}
 
           <Route
             path="/final-billing"
@@ -184,6 +256,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ===================================================
+              GST
+          ==================================================== */}
+
           <Route
             path="/gst"
             element={
@@ -192,6 +268,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ===================================================
+              EXPENSES
+          ==================================================== */}
+
           <Route
             path="/expenses"
             element={
@@ -199,6 +279,10 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* ===================================================
+              FINANCIAL ANALYZER
+          ==================================================== */}
 
           <Route
             path="/financial"
@@ -209,6 +293,10 @@ export default function AppRouter() {
 
         </Route>
 
+
+        {/* =====================================================
+            404
+        ====================================================== */}
 
         <Route
           path="*"

@@ -18,6 +18,9 @@ from app.api.v1.final_bills import (
 from app.api.v1.finished_goods_receipts import (
     router as finished_goods_receipts_router,
 )
+from app.api.v1.finished_products import (
+    router as finished_products_router,
+)
 from app.api.v1.health import (
     router as health_router,
 )
@@ -57,6 +60,7 @@ from app.api.v1.expenses import (
 from app.api.v1.financial_analyzer import (
     router as financial_analyzer_router,
 )
+
 
 api_router = APIRouter(
     prefix="/api/v1"
@@ -120,18 +124,25 @@ api_router.include_router(
 )
 
 api_router.include_router(
+    finished_products_router
+)
+
+api_router.include_router(
     final_bills_router
 )
 
 api_router.include_router(
     stock_report_router
 )
+
 api_router.include_router(
     gst_report_router
 )
+
 api_router.include_router(
     expenses_router
 )
+
 api_router.include_router(
     financial_analyzer_router
 )

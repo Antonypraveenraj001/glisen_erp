@@ -15,6 +15,9 @@ from app.repositories.finished_goods_receipt import (
 from app.schemas.finished_goods_receipt import (
     FinishedGoodsReceiptCreate,
 )
+from app.services.finished_product import (
+    FinishedProductService,
+)
 
 
 class FinishedGoodsReceiptService:
@@ -26,6 +29,12 @@ class FinishedGoodsReceiptService:
 
         self.repository = (
             FinishedGoodsReceiptRepository(
+                db
+            )
+        )
+
+        self.finished_product_service = (
+            FinishedProductService(
                 db
             )
         )
@@ -53,7 +62,8 @@ class FinishedGoodsReceiptService:
         6. Record stock_before and stock_after.
         7. Create immutable FinishedGoodsReceipt history.
         8. Create immutable StockMovement ledger entry.
-        9. Commit everything together.
+        9. Create FinishedProduct traceability record.
+        10. Commit everything together.
 
         One Production Order may only be received once.
         """
@@ -104,7 +114,7 @@ class FinishedGoodsReceiptService:
                 )
 
             # ====================================================
-            # FINISHED PRODUCT
+            # FINISHED PRODUCT MASTER
             # ====================================================
 
             product = (
@@ -140,7 +150,7 @@ class FinishedGoodsReceiptService:
                 )
 
             # ====================================================
-            # STOCK MOVEMENT
+            # STOCK
             # ====================================================
 
             stock_before = Decimal(
@@ -179,7 +189,7 @@ class FinishedGoodsReceiptService:
             )
 
             # ====================================================
-            # RECEIPT HISTORY
+            # FINISHED GOODS RECEIPT HISTORY
             # ====================================================
 
             receipt = FinishedGoodsReceipt(
@@ -271,6 +281,16 @@ class FinishedGoodsReceiptService:
 
             self.db.add(
                 stock_movement
+            )
+
+            # ====================================================
+            # FINISHED PRODUCT TRACEABILITY
+            # ====================================================
+
+            self.finished_product_service.create_from_receipt(
+                production_order=production_order,
+                finished_goods_receipt=created_receipt,
+                created_by=received_by,
             )
 
             # ====================================================

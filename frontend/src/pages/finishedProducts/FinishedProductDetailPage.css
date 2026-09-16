@@ -1,0 +1,662 @@
+.fp-detail-page {
+    display: flex;
+    flex-direction: column;
+  
+    gap: 18px;
+  
+    width: 100%;
+  }
+  
+  
+  .fp-detail-back {
+    align-self: flex-start;
+  
+    display: inline-flex;
+    align-items: center;
+  
+    gap: 7px;
+  
+    padding: 0;
+  
+    border: 0;
+  
+    background: transparent;
+  
+    color: #607ba6;
+  
+    font: inherit;
+    font-size: 11px;
+    font-weight: 750;
+  
+    cursor: pointer;
+  }
+  
+  
+  .fp-detail-back:hover {
+    color: #3973df;
+  }
+  
+  
+  /* =========================================================
+     HERO
+  ========================================================= */
+  
+  .fp-detail-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  
+    gap: 28px;
+  
+    padding: 24px;
+  
+    border: 1px solid #dfe7f3;
+    border-radius: 16px;
+  
+    background:
+      linear-gradient(
+        135deg,
+        #ffffff,
+        #f2f6ff
+      );
+  
+    box-shadow:
+      0 10px 30px
+      rgba(54, 77, 112, 0.055);
+  }
+  
+  
+  .fp-detail-eyebrow {
+    margin-bottom: 7px;
+  
+    color: #3973df;
+  
+    font-size: 9px;
+    font-weight: 850;
+  
+    letter-spacing: 0.13em;
+  }
+  
+  
+  .fp-detail-hero h1 {
+    margin: 0;
+  
+    color: #13284d;
+  
+    font-size: 28px;
+    font-weight: 850;
+  
+    letter-spacing: -0.035em;
+  }
+  
+  
+  .fp-detail-product-name {
+    margin-top: 8px;
+  
+    color: #344f78;
+  
+    font-size: 15px;
+    font-weight: 750;
+  }
+  
+  
+  .fp-detail-product-meta {
+    margin-top: 7px;
+  
+    color: #8493aa;
+  
+    font-size: 10px;
+  }
+  
+  
+  .fp-detail-hero-badge {
+    display: flex;
+    align-items: center;
+  
+    gap: 12px;
+  
+    min-width: 190px;
+  
+    padding: 15px;
+  
+    border: 1px solid #d8e5f5;
+    border-radius: 12px;
+  
+    background: #ffffff;
+  
+    color: #3474df;
+  }
+  
+  
+  .fp-detail-hero-badge span {
+    display: block;
+  
+    color: #8293aa;
+  
+    font-size: 8px;
+    font-weight: 800;
+  
+    text-transform: uppercase;
+  }
+  
+  
+  .fp-detail-hero-badge strong {
+    display: block;
+  
+    margin-top: 5px;
+  
+    color: #20395e;
+  
+    font-size: 14px;
+  }
+  
+  
+  /* =========================================================
+     KPIs
+  ========================================================= */
+  
+  .fp-detail-kpi-grid {
+    display: grid;
+  
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr));
+  
+    gap: 12px;
+  }
+  
+  
+  .fp-detail-kpi-card {
+    display: flex;
+    align-items: center;
+  
+    gap: 12px;
+  
+    padding: 16px;
+  
+    border: 1px solid #e0e7f2;
+    border-radius: 13px;
+  
+    background: #ffffff;
+  }
+  
+  
+  .fp-detail-kpi-card.highlight {
+    border-color: #cbdcf5;
+  
+    background: #f2f6ff;
+  }
+  
+  
+  .fp-detail-kpi-icon,
+  .fp-detail-section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    flex: 0 0 auto;
+  
+    border-radius: 10px;
+  }
+  
+  
+  .fp-detail-kpi-icon {
+    width: 38px;
+    height: 38px;
+  }
+  
+  
+  .fp-detail-section-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  
+  .fp-detail-kpi-icon.blue,
+  .fp-detail-section-icon.blue {
+    background: #eaf2ff;
+    color: #3973df;
+  }
+  
+  
+  .fp-detail-kpi-icon.lavender,
+  .fp-detail-section-icon.lavender {
+    background: #f0edff;
+    color: #7466d9;
+  }
+  
+  
+  .fp-detail-kpi-icon.green,
+  .fp-detail-section-icon.green {
+    background: #eaf8f1;
+    color: #318766;
+  }
+  
+  
+  .fp-detail-kpi-icon.amber,
+  .fp-detail-section-icon.amber {
+    background: #fff4df;
+    color: #b8771c;
+  }
+  
+  
+  .fp-detail-kpi-card span {
+    display: block;
+  
+    margin-bottom: 5px;
+  
+    color: #8493aa;
+  
+    font-size: 8px;
+    font-weight: 800;
+  
+    text-transform: uppercase;
+  }
+  
+  
+  .fp-detail-kpi-card strong {
+    color: #1b3155;
+  
+    font-size: 15px;
+    font-weight: 850;
+  }
+  
+  
+  /* =========================================================
+     SECTIONS
+  ========================================================= */
+  
+  .fp-detail-section {
+    overflow: hidden;
+  
+    border: 1px solid #dfe7f3;
+    border-radius: 15px;
+  
+    background: #ffffff;
+  }
+  
+  
+  .fp-detail-section-header {
+    display: flex;
+    align-items: center;
+  
+    gap: 11px;
+  
+    padding: 17px 20px;
+  
+    border-bottom: 1px solid #e9eef5;
+  
+    background: #fbfcff;
+  }
+  
+  
+  .fp-detail-section-header h2 {
+    margin: 0;
+  
+    color: #203759;
+  
+    font-size: 13px;
+    font-weight: 820;
+  }
+  
+  
+  .fp-detail-section-header p {
+    margin: 4px 0 0;
+  
+    color: #8796ab;
+  
+    font-size: 9px;
+  }
+  
+  
+  /* =========================================================
+     BUSINESS INFO
+  ========================================================= */
+  
+  .fp-detail-info-grid {
+    display: grid;
+  
+    grid-template-columns:
+      repeat(5, minmax(0, 1fr));
+  
+    gap: 12px;
+  
+    padding: 18px 20px;
+  }
+  
+  
+  .fp-detail-info-card {
+    display: flex;
+    flex-direction: column;
+  
+    min-height: 128px;
+  
+    padding: 14px;
+  
+    border: 1px solid #e3e9f2;
+    border-radius: 11px;
+  
+    color: #61799e;
+  }
+  
+  
+  .fp-detail-info-card span {
+    margin-top: 12px;
+  
+    color: #8494aa;
+  
+    font-size: 8px;
+    font-weight: 800;
+  
+    text-transform: uppercase;
+  }
+  
+  
+  .fp-detail-info-card strong {
+    margin-top: 6px;
+  
+    color: #203759;
+  
+    font-size: 11px;
+  }
+  
+  
+  .fp-detail-info-card small {
+    margin-top: 5px;
+  
+    color: #8a99ae;
+  
+    font-size: 9px;
+  }
+  
+  
+  /* =========================================================
+     TABLES
+  ========================================================= */
+  
+  .fp-detail-table-wrap {
+    overflow-x: auto;
+  }
+  
+  
+  .fp-detail-table {
+    width: 100%;
+  
+    border-collapse: collapse;
+  }
+  
+  
+  .fp-detail-table th {
+    padding: 10px 14px;
+  
+    border-bottom: 1px solid #e5ebf3;
+  
+    background: #f7f9fd;
+  
+    color: #788aa6;
+  
+    font-size: 8px;
+    font-weight: 800;
+  
+    text-align: left;
+    text-transform: uppercase;
+  
+    white-space: nowrap;
+  }
+  
+  
+  .fp-detail-table td {
+    padding: 13px 14px;
+  
+    border-bottom: 1px solid #edf1f6;
+  
+    color: #4c6282;
+  
+    font-size: 10px;
+  
+    white-space: nowrap;
+  }
+  
+  
+  .fp-detail-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  
+  
+  .fp-detail-table strong {
+    display: block;
+  
+    color: #263c5e;
+  
+    font-size: 10px;
+    font-weight: 760;
+  }
+  
+  
+  .fp-detail-table small {
+    display: block;
+  
+    margin-top: 4px;
+  
+    color: #8d9bb0;
+  
+    font-size: 8px;
+  }
+  
+  
+  .fp-detail-empty {
+    padding: 26px !important;
+  
+    color: #8d9bb0 !important;
+  
+    text-align: center !important;
+  }
+  
+  
+  /* =========================================================
+     BILLING
+  ========================================================= */
+  
+  .fp-detail-effective-invoice {
+    display: grid;
+  
+    grid-template-columns:
+      2fr 1fr 1fr 1fr;
+  
+    gap: 1px;
+  
+    margin: 18px 20px;
+  
+    overflow: hidden;
+  
+    border: 1px solid #dfe7f2;
+    border-radius: 12px;
+  
+    background: #dfe7f2;
+  }
+  
+  
+  .fp-detail-effective-invoice > div {
+    padding: 15px;
+  
+    background: #ffffff;
+  }
+  
+  
+  .fp-detail-effective-invoice span {
+    display: block;
+  
+    color: #8494aa;
+  
+    font-size: 8px;
+    font-weight: 800;
+  
+    text-transform: uppercase;
+  }
+  
+  
+  .fp-detail-effective-invoice strong {
+    display: block;
+  
+    margin-top: 7px;
+  
+    color: #1f375a;
+  
+    font-size: 12px;
+    font-weight: 850;
+  }
+  
+  
+  .fp-detail-effective-invoice small {
+    display: block;
+  
+    margin-top: 5px;
+  
+    color: #8696ad;
+  
+    font-size: 8px;
+  }
+  
+  
+  .fp-detail-subheading {
+    margin: 18px 20px 10px;
+  
+    color: #344d72;
+  
+    font-size: 11px;
+    font-weight: 800;
+  }
+  
+  
+  .fp-detail-status {
+    display: inline-flex;
+  
+    padding: 4px 7px;
+  
+    border-radius: 999px;
+  
+    font-size: 7px;
+    font-weight: 850;
+  
+    text-transform: uppercase;
+  }
+  
+  
+  .fp-detail-status.green {
+    background: #e9f7ef;
+    color: #287657;
+  }
+  
+  
+  .fp-detail-status.amber {
+    background: #fff4dc;
+    color: #a66e18;
+  }
+  
+  
+  .fp-detail-status.blue {
+    background: #eaf2ff;
+    color: #3973df;
+  }
+  
+  
+  .fp-detail-empty-card {
+    margin: 18px 20px;
+  
+    padding: 18px;
+  
+    border: 1px solid #e2e9f3;
+    border-radius: 11px;
+  
+    background: #fafcff;
+  
+    color: #8494aa;
+  
+    font-size: 10px;
+  }
+  
+  
+  /* =========================================================
+     STATES
+  ========================================================= */
+  
+  .fp-detail-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    min-height: 420px;
+  
+    gap: 10px;
+  
+    color: #7387a6;
+  
+    font-size: 11px;
+  }
+  
+  
+  .fp-detail-spin {
+    animation:
+      fp-detail-spin
+      0.9s linear infinite;
+  }
+  
+  
+  @keyframes fp-detail-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  
+  .fp-detail-error {
+    padding: 16px;
+  
+    border: 1px solid #fecaca;
+    border-radius: 11px;
+  
+    background: #fff5f5;
+  
+    color: #b42318;
+  
+    font-size: 11px;
+  }
+  
+  
+  /* =========================================================
+     RESPONSIVE
+  ========================================================= */
+  
+  @media (
+    max-width: 1100px
+  ) {
+    .fp-detail-kpi-grid {
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+    }
+  
+    .fp-detail-info-grid {
+      grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+    }
+  }
+  
+  
+  @media (
+    max-width: 760px
+  ) {
+    .fp-detail-hero {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  
+    .fp-detail-kpi-grid,
+    .fp-detail-info-grid,
+    .fp-detail-effective-invoice {
+      grid-template-columns:
+        1fr;
+    }
+  
+    .fp-detail-hero-badge {
+      width: 100%;
+    }
+  }
