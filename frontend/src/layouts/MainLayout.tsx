@@ -112,6 +112,11 @@ export default function MainLayout() {
       icon: <FileText size={17} />,
     },
     {
+      label: "Final Billing",
+      path: "/final-billing",
+      icon: <ReceiptText size={17} />,
+    },
+    {
       label: "GST",
       path: "/gst",
       icon: <FileBarChart size={17} />,
