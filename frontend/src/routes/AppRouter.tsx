@@ -27,13 +27,16 @@ import ProductionPage from "../pages/production/ProductionPage";
 import FinalBillingPage from "../pages/finalBilling/FinalBillingPage";
 
 import GSTReportPage from "../pages/gst/GSTReportPage";
+import ExpensePage from "../pages/expenses/ExpensePage";
 import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
 
 
 function DashboardPage() {
   return (
     <div>
-      <h1>Glisen ERP Dashboard</h1>
+      <h1>
+        Glisen ERP Dashboard
+      </h1>
 
       <p>
         Dashboard coming soon.
@@ -52,7 +55,9 @@ export default function AppRouter() {
 
         <Route
           path="/login"
-          element={<Login />}
+          element={
+            <Login />
+          }
         />
 
 
@@ -201,6 +206,14 @@ export default function AppRouter() {
 
 
           <Route
+            path="/expenses"
+            element={
+              <ExpensePage />
+            }
+          />
+
+
+          <Route
             path="/financial"
             element={
               <FinancialAnalyzerPage />
@@ -214,7 +227,9 @@ export default function AppRouter() {
           path="*"
           element={
             <div>
-              <h1>404</h1>
+              <h1>
+                404
+              </h1>
 
               <p>
                 Page Not Found

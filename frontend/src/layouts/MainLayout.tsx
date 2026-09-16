@@ -20,7 +20,9 @@ import {
   WalletCards,
 } from "lucide-react";
 
-import { useAuth } from "../context/AuthContext";
+import {
+  useAuth,
+} from "../context/AuthContext";
 
 
 interface MenuItem {
@@ -39,11 +41,14 @@ function getInitials(
     username?.trim() ||
     "User";
 
-  const parts = source
-    .split(/\s+/)
-    .filter(Boolean);
+  const parts =
+    source
+      .split(/\s+/)
+      .filter(Boolean);
 
-  if (parts.length === 1) {
+  if (
+    parts.length === 1
+  ) {
     return parts[0]
       .slice(0, 2)
       .toUpperCase();
@@ -51,85 +56,206 @@ function getInitials(
 
   return (
     parts[0][0] +
-    parts[parts.length - 1][0]
+    parts[
+      parts.length - 1
+    ][0]
   ).toUpperCase();
 }
 
 
 export default function MainLayout() {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
   const {
     user,
     logout,
-  } = useAuth();
+  } =
+    useAuth();
 
 
-  const menuItems: MenuItem[] = [
+  const menuItems:
+  MenuItem[] = [
     {
-      label: "Dashboard",
-      path: "/dashboard",
-      icon: <Gauge size={17} />,
+      label:
+        "Dashboard",
+
+      path:
+        "/dashboard",
+
+      icon:
+        <Gauge
+          size={17}
+        />,
     },
+
     {
-      label: "Enquiries",
-      path: "/enquiries",
-      icon: <ClipboardList size={17} />,
+      label:
+        "Enquiries",
+
+      path:
+        "/enquiries",
+
+      icon:
+        <ClipboardList
+          size={17}
+        />,
     },
+
     {
-      label: "Purchase Bills",
-      path: "/purchase-bills",
-      icon: <ReceiptText size={17} />,
+      label:
+        "Purchase Bills",
+
+      path:
+        "/purchase-bills",
+
+      icon:
+        <ReceiptText
+          size={17}
+        />,
     },
+
     {
-      label: "Products",
-      path: "/products",
-      icon: <Package size={17} />,
+      label:
+        "Products",
+
+      path:
+        "/products",
+
+      icon:
+        <Package
+          size={17}
+        />,
     },
+
     {
-      label: "Suppliers",
-      path: "/suppliers",
-      icon: <ShoppingCart size={17} />,
+      label:
+        "Suppliers",
+
+      path:
+        "/suppliers",
+
+      icon:
+        <ShoppingCart
+          size={17}
+        />,
     },
+
     {
-      label: "Customers",
-      path: "/customers",
-      icon: <Users size={17} />,
+      label:
+        "Customers",
+
+      path:
+        "/customers",
+
+      icon:
+        <Users
+          size={17}
+        />,
     },
+
     {
-      label: "Stock",
-      path: "/stock",
-      icon: <Boxes size={17} />,
+      label:
+        "Stock",
+
+      path:
+        "/stock",
+
+      icon:
+        <Boxes
+          size={17}
+        />,
     },
+
     {
-      label: "Production",
-      path: "/production",
-      icon: <BarChart3 size={17} />,
+      label:
+        "Production",
+
+      path:
+        "/production",
+
+      icon:
+        <BarChart3
+          size={17}
+        />,
     },
+
     {
-      label: "Proformas",
-      path: "/proformas",
-      icon: <FileText size={17} />,
+      label:
+        "Proformas",
+
+      path:
+        "/proformas",
+
+      icon:
+        <FileText
+          size={17}
+        />,
     },
+
     {
-      label: "Final Billing",
-      path: "/final-billing",
-      icon: <ReceiptText size={17} />,
+      label:
+        "Final Billing",
+
+      path:
+        "/final-billing",
+
+      icon:
+        <ReceiptText
+          size={17}
+        />,
     },
+
     {
-      label: "GST",
-      path: "/gst",
-      icon: <FileBarChart size={17} />,
+      label:
+        "GST",
+
+      path:
+        "/gst",
+
+      icon:
+        <FileBarChart
+          size={17}
+        />,
     },
+
     {
-      label: "Financial",
-      path: "/financial",
-      icon: <WalletCards size={17} />,
+      label:
+        "Expenses",
+
+      path:
+        "/expenses",
+
+      icon:
+        <WalletCards
+          size={17}
+        />,
     },
+
     {
-      label: "Settings",
-      path: "/settings",
-      icon: <Settings size={17} />,
+      label:
+        "Financial",
+
+      path:
+        "/financial",
+
+      icon:
+        <WalletCards
+          size={17}
+        />,
+    },
+
+    {
+      label:
+        "Settings",
+
+      path:
+        "/settings",
+
+      icon:
+        <Settings
+          size={17}
+        />,
     },
   ];
 
@@ -172,11 +298,13 @@ export default function MainLayout() {
       <aside className="erp-sidebar">
 
         <div className="erp-brand">
+
           <div className="erp-brand-mark">
             G
           </div>
 
           <div>
+
             <div className="erp-brand-name">
               Glisen
             </div>
@@ -184,7 +312,9 @@ export default function MainLayout() {
             <div className="erp-brand-subtitle">
               ERP SYSTEM
             </div>
+
           </div>
+
         </div>
 
 
@@ -194,29 +324,49 @@ export default function MainLayout() {
             WORKSPACE
           </div>
 
+
           <nav className="erp-navigation">
 
-            {menuItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `erp-nav-link ${
-                    isActive ? "active" : ""
-                  }`
-                }
-              >
-                <span className="erp-nav-icon">
-                  {item.icon}
-                </span>
+            {menuItems.map(
+              (
+                item
+              ) => (
+                <NavLink
+                  key={
+                    item.path
+                  }
+                  to={
+                    item.path
+                  }
+                  className={({
+                    isActive,
+                  }) =>
+                    `erp-nav-link ${
+                      isActive
+                        ? "active"
+                        : ""
+                    }`
+                  }
+                >
 
-                <span>
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
+                  <span className="erp-nav-icon">
+                    {
+                      item.icon
+                    }
+                  </span>
+
+                  <span>
+                    {
+                      item.label
+                    }
+                  </span>
+
+                </NavLink>
+              )
+            )}
 
           </nav>
+
         </div>
 
 
@@ -224,15 +374,22 @@ export default function MainLayout() {
 
           <button
             type="button"
-            onClick={handleLogout}
+            onClick={
+              handleLogout
+            }
             className="erp-logout-button"
           >
-            <LogOut size={17} />
+
+            <LogOut
+              size={17}
+            />
 
             Logout
+
           </button>
 
         </div>
+
       </aside>
 
 
@@ -245,6 +402,7 @@ export default function MainLayout() {
         <header className="erp-topbar">
 
           <div>
+
             <div className="erp-topbar-title">
               Glisen ERP
             </div>
@@ -252,6 +410,7 @@ export default function MainLayout() {
             <div className="erp-topbar-subtitle">
               Manufacturing Management System
             </div>
+
           </div>
 
 
@@ -260,6 +419,7 @@ export default function MainLayout() {
             <div className="erp-user-avatar">
               {initials}
             </div>
+
 
             <div className="erp-user-details">
 
@@ -272,6 +432,7 @@ export default function MainLayout() {
               </div>
 
             </div>
+
           </div>
 
         </header>
@@ -282,6 +443,7 @@ export default function MainLayout() {
         </main>
 
       </div>
+
     </div>
   );
 }
