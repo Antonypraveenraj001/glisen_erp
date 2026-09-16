@@ -23,6 +23,7 @@ import ProductPage from "../pages/products/ProductPage";
 import SupplierPage from "../pages/suppliers/SupplierPage";
 import CustomerPage from "../pages/customers/CustomerPage";
 import StockPage from "../pages/stock/StockPage";
+import ProductionPage from "../pages/production/ProductionPage";
 
 import GSTReportPage from "../pages/gst/GSTReportPage";
 import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
@@ -210,6 +211,18 @@ export default function AppRouter() {
             path="/stock"
             element={
               <StockPage />
+            }
+          />
+
+
+          {/* =========================
+              PRODUCTION
+          ========================== */}
+
+          <Route
+            path="/production"
+            element={
+              <ProductionPage />
             }
           />
 
