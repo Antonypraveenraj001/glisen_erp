@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 
 from fastapi import HTTPException, status
@@ -7,6 +8,9 @@ from sqlalchemy.orm import Session
 from app.models.purchase_bill import PurchaseBill
 from app.models.purchase_bill_payment import (
     PurchaseBillPayment,
+)
+from app.repositories.purchase_bill_repository import (
+    PurchaseBillRepository,
 )
 from app.schemas.purchase_bill_payment import (
     PurchaseBillPaymentCreate,
@@ -92,9 +96,6 @@ class PurchaseBillPaymentService:
             )
         )
 
-        # Historical Purchase Bills created before
-        # payment tracking was introduced cannot
-        # automatically be classified as unpaid.
         if (
             due_date is None
             and paid_amount
@@ -232,6 +233,204 @@ class PurchaseBillPaymentService:
                 payments
             ),
         }
+
+    # ============================================================
+    # GET UNPAID AGING
+    # ============================================================
+
+    @staticmethod
+    def get_unpaid_aging(
+        db: Session,
+        as_of: datetime | None = None,
+    ):
+        """
+        Build the unpaid Purchase Bill aging list.
+
+        Only tracked Purchase Bills with an outstanding balance
+        are returned.
+
+        Historical bills with due_date = NULL are excluded.
+
+        days_unpaid:
+            number of calendar days since bill_date
+
+        overdue_days:
+            number of calendar days past due_date
+
+        is_overdue:
+            True only when as_of is later than due_date
+        """
+
+        if as_of is None:
+            as_of = datetime.now()
+
+        rows = (
+            PurchaseBillRepository
+            .get_unpaid_aging(
+                db=db,
+            )
+        )
+
+        result = []
+
+        for row in rows:
+
+            grand_total = (
+                PurchaseBillPaymentService
+                ._decimal(
+                    row.grand_total
+                )
+            )
+
+            paid_amount = (
+                PurchaseBillPaymentService
+                ._decimal(
+                    row.paid_amount
+                )
+            )
+
+            balance_amount = (
+                PurchaseBillPaymentService
+                ._decimal(
+                    row.balance_amount
+                )
+            )
+
+            bill_date = (
+                row.bill_date
+            )
+
+            due_date = (
+                row.due_date
+            )
+
+            # ====================================================
+            # DAYS UNPAID
+            # ====================================================
+
+            days_unpaid = (
+                as_of.date()
+                - bill_date.date()
+            ).days
+
+            if (
+                days_unpaid
+                < 0
+            ):
+                days_unpaid = 0
+
+            # ====================================================
+            # OVERDUE DAYS
+            # ====================================================
+
+            overdue_days = (
+                as_of.date()
+                - due_date.date()
+            ).days
+
+            if (
+                overdue_days
+                < 0
+            ):
+                overdue_days = 0
+
+            is_overdue = (
+                as_of.date()
+                > due_date.date()
+            )
+
+            # ====================================================
+            # PAYMENT STATUS
+            # ====================================================
+
+            payment_status = (
+                PurchaseBillPaymentService
+                .determine_payment_status(
+                    grand_total=(
+                        grand_total
+                    ),
+                    paid_amount=(
+                        paid_amount
+                    ),
+                    due_date=(
+                        due_date
+                    ),
+                )
+            )
+
+            # Safety:
+            # repository should already exclude paid bills,
+            # but do not return them if inconsistent data exists.
+            if (
+                balance_amount
+                <= Decimal("0.00")
+            ):
+                continue
+
+            if (
+                payment_status
+                == "Paid"
+            ):
+                continue
+
+            result.append(
+                {
+                    "purchase_bill_id": (
+                        row.purchase_bill_id
+                    ),
+                    "bill_number": (
+                        row.bill_number
+                    ),
+                    "supplier_id": (
+                        row.supplier_id
+                    ),
+                    "supplier_name": (
+                        row.supplier_name
+                    ),
+                    "bill_date": (
+                        bill_date
+                    ),
+                    "grand_total": (
+                        grand_total
+                    ),
+                    "paid_amount": (
+                        paid_amount
+                    ),
+                    "balance_amount": (
+                        balance_amount
+                    ),
+                    "payment_status": (
+                        payment_status
+                    ),
+                    "credit_days": int(
+                        row.credit_days
+                        or 0
+                    ),
+                    "due_date": (
+                        due_date
+                    ),
+                    "days_unpaid": (
+                        days_unpaid
+                    ),
+                    "overdue_days": (
+                        overdue_days
+                    ),
+                    "is_overdue": (
+                        is_overdue
+                    ),
+                }
+            )
+
+        # Highest number of unpaid days first.
+        result.sort(
+            key=lambda item: (
+                item["days_unpaid"],
+                item["purchase_bill_id"],
+            ),
+            reverse=True,
+        )
+
+        return result
 
     # ============================================================
     # RECORD PAYMENT
@@ -388,30 +587,28 @@ class PurchaseBillPaymentService:
             # CREATE PAYMENT
             # ====================================================
 
-            db_payment = (
-                PurchaseBillPayment(
-                    purchase_bill_id=(
-                        purchase_bill.id
-                    ),
-                    payment_date=(
-                        payment.payment_date
-                    ),
-                    amount=(
-                        payment_amount
-                    ),
-                    payment_mode=(
-                        payment.payment_mode
-                    ),
-                    reference_number=(
-                        payment.reference_number
-                    ),
-                    notes=(
-                        payment.notes
-                    ),
-                    created_by=(
-                        created_by
-                    ),
-                )
+            db_payment = PurchaseBillPayment(
+                purchase_bill_id=(
+                    purchase_bill.id
+                ),
+                payment_date=(
+                    payment.payment_date
+                ),
+                amount=(
+                    payment_amount
+                ),
+                payment_mode=(
+                    payment.payment_mode
+                ),
+                reference_number=(
+                    payment.reference_number
+                ),
+                notes=(
+                    payment.notes
+                ),
+                created_by=(
+                    created_by
+                ),
             )
 
             db.add(

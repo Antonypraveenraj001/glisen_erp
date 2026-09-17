@@ -26,6 +26,7 @@ from app.schemas.purchase_bill_payment import (
     PurchaseBillPaymentCreate,
     PurchaseBillPaymentResponse,
     PurchaseBillPaymentSummaryResponse,
+    PurchaseBillUnpaidAgingResponse,
 )
 from app.services.purchase_bill_payment_service import (
     PurchaseBillPaymentService,
@@ -81,8 +82,11 @@ def get_purchase_bill_statistics(
         get_current_user
     ),
 ):
-    return PurchaseBillRepository.get_statistics(
-        db,
+    return (
+        PurchaseBillRepository
+        .get_statistics(
+            db,
+        )
     )
 
 
@@ -92,7 +96,9 @@ def get_purchase_bill_statistics(
 
 @router.get(
     "",
-    response_model=list[PurchaseBillResponse],
+    response_model=list[
+        PurchaseBillResponse
+    ],
 )
 def get_purchase_bills(
     search: str | None = Query(
@@ -107,9 +113,45 @@ def get_purchase_bills(
         get_current_user
     ),
 ):
-    return PurchaseBillRepository.get_all(
-        db,
-        search,
+    return (
+        PurchaseBillRepository
+        .get_all(
+            db,
+            search,
+        )
+    )
+
+
+# ================================================================
+# UNPAID PURCHASE BILL AGING
+# ================================================================
+
+@router.get(
+    "/unpaid-aging",
+    response_model=list[
+        PurchaseBillUnpaidAgingResponse
+    ],
+)
+def get_unpaid_purchase_bill_aging(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+    """
+    Return tracked active Purchase Bills that still
+    have an outstanding supplier balance.
+
+    Legacy bills with no due date are excluded.
+
+    Results are sorted by highest days unpaid first.
+    """
+
+    return (
+        PurchaseBillPaymentService
+        .get_unpaid_aging(
+            db=db,
+        )
     )
 
 
@@ -119,7 +161,9 @@ def get_purchase_bills(
 
 @router.get(
     "/{purchase_bill_id}/payment-summary",
-    response_model=PurchaseBillPaymentSummaryResponse,
+    response_model=(
+        PurchaseBillPaymentSummaryResponse
+    ),
 )
 def get_purchase_bill_payment_summary(
     purchase_bill_id: int,
@@ -157,8 +201,12 @@ def get_purchase_bill_payment_summary(
 
 @router.post(
     "/{purchase_bill_id}/payments",
-    response_model=PurchaseBillPaymentResponse,
-    status_code=status.HTTP_201_CREATED,
+    response_model=(
+        PurchaseBillPaymentResponse
+    ),
+    status_code=(
+        status.HTTP_201_CREATED
+    ),
 )
 def create_purchase_bill_payment(
     purchase_bill_id: int,
@@ -179,7 +227,9 @@ def create_purchase_bill_payment(
                 purchase_bill_id
             ),
             payment=payment,
-            created_by=current_user.id,
+            created_by=(
+                current_user.id
+            ),
         )
     )
 
@@ -201,7 +251,8 @@ def get_purchase_bill(
 ):
 
     purchase_bill = (
-        PurchaseBillRepository.get_by_id(
+        PurchaseBillRepository
+        .get_by_id(
             db,
             purchase_bill_id,
         )
@@ -241,7 +292,8 @@ def update_purchase_bill(
 ):
 
     updated_purchase_bill = (
-        PurchaseBillService.update(
+        PurchaseBillService
+        .update(
             db=db,
             purchase_bill_id=(
                 purchase_bill_id
@@ -284,7 +336,8 @@ def deactivate_purchase_bill(
 ):
 
     purchase_bill = (
-        PurchaseBillService.deactivate(
+        PurchaseBillService
+        .deactivate(
             db=db,
             purchase_bill_id=(
                 purchase_bill_id
