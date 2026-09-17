@@ -10,7 +10,11 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.database.base import Base
 
@@ -32,7 +36,9 @@ class PurchaseBill(Base):
     )
 
     supplier_id: Mapped[int] = mapped_column(
-        ForeignKey("suppliers.id"),
+        ForeignKey(
+            "suppliers.id",
+        ),
         nullable=False,
     )
 
@@ -40,6 +46,27 @@ class PurchaseBill(Base):
         DateTime,
         nullable=False,
     )
+
+    # ========================================================
+    # SUPPLIER CREDIT TERMS
+    # ========================================================
+
+    credit_days: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    due_date: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+        index=True,
+    )
+
+    # ========================================================
+    # BILL VALUES
+    # ========================================================
 
     subtotal: Mapped[float] = mapped_column(
         Numeric(12, 2),
@@ -68,7 +95,9 @@ class PurchaseBill(Base):
     )
 
     created_by: Mapped[int] = mapped_column(
-        ForeignKey("users.id"),
+        ForeignKey(
+            "users.id",
+        ),
         nullable=False,
     )
 
@@ -83,6 +112,10 @@ class PurchaseBill(Base):
         onupdate=func.now(),
     )
 
+    # ========================================================
+    # RELATIONSHIPS
+    # ========================================================
+
     supplier = relationship(
         "Supplier",
     )
@@ -95,4 +128,12 @@ class PurchaseBill(Base):
         "PurchaseBillItem",
         back_populates="purchase_bill",
         cascade="all, delete-orphan",
+    )
+
+    payments = relationship(
+        "PurchaseBillPayment",
+        back_populates="purchase_bill",
+        order_by=(
+            "PurchaseBillPayment.payment_date"
+        ),
     )

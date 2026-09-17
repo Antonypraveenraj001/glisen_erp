@@ -15,6 +15,7 @@ from app.models.proforma import Proforma
 from app.models.proforma_item import ProformaItem
 from app.models.purchase_bill import PurchaseBill
 from app.models.purchase_bill_item import PurchaseBillItem
+from app.models.purchase_bill_payment import PurchaseBillPayment
 from app.models.role import Role
 from app.models.role_permission import RolePermission
 from app.models.shop_floor_issue import ShopFloorIssue
@@ -44,6 +45,7 @@ __all__ = [
     "StockMovement",
     "PurchaseBill",
     "PurchaseBillItem",
+    "PurchaseBillPayment",
     "FinalBill",
     "FinalBillItem",
     "Expense",

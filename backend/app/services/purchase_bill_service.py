@@ -1,11 +1,14 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.product import Product
 from app.models.purchase_bill import PurchaseBill
 from app.models.purchase_bill_item import PurchaseBillItem
+from app.models.purchase_bill_payment import PurchaseBillPayment
 from app.models.stock_movement import StockMovement
 from app.repositories.purchase_bill_repository import (
     PurchaseBillRepository,
@@ -36,6 +39,9 @@ class PurchaseBillService:
 
         Purchase Bill, items, stock changes and stock ledger
         movements are committed together in one transaction.
+
+        Due date is calculated automatically from:
+        bill_date + credit_days.
         """
 
         try:
@@ -98,6 +104,22 @@ class PurchaseBillService:
                 )
 
             # ====================================================
+            # CREDIT TERMS
+            # ====================================================
+
+            credit_days = int(
+                purchase_bill.credit_days
+                or 0
+            )
+
+            due_date = (
+                purchase_bill.bill_date
+                + timedelta(
+                    days=credit_days
+                )
+            )
+
+            # ====================================================
             # CREATE BILL
             # ====================================================
 
@@ -110,6 +132,12 @@ class PurchaseBillService:
                 ),
                 bill_date=(
                     purchase_bill.bill_date
+                ),
+                credit_days=(
+                    credit_days
+                ),
+                due_date=(
+                    due_date
                 ),
                 subtotal=(
                     purchase_bill.subtotal
@@ -266,7 +294,9 @@ class PurchaseBillService:
                     product_id=(
                         item.product_id
                     ),
-                    quantity=quantity,
+                    quantity=(
+                        quantity
+                    ),
                     purchase_price=(
                         purchase_price
                     ),
@@ -276,7 +306,9 @@ class PurchaseBillService:
                     line_total=(
                         line_total
                     ),
-                    created_by=created_by,
+                    created_by=(
+                        created_by
+                    ),
                 )
 
                 db.add(
@@ -295,7 +327,7 @@ class PurchaseBillService:
                     stock_after
                 )
 
-                # Keep latest purchase price
+                # Keep latest purchase price.
                 product.purchase_price = (
                     purchase_price
                 )
@@ -388,8 +420,138 @@ class PurchaseBillService:
         if db_purchase_bill is None:
             return None
 
-        db_purchase_bill.bill_date = (
+        # ========================================================
+        # VALIDATE AGAINST RECORDED PAYMENTS
+        # ========================================================
+
+        paid_amount = (
+            db.query(
+                func.coalesce(
+                    func.sum(
+                        PurchaseBillPayment.amount
+                    ),
+                    0,
+                )
+            )
+            .filter(
+                PurchaseBillPayment.purchase_bill_id
+                == db_purchase_bill.id
+            )
+            .scalar()
+        )
+
+        paid_amount = Decimal(
+            str(
+                paid_amount
+                or Decimal("0.00")
+            )
+        ).quantize(
+            Decimal("0.01")
+        )
+
+        new_grand_total = Decimal(
+            str(
+                purchase_bill.grand_total
+            )
+        ).quantize(
+            Decimal("0.01")
+        )
+
+        if (
+            new_grand_total
+            < paid_amount
+        ):
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_400_BAD_REQUEST
+                ),
+                detail=(
+                    "Purchase Bill grand total cannot "
+                    "be lower than the amount already paid. "
+                    f"Paid amount: {paid_amount:.2f}."
+                ),
+            )
+
+        # ========================================================
+        # EXISTING CREDIT INFORMATION
+        # ========================================================
+
+        old_bill_date = (
+            db_purchase_bill.bill_date
+        )
+
+        old_credit_days = int(
+            db_purchase_bill.credit_days
+            or 0
+        )
+
+        old_due_date = (
+            db_purchase_bill.due_date
+        )
+
+        # ========================================================
+        # NEW VALUES
+        # ========================================================
+
+        new_bill_date = (
             purchase_bill.bill_date
+        )
+
+        if (
+            purchase_bill.credit_days
+            is not None
+        ):
+            new_credit_days = int(
+                purchase_bill.credit_days
+            )
+
+            new_due_date = (
+                new_bill_date
+                + timedelta(
+                    days=new_credit_days
+                )
+            )
+
+        elif (
+            new_bill_date
+            != old_bill_date
+        ):
+            new_credit_days = (
+                old_credit_days
+            )
+
+            new_due_date = (
+                new_bill_date
+                + timedelta(
+                    days=new_credit_days
+                )
+            )
+
+        else:
+            new_credit_days = (
+                old_credit_days
+            )
+
+            # Preserve NULL due_date for
+            # historical Purchase Bills.
+            new_due_date = (
+                old_due_date
+            )
+
+        # ========================================================
+        # UPDATE BILL HEADER
+        # ========================================================
+
+        db_purchase_bill.bill_date = (
+            new_bill_date
+        )
+
+        db_purchase_bill.credit_days = (
+            new_credit_days
+        )
+
+        db_purchase_bill.due_date = (
+            new_due_date
         )
 
         db_purchase_bill.subtotal = (
@@ -433,6 +595,9 @@ class PurchaseBillService:
         PurchaseBillItem so duplicate product lines remain
         independently auditable.
 
+        Purchase Bills with supplier payments cannot be
+        cancelled until a payment reversal workflow exists.
+
         Everything is committed in one transaction.
         """
 
@@ -455,6 +620,38 @@ class PurchaseBillService:
 
             if purchase_bill is None:
                 return None
+
+            # ====================================================
+            # BLOCK CANCELLATION WHEN PAYMENTS EXIST
+            # ====================================================
+
+            payment_count = (
+                db.query(
+                    func.count(
+                        PurchaseBillPayment.id
+                    )
+                )
+                .filter(
+                    PurchaseBillPayment.purchase_bill_id
+                    == purchase_bill.id
+                )
+                .scalar()
+            )
+
+            if (
+                int(payment_count or 0)
+                > 0
+            ):
+                raise HTTPException(
+                    status_code=(
+                        status.HTTP_400_BAD_REQUEST
+                    ),
+                    detail=(
+                        "Purchase Bill cannot be cancelled "
+                        "because supplier payments have already "
+                        "been recorded against it."
+                    ),
+                )
 
             # ====================================================
             # LOAD BILL ITEMS

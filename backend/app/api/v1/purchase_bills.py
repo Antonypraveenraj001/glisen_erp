@@ -22,6 +22,14 @@ from app.schemas.purchase_bill import (
     PurchaseBillResponse,
     PurchaseBillUpdate,
 )
+from app.schemas.purchase_bill_payment import (
+    PurchaseBillPaymentCreate,
+    PurchaseBillPaymentResponse,
+    PurchaseBillPaymentSummaryResponse,
+)
+from app.services.purchase_bill_payment_service import (
+    PurchaseBillPaymentService,
+)
 from app.services.purchase_bill_service import (
     PurchaseBillService,
 )
@@ -32,6 +40,10 @@ router = APIRouter(
     tags=["Purchase Bill Processing"],
 )
 
+
+# ================================================================
+# CREATE PURCHASE BILL
+# ================================================================
 
 @router.post(
     "",
@@ -55,6 +67,10 @@ def create_purchase_bill(
     )
 
 
+# ================================================================
+# STATISTICS
+# ================================================================
+
 @router.get(
     "/statistics",
     response_model=PurchaseBillItemStatisticsResponse,
@@ -69,6 +85,10 @@ def get_purchase_bill_statistics(
         db,
     )
 
+
+# ================================================================
+# LIST PURCHASE BILLS
+# ================================================================
 
 @router.get(
     "",
@@ -92,6 +112,81 @@ def get_purchase_bills(
         search,
     )
 
+
+# ================================================================
+# PAYMENT SUMMARY
+# ================================================================
+
+@router.get(
+    "/{purchase_bill_id}/payment-summary",
+    response_model=PurchaseBillPaymentSummaryResponse,
+)
+def get_purchase_bill_payment_summary(
+    purchase_bill_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+    summary = (
+        PurchaseBillPaymentService
+        .get_summary(
+            db=db,
+            purchase_bill_id=(
+                purchase_bill_id
+            ),
+        )
+    )
+
+    if summary is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Purchase Bill not found."
+            ),
+        )
+
+    return summary
+
+
+# ================================================================
+# RECORD SUPPLIER PAYMENT
+# ================================================================
+
+@router.post(
+    "/{purchase_bill_id}/payments",
+    response_model=PurchaseBillPaymentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_purchase_bill_payment(
+    purchase_bill_id: int,
+    payment: PurchaseBillPaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            "Boss",
+            "Accounts",
+        )
+    ),
+):
+    return (
+        PurchaseBillPaymentService
+        .create_payment(
+            db=db,
+            purchase_bill_id=(
+                purchase_bill_id
+            ),
+            payment=payment,
+            created_by=current_user.id,
+        )
+    )
+
+
+# ================================================================
+# GET PURCHASE BILL
+# ================================================================
 
 @router.get(
     "/{purchase_bill_id}",
@@ -124,6 +219,10 @@ def get_purchase_bill(
 
     return purchase_bill
 
+
+# ================================================================
+# UPDATE PURCHASE BILL
+# ================================================================
 
 @router.put(
     "/{purchase_bill_id}",
@@ -165,6 +264,10 @@ def update_purchase_bill(
 
     return updated_purchase_bill
 
+
+# ================================================================
+# CANCEL PURCHASE BILL
+# ================================================================
 
 @router.delete(
     "/{purchase_bill_id}",
