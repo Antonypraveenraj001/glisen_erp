@@ -1,4 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+)
 
 
 class AISupplierResponse(BaseModel):
@@ -20,9 +23,18 @@ class AISupplierResponse(BaseModel):
 class AIPurchaseBillResponse(BaseModel):
     bill_number: str = ""
     bill_date: str = ""
+
+    # AI extraction does not need to guess
+    # supplier credit terms.
+    #
+    # User reviews/enters this value before
+    # confirming the Purchase Bill.
+    credit_days: int = 0
+
     subtotal: float = 0
     total_gst: float = 0
     grand_total: float = 0
+
     remarks: str = ""
 
 
@@ -31,6 +43,7 @@ class AIProductResponse(BaseModel):
     description: str = ""
     hsn_code: str = ""
     unit: str = ""
+
     quantity: float = 0
     purchase_price: float = 0
     gst_percentage: float = 0
@@ -38,7 +51,7 @@ class AIProductResponse(BaseModel):
 
     existing_product: bool = False
     product_id: int | None = None
-    match_type: str |None = None
+    match_type: str | None = None
 
 
 class PurchaseBillAIDataResponse(BaseModel):
@@ -50,6 +63,7 @@ class PurchaseBillAIDataResponse(BaseModel):
 class PurchaseBillAIResponse(BaseModel):
     status: str
     filename: str
+
     data: PurchaseBillAIDataResponse
 
     model_config = ConfigDict(

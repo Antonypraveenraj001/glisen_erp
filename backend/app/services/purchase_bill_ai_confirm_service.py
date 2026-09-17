@@ -1,4 +1,7 @@
-from datetime import datetime
+from datetime import (
+    datetime,
+    timedelta,
+)
 from decimal import Decimal, InvalidOperation
 
 from sqlalchemy.orm import Session
@@ -397,7 +400,21 @@ class PurchaseBillAIConfirmService:
                     .grand_total
                 )
             )
+                        # ====================================================
+            # SUPPLIER CREDIT TERMS
+            # ====================================================
 
+            credit_days = int(
+                purchase_bill_data.credit_days
+                or 0
+            )
+
+            due_date = (
+                bill_date
+                + timedelta(
+                    days=credit_days
+                )
+            )
             # ====================================================
             # CREATE PURCHASE BILL
             # ====================================================
@@ -413,6 +430,12 @@ class PurchaseBillAIConfirmService:
                 ),
                 bill_date=(
                     bill_date
+                ),
+                                credit_days=(
+                    credit_days
+                ),
+                due_date=(
+                    due_date
                 ),
                 subtotal=(
                     subtotal

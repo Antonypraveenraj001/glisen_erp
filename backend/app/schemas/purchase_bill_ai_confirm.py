@@ -1,4 +1,7 @@
-from pydantic import BaseModel
+from pydantic import (
+    BaseModel,
+    Field,
+)
 
 
 class ConfirmSupplier(BaseModel):
@@ -18,6 +21,13 @@ class ConfirmSupplier(BaseModel):
 class ConfirmPurchaseBill(BaseModel):
     bill_number: str
     bill_date: str
+
+    # Supplier credit period.
+    # 0 means payment is due immediately.
+    credit_days: int = Field(
+        default=0,
+        ge=0,
+    )
 
     subtotal: float
     total_gst: float
