@@ -2,27 +2,12 @@ import axios from "axios";
 
 import type {
   GSTReportResponse,
+  PurchaseGSTReportResponse,
 } from "../types/gstReport";
 
 
 const API_BASE_URL =
   "http://127.0.0.1:8000/api/v1";
-
-
-function getAuthHeaders() {
-  const token =
-    localStorage.getItem("access_token");
-
-  if (!token) {
-    throw new Error(
-      "Authentication required."
-    );
-  }
-
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
 
 
 export interface GSTReportFilters {
@@ -31,88 +16,74 @@ export interface GSTReportFilters {
 }
 
 
-export async function getGSTReport(
-  filters: GSTReportFilters = {}
-): Promise<GSTReportResponse> {
+function getAuthHeaders() {
 
-  const response =
-    await axios.get<GSTReportResponse>(
-      `${API_BASE_URL}/gst-report`,
-      {
-        headers: getAuthHeaders(),
-
-        params: {
-          start_date:
-            filters.start_date ||
-            undefined,
-
-          end_date:
-            filters.end_date ||
-            undefined,
-        },
-      }
+  const token =
+    localStorage.getItem(
+      "access_token"
     );
 
-  return response.data;
+
+  if (!token) {
+
+    throw new Error(
+      "Authentication required."
+    );
+
+  }
+
+
+  return {
+    Authorization:
+      `Bearer ${token}`,
+  };
 }
 
 
-export async function downloadGSTReportExcel(
-  filters: GSTReportFilters = {}
-): Promise<void> {
-
-  const response =
-    await axios.get(
-      `${API_BASE_URL}/gst-report/export-excel`,
-      {
-        headers: getAuthHeaders(),
-
-        params: {
-          start_date:
-            filters.start_date ||
-            undefined,
-
-          end_date:
-            filters.end_date ||
-            undefined,
-        },
-
-        responseType: "blob",
-      }
-    );
-
+function downloadBlob(
+  data: BlobPart,
+  disposition:
+    string | undefined,
+  fallbackFilename: string
+) {
 
   const blobUrl =
     window.URL.createObjectURL(
-      new Blob([response.data])
+      new Blob([
+        data,
+      ])
     );
 
 
   const link =
-    document.createElement("a");
+    document.createElement(
+      "a"
+    );
 
-  link.href = blobUrl;
 
-
-  const disposition =
-    response.headers[
-      "content-disposition"
-    ];
+  link.href =
+    blobUrl;
 
 
   let filename =
-    "gst_report.xlsx";
+    fallbackFilename;
 
 
   if (disposition) {
+
     const match =
       disposition.match(
         /filename="?([^"]+)"?/
       );
 
-    if (match?.[1]) {
-      filename = match[1];
+
+    if (
+      match?.[1]
+    ) {
+      filename =
+        match[1];
     }
+
   }
 
 
@@ -122,14 +93,168 @@ export async function downloadGSTReportExcel(
   );
 
 
-  document.body.appendChild(link);
+  document.body.appendChild(
+    link
+  );
+
 
   link.click();
+
 
   link.remove();
 
 
   window.URL.revokeObjectURL(
     blobUrl
+  );
+}
+
+
+/* ================================================================
+   SALES GST
+================================================================ */
+
+export async function getGSTReport(
+  filters:
+    GSTReportFilters = {}
+): Promise<GSTReportResponse> {
+
+  const response =
+    await axios.get<
+      GSTReportResponse
+    >(
+      `${API_BASE_URL}/gst-report`,
+      {
+        headers:
+          getAuthHeaders(),
+
+        params: {
+          start_date:
+            filters.start_date
+            || undefined,
+
+          end_date:
+            filters.end_date
+            || undefined,
+        },
+      }
+    );
+
+
+  return response.data;
+}
+
+
+export async function downloadGSTReportExcel(
+  filters:
+    GSTReportFilters = {}
+): Promise<void> {
+
+  const response =
+    await axios.get(
+      `${API_BASE_URL}/gst-report/export-excel`,
+      {
+        headers:
+          getAuthHeaders(),
+
+        params: {
+          start_date:
+            filters.start_date
+            || undefined,
+
+          end_date:
+            filters.end_date
+            || undefined,
+        },
+
+        responseType:
+          "blob",
+      }
+    );
+
+
+  downloadBlob(
+    response.data,
+
+    response.headers[
+      "content-disposition"
+    ],
+
+    "sales_gst_report.xlsx"
+  );
+}
+
+
+/* ================================================================
+   PURCHASE GST
+================================================================ */
+
+export async function getPurchaseGSTReport(
+  filters:
+    GSTReportFilters = {}
+): Promise<PurchaseGSTReportResponse> {
+
+  const response =
+    await axios.get<
+      PurchaseGSTReportResponse
+    >(
+      `${API_BASE_URL}/gst-report/purchase`,
+      {
+        headers:
+          getAuthHeaders(),
+
+        params: {
+          start_date:
+            filters.start_date
+            || undefined,
+
+          end_date:
+            filters.end_date
+            || undefined,
+        },
+      }
+    );
+
+
+  return response.data;
+}
+
+
+export async function downloadPurchaseGSTReportExcel(
+  filters:
+    GSTReportFilters = {}
+): Promise<void> {
+
+  const response =
+    await axios.get(
+      `${API_BASE_URL}/gst-report/purchase/export-excel`,
+      {
+        headers:
+          getAuthHeaders(),
+
+        params: {
+          start_date:
+            filters.start_date
+            || undefined,
+
+          end_date:
+            filters.end_date
+            || undefined,
+        },
+
+        responseType:
+          "blob",
+      }
+    );
+
+
+  downloadBlob(
+    response.data,
+
+    response.headers[
+      "content-disposition"
+    ],
+
+    "purchase_gst_report.xlsx"
   );
 }

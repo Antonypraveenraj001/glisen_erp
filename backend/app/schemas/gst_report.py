@@ -4,6 +4,10 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 
+# ================================================================
+# SALES GST
+# ================================================================
+
 class GSTReportItem(BaseModel):
     document_id: int
     document_number: str
@@ -58,3 +62,46 @@ class GSTReportResponse(BaseModel):
     net_sales_total: Decimal
 
     items: list[GSTReportItem]
+
+
+# ================================================================
+# PURCHASE GST
+# ================================================================
+
+class PurchaseGSTReportItem(BaseModel):
+    purchase_bill_id: int
+
+    bill_number: str
+    bill_date: date
+
+    supplier_id: int
+    supplier_name: str
+
+    gst_number: str | None = None
+
+    taxable_amount: Decimal
+
+    cgst_amount: Decimal
+    sgst_amount: Decimal
+    igst_amount: Decimal
+
+    tax_amount: Decimal
+    grand_total: Decimal
+
+
+class PurchaseGSTReportResponse(BaseModel):
+    start_date: date | None
+    end_date: date | None
+
+    purchase_bill_count: int
+
+    taxable_amount: Decimal
+
+    cgst_amount: Decimal
+    sgst_amount: Decimal
+    igst_amount: Decimal
+
+    tax_amount: Decimal
+    grand_total: Decimal
+
+    items: list[PurchaseGSTReportItem]

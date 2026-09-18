@@ -161,6 +161,15 @@ export interface PurchaseBillItem {
 
   product_id: number;
 
+  product_name: string;
+
+  description:
+    string | null;
+
+  hsn_code: string;
+
+  unit: string;
+
   quantity:
     MoneyValue;
 
@@ -186,7 +195,7 @@ export interface PurchaseBill {
 
   supplier_id: number;
 
-  supplier_name?:
+  supplier_name:
     string | null;
 
   bill_date: string;

@@ -2,11 +2,16 @@ from datetime import datetime
 from decimal import Decimal
 
 from pydantic import (
+    AliasPath,
     BaseModel,
     ConfigDict,
     Field,
 )
 
+
+# ================================================================
+# PURCHASE BILL ITEM
+# ================================================================
 
 class PurchaseBillItemBase(BaseModel):
     product_id: int
@@ -27,10 +32,45 @@ class PurchaseBillItemResponse(
 ):
     id: int
 
+    # Friendly Product information for the frontend.
+    # The database still stores product_id as the relationship key.
+    product_name: str = Field(
+        validation_alias=AliasPath(
+            "product",
+            "product_name",
+        )
+    )
+
+    description: str | None = Field(
+        default=None,
+        validation_alias=AliasPath(
+            "product",
+            "description",
+        ),
+    )
+
+    hsn_code: str = Field(
+        validation_alias=AliasPath(
+            "product",
+            "hsn_code",
+        )
+    )
+
+    unit: str = Field(
+        validation_alias=AliasPath(
+            "product",
+            "unit",
+        )
+    )
+
     model_config = ConfigDict(
         from_attributes=True,
     )
 
+
+# ================================================================
+# PURCHASE BILL
+# ================================================================
 
 class PurchaseBillBase(BaseModel):
     bill_number: str
@@ -62,8 +102,7 @@ class PurchaseBillCreate(
 class PurchaseBillUpdate(BaseModel):
     bill_date: datetime
 
-    # None means preserve the existing
-    # credit terms during an old-style update.
+    # None preserves existing credit terms.
     credit_days: int | None = Field(
         default=None,
         ge=0,
@@ -76,6 +115,10 @@ class PurchaseBillUpdate(BaseModel):
     remarks: str | None = None
 
 
+# ================================================================
+# STATISTICS
+# ================================================================
+
 class PurchaseBillItemStatisticsResponse(
     BaseModel
 ):
@@ -85,10 +128,22 @@ class PurchaseBillItemStatisticsResponse(
     total_quantity_purchased: Decimal
 
 
+# ================================================================
+# RESPONSE
+# ================================================================
+
 class PurchaseBillResponse(
     PurchaseBillBase
 ):
     id: int
+
+    # Friendly Supplier name for the frontend.
+    supplier_name: str = Field(
+        validation_alias=AliasPath(
+            "supplier",
+            "company_name",
+        )
+    )
 
     due_date: datetime | None = None
 

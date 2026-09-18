@@ -113,21 +113,27 @@ export default function AppRouter() {
           <Route
             path="/proformas"
             element={
-              <ProformaPage />
+              <ProformaPage
+                key="proforma-list"
+              />
             }
           />
 
           <Route
             path="/proformas/new"
             element={
-              <ProformaPage />
+              <ProformaPage
+                key="proforma-new"
+              />
             }
           />
 
           <Route
             path="/proformas/:id"
             element={
-              <ProformaPage />
+              <ProformaPage
+                key="proforma-details"
+              />
             }
           />
 

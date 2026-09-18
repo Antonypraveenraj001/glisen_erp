@@ -2,7 +2,9 @@ import {
   useEffect,
   useMemo,
   useState,
+  type CSSProperties,
   type FormEvent,
+  type ReactNode,
 } from "react";
 
 import axios from "axios";
@@ -19,6 +21,7 @@ import {
   Clock3,
   CreditCard,
   Loader2,
+  Package,
   ReceiptText,
   WalletCards,
 } from "lucide-react";
@@ -42,7 +45,7 @@ import type {
 
 
 /* ================================================================
-   FORMAT CURRENCY
+   FORMATTERS
 ================================================================ */
 
 function formatCurrency(
@@ -51,36 +54,33 @@ function formatCurrency(
     | null
     | undefined
 ) {
-  const numericValue =
+  const amount =
     Number(
       value ?? 0
     );
 
-  if (
-    Number.isNaN(
-      numericValue
-    )
-  ) {
-    return "₹0.00";
-  }
-
   return new Intl.NumberFormat(
     "en-IN",
     {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      style:
+        "currency",
+
+      currency:
+        "INR",
+
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
     }
   ).format(
-    numericValue
+    Number.isNaN(amount)
+      ? 0
+      : amount
   );
 }
 
-
-/* ================================================================
-   FORMAT DATE
-================================================================ */
 
 function formatDate(
   value:
@@ -106,17 +106,18 @@ function formatDate(
   return date.toLocaleDateString(
     "en-IN",
     {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+      day:
+        "2-digit",
+
+      month:
+        "short",
+
+      year:
+        "numeric",
     }
   );
 }
 
-
-/* ================================================================
-   FORMAT DATE TIME
-================================================================ */
 
 function formatDateTime(
   value:
@@ -142,19 +143,24 @@ function formatDateTime(
   return date.toLocaleString(
     "en-IN",
     {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+      day:
+        "2-digit",
+
+      month:
+        "short",
+
+      year:
+        "numeric",
+
+      hour:
+        "2-digit",
+
+      minute:
+        "2-digit",
     }
   );
 }
 
-
-/* ================================================================
-   DEFAULT PAYMENT DATE / TIME
-================================================================ */
 
 function getCurrentDateTimeInputValue() {
   const now =
@@ -163,7 +169,7 @@ function getCurrentDateTimeInputValue() {
   const offset =
     now.getTimezoneOffset();
 
-  const localDate =
+  const local =
     new Date(
       now.getTime()
       - offset
@@ -171,7 +177,7 @@ function getCurrentDateTimeInputValue() {
       * 1000
     );
 
-  return localDate
+  return local
     .toISOString()
     .slice(
       0,
@@ -179,10 +185,6 @@ function getCurrentDateTimeInputValue() {
     );
 }
 
-
-/* ================================================================
-   API ERROR
-================================================================ */
 
 function getErrorMessage(
   error: unknown,
@@ -194,7 +196,9 @@ function getErrorMessage(
     )
   ) {
     const detail =
-      error.response?.data?.detail;
+      error.response
+        ?.data
+        ?.detail;
 
     if (
       typeof detail
@@ -204,61 +208,98 @@ function getErrorMessage(
     }
   }
 
+  if (
+    error instanceof Error
+  ) {
+    return error.message;
+  }
+
   return fallback;
 }
 
 
 /* ================================================================
-   PAYMENT STATUS COLORS
+   STYLES
 ================================================================ */
 
-function getPaymentStatusStyle(
-  status: string
-) {
-  switch (
-    status
-  ) {
-    case "Paid":
-      return {
-        background:
-          "#eaf8f0",
-        color:
-          "#267650",
-        border:
-          "1px solid #c8ecd8",
-      };
+const cardStyle:
+  CSSProperties =
+  {
+    padding:
+      "20px",
 
-    case "Partially Paid":
-      return {
-        background:
-          "#fff6df",
-        color:
-          "#9b6d13",
-        border:
-          "1px solid #f3dfac",
-      };
+    border:
+      "1px solid #dfe7f2",
 
-    case "Unpaid":
-      return {
-        background:
-          "#fff0f3",
-        color:
-          "#b8415a",
-        border:
-          "1px solid #f5ccd5",
-      };
+    borderRadius:
+      "14px",
 
-    default:
-      return {
-        background:
-          "#eef3f8",
-        color:
-          "#60728e",
-        border:
-          "1px solid #dbe4ef",
-      };
-  }
-}
+    background:
+      "#ffffff",
+  };
+
+
+const tableHeaderStyle:
+  CSSProperties =
+  {
+    padding:
+      "11px 14px",
+
+    fontWeight:
+      700,
+
+    whiteSpace:
+      "nowrap",
+  };
+
+
+const tableCellStyle:
+  CSSProperties =
+  {
+    padding:
+      "12px 14px",
+
+    color:
+      "#526783",
+
+    fontSize:
+      "10px",
+
+    verticalAlign:
+      "top",
+  };
+
+
+const inputStyle:
+  CSSProperties =
+  {
+    width:
+      "100%",
+
+    boxSizing:
+      "border-box",
+
+    padding:
+      "10px 12px",
+
+    border:
+      "1px solid #dce4ef",
+
+    borderRadius:
+      "9px",
+
+    background:
+      "#ffffff",
+
+    color:
+      "#243956",
+
+    outline:
+      "none",
+
+    fontSize:
+      "11px",
+  };
 
 
 /* ================================================================
@@ -269,6 +310,7 @@ export default function PurchaseBillDetails() {
 
   const navigate =
     useNavigate();
+
 
   const {
     id,
@@ -407,7 +449,7 @@ export default function PurchaseBillDetails() {
 
 
   /* ==============================================================
-     LOAD BILL + PAYMENT SUMMARY
+     LOAD DATA
   ============================================================== */
 
   useEffect(
@@ -433,15 +475,15 @@ export default function PurchaseBillDetails() {
 
 
         const purchaseBillId =
-          Number(
-            id
-          );
+          Number(id);
 
 
         if (
-          Number.isNaN(
+          !Number.isInteger(
             purchaseBillId
           )
+          || purchaseBillId
+          <= 0
         ) {
           setError(
             "Invalid Purchase Bill ID."
@@ -467,8 +509,8 @@ export default function PurchaseBillDetails() {
 
 
           const [
-            billResponse,
-            paymentResponse,
+            bill,
+            payment,
           ] =
             await Promise.all([
               getPurchaseBill(
@@ -481,16 +523,16 @@ export default function PurchaseBillDetails() {
             ]);
 
 
-          if (
-            active
-          ) {
+          if (active) {
+
             setPurchaseBill(
-              billResponse
+              bill
             );
 
             setPaymentSummary(
-              paymentResponse
+              payment
             );
+
           }
 
         } catch (
@@ -498,27 +540,25 @@ export default function PurchaseBillDetails() {
         ) {
 
           console.error(
-            "Purchase bill details loading error:",
+            "Purchase Bill details loading error:",
             err
           );
 
 
-          if (
-            active
-          ) {
+          if (active) {
+
             setError(
               getErrorMessage(
                 err,
-                "Unable to load purchase bill details."
+                "Unable to load Purchase Bill details."
               )
             );
+
           }
 
         } finally {
 
-          if (
-            active
-          ) {
+          if (active) {
             setLoading(
               false
             );
@@ -545,7 +585,7 @@ export default function PurchaseBillDetails() {
 
 
   /* ==============================================================
-     BALANCE
+     PAYMENT DERIVED VALUES
   ============================================================== */
 
   const outstandingBalance =
@@ -563,10 +603,6 @@ export default function PurchaseBillDetails() {
     || outstandingBalance
     <= 0;
 
-
-  /* ==============================================================
-     PAYMENT HISTORY
-  ============================================================== */
 
   const paymentHistory =
     useMemo(
@@ -630,6 +666,7 @@ export default function PurchaseBillDetails() {
       )
       || amount <= 0
     ) {
+
       setPaymentError(
         "Enter a valid payment amount greater than zero."
       );
@@ -642,6 +679,7 @@ export default function PurchaseBillDetails() {
       amount
       > outstandingBalance
     ) {
+
       setPaymentError(
         `Payment cannot exceed the outstanding balance of ${formatCurrency(
           outstandingBalance
@@ -655,6 +693,7 @@ export default function PurchaseBillDetails() {
     if (
       !paymentDate
     ) {
+
       setPaymentError(
         "Payment date is required."
       );
@@ -685,6 +724,7 @@ export default function PurchaseBillDetails() {
       && selectedPaymentDate
         < billDate
     ) {
+
       setPaymentError(
         "Payment date cannot be earlier than the Purchase Bill date."
       );
@@ -693,14 +733,13 @@ export default function PurchaseBillDetails() {
     }
 
 
-    const request:
+    const payload:
       PurchaseBillPaymentCreate =
       {
         payment_date:
           paymentDate,
 
-        amount:
-          amount,
+        amount,
 
         payment_mode:
           paymentMode
@@ -725,18 +764,18 @@ export default function PurchaseBillDetails() {
 
       await recordPurchaseBillPayment(
         purchaseBill.id,
-        request
+        payload
       );
 
 
-      const refreshedSummary =
+      const refreshed =
         await getPurchaseBillPaymentSummary(
           purchaseBill.id
         );
 
 
       setPaymentSummary(
-        refreshedSummary
+        refreshed
       );
 
 
@@ -765,12 +804,6 @@ export default function PurchaseBillDetails() {
       err
     ) {
 
-      console.error(
-        "Payment recording error:",
-        err
-      );
-
-
       setPaymentError(
         getErrorMessage(
           err,
@@ -796,11 +829,12 @@ export default function PurchaseBillDetails() {
   if (
     loading
   ) {
+
     return (
       <div
         style={{
           minHeight:
-            "340px",
+            "350px",
 
           display:
             "flex",
@@ -821,10 +855,6 @@ export default function PurchaseBillDetails() {
 
         <Loader2
           size={20}
-          style={{
-            animation:
-              "spin 0.8s linear infinite",
-          }}
         />
 
         Loading Purchase Bill...
@@ -843,6 +873,7 @@ export default function PurchaseBillDetails() {
     || !purchaseBill
     || !paymentSummary
   ) {
+
     return (
       <div
         style={{
@@ -862,20 +893,11 @@ export default function PurchaseBillDetails() {
             )
           }
           style={{
-            display:
-              "inline-flex",
-
-            alignItems:
-              "center",
-
-            gap:
-              "7px",
+            marginBottom:
+              "18px",
 
             padding:
               "9px 13px",
-
-            marginBottom:
-              "20px",
 
             border:
               "1px solid #dbe4ef",
@@ -886,9 +908,6 @@ export default function PurchaseBillDetails() {
             background:
               "#ffffff",
 
-            color:
-              "#526783",
-
             cursor:
               "pointer",
           }}
@@ -897,14 +916,14 @@ export default function PurchaseBillDetails() {
             size={15}
           />
 
-          Back
+          {" "}Back
         </button>
 
 
         <div
           style={{
             padding:
-              "16px",
+              "15px",
 
             border:
               "1px solid #fecaca",
@@ -930,9 +949,10 @@ export default function PurchaseBillDetails() {
   }
 
 
-  /* ==============================================================
-     PAGE
-  ============================================================== */
+  const supplierName =
+    purchaseBill.supplier_name
+    || `Supplier #${purchaseBill.supplier_id}`;
+
 
   return (
     <div
@@ -960,20 +980,20 @@ export default function PurchaseBillDetails() {
       }}
     >
 
-      {/* ==========================================================
+      {/* ========================================================
           HEADER
-      ========================================================== */}
+      ========================================================= */}
 
       <div
         style={{
           display:
             "flex",
 
-          alignItems:
-            "flex-start",
-
           justifyContent:
             "space-between",
+
+          alignItems:
+            "flex-start",
 
           gap:
             "20px",
@@ -992,32 +1012,50 @@ export default function PurchaseBillDetails() {
 
               fontSize:
                 "28px",
-
-              letterSpacing:
-                "-0.03em",
             }}
           >
             Purchase Bill Details
           </h1>
 
 
-          <p
+          <div
             style={{
-              margin:
-                "7px 0 0",
+              marginTop:
+                "7px",
 
               color:
-                "#8291a9",
+                "#526783",
 
               fontSize:
-                "11px",
+                "13px",
+
+              fontWeight:
+                700,
             }}
           >
-            Bill {
+            {
               purchaseBill.bill_number
-            } · supplier purchase
-            and payment tracking
-          </p>
+            }
+          </div>
+
+
+          <div
+            style={{
+              marginTop:
+                "4px",
+
+              color:
+                "#7d8ea8",
+
+              fontSize:
+                "12px",
+
+              fontWeight:
+                600,
+            }}
+          >
+            {supplierName}
+          </div>
 
         </div>
 
@@ -1068,29 +1106,19 @@ export default function PurchaseBillDetails() {
       </div>
 
 
-      {/* ==========================================================
+      {/* ========================================================
           BILL INFORMATION
-      ========================================================== */}
+      ========================================================= */}
 
       <section
-        style={{
-          padding:
-            "20px",
-
-          border:
-            "1px solid #dfe7f2",
-
-          borderRadius:
-            "14px",
-
-          background:
-            "#ffffff",
-        }}
+        style={
+          cardStyle
+        }
       >
 
         <SectionHeading
           title="Bill Information"
-          subtitle="Purchase Bill identity and supplier credit terms"
+          subtitle="Purchase Bill identity, supplier and credit terms"
           icon={
             <ReceiptText
               size={18}
@@ -1116,21 +1144,20 @@ export default function PurchaseBillDetails() {
         >
 
           <InfoField
-            label="Purchase Bill ID"
-            value={
-              String(
-                purchaseBill.id
-              )
-            }
-          />
-
-          <InfoField
             label="Bill Number"
             value={
               purchaseBill.bill_number
-              || "—"
             }
           />
+
+
+          <InfoField
+            label="Supplier"
+            value={
+              supplierName
+            }
+          />
+
 
           <InfoField
             label="Bill Date"
@@ -1141,14 +1168,6 @@ export default function PurchaseBillDetails() {
             }
           />
 
-          <InfoField
-            label="Supplier ID"
-            value={
-              String(
-                purchaseBill.supplier_id
-              )
-            }
-          />
 
           <InfoField
             label="Credit Days"
@@ -1159,6 +1178,7 @@ export default function PurchaseBillDetails() {
             }
           />
 
+
           <InfoField
             label="Due Date"
             value={
@@ -1168,14 +1188,6 @@ export default function PurchaseBillDetails() {
             }
           />
 
-          <InfoField
-            label="Created By"
-            value={
-              String(
-                purchaseBill.created_by
-              )
-            }
-          />
 
           <InfoField
             label="Created At"
@@ -1220,14 +1232,16 @@ export default function PurchaseBillDetails() {
                   1.6,
               }}
             >
-              This is a legacy Purchase Bill with
-              no recorded supplier credit terms.
-              Its payment state remains
+              This is a legacy Purchase Bill
+              with no recorded supplier credit
+              terms. Its payment state remains{" "}
+
               <strong>
-                {" "}Untracked{" "}
+                Untracked
               </strong>
-              until payment activity or credit
-              terms are recorded.
+
+              {" "}until payment activity or
+              credit terms are recorded.
             </div>
           )
         }
@@ -1235,20 +1249,13 @@ export default function PurchaseBillDetails() {
       </section>
 
 
-      {/* ==========================================================
+      {/* ========================================================
           PAYMENT SUMMARY
-      ========================================================== */}
+      ========================================================= */}
 
       <section
         style={{
-          padding:
-            "20px",
-
-          border:
-            "1px solid #dfe7f2",
-
-          borderRadius:
-            "14px",
+          ...cardStyle,
 
           background:
             "linear-gradient(145deg, #ffffff 0%, #f8fbff 100%)",
@@ -1260,20 +1267,17 @@ export default function PurchaseBillDetails() {
             display:
               "flex",
 
-            alignItems:
-              "center",
-
             justifyContent:
               "space-between",
 
-            gap:
-              "16px",
+            alignItems:
+              "center",
           }}
         >
 
           <SectionHeading
             title="Supplier Payment Summary"
-            subtitle="Derived from the immutable Purchase Bill payment ledger"
+            subtitle="Derived from the Purchase Bill payment ledger"
             icon={
               <WalletCards
                 size={18}
@@ -1282,39 +1286,11 @@ export default function PurchaseBillDetails() {
           />
 
 
-          <span
-            style={{
-              ...getPaymentStatusStyle(
-                paymentSummary.payment_status
-              ),
-
-              display:
-                "inline-flex",
-
-              alignItems:
-                "center",
-
-              padding:
-                "6px 11px",
-
-              borderRadius:
-                "999px",
-
-              fontSize:
-                "10px",
-
-              fontWeight:
-                800,
-
-              whiteSpace:
-                "nowrap",
-            }}
-          >
-            {
-              paymentSummary
-                .payment_status
+          <PaymentBadge
+            status={
+              paymentSummary.payment_status
             }
-          </span>
+          />
 
         </div>
 
@@ -1344,6 +1320,7 @@ export default function PurchaseBillDetails() {
             }
           />
 
+
           <SummaryCard
             label="Paid Amount"
             value={
@@ -1354,6 +1331,7 @@ export default function PurchaseBillDetails() {
             variant="success"
           />
 
+
           <SummaryCard
             label="Balance Amount"
             value={
@@ -1362,17 +1340,18 @@ export default function PurchaseBillDetails() {
               )
             }
             variant={
-              outstandingBalance > 0
+              outstandingBalance
+              > 0
                 ? "warning"
                 : "success"
             }
           />
 
+
           <SummaryCard
             label="Payment Status"
             value={
-              paymentSummary
-                .payment_status
+              paymentSummary.payment_status
             }
             variant="primary"
           />
@@ -1382,28 +1361,18 @@ export default function PurchaseBillDetails() {
       </section>
 
 
-      {/* ==========================================================
+      {/* ========================================================
           RECORD PAYMENT
-      ========================================================== */}
+      ========================================================= */}
 
       {
         canRecordPayment
         && !isFullyPaid
         && (
           <section
-            style={{
-              padding:
-                "20px",
-
-              border:
-                "1px solid #dfe7f2",
-
-              borderRadius:
-                "14px",
-
-              background:
-                "#ffffff",
-            }}
+            style={
+              cardStyle
+            }
           >
 
             <SectionHeading
@@ -1422,34 +1391,13 @@ export default function PurchaseBillDetails() {
             {
               paymentError
               && (
-                <div
-                  style={{
-                    marginTop:
-                      "16px",
-
-                    padding:
-                      "11px 13px",
-
-                    border:
-                      "1px solid #fecaca",
-
-                    borderRadius:
-                      "9px",
-
-                    background:
-                      "#fff4f4",
-
-                    color:
-                      "#b91c1c",
-
-                    fontSize:
-                      "10px",
-                  }}
+                <MessageBox
+                  type="error"
                 >
                   {
                     paymentError
                   }
-                </div>
+                </MessageBox>
               )
             }
 
@@ -1457,47 +1405,13 @@ export default function PurchaseBillDetails() {
             {
               paymentSuccess
               && (
-                <div
-                  style={{
-                    marginTop:
-                      "16px",
-
-                    display:
-                      "flex",
-
-                    alignItems:
-                      "center",
-
-                    gap:
-                      "7px",
-
-                    padding:
-                      "11px 13px",
-
-                    border:
-                      "1px solid #c7ead7",
-
-                    borderRadius:
-                      "9px",
-
-                    background:
-                      "#effaf4",
-
-                    color:
-                      "#25754e",
-
-                    fontSize:
-                      "10px",
-                  }}
+                <MessageBox
+                  type="success"
                 >
-                  <CheckCircle2
-                    size={15}
-                  />
-
                   {
                     paymentSuccess
                   }
-                </div>
+                </MessageBox>
               )
             }
 
@@ -1527,6 +1441,7 @@ export default function PurchaseBillDetails() {
                 <FormField
                   label="Payment Amount *"
                 >
+
                   <input
                     type="number"
                     min="0.01"
@@ -1538,9 +1453,7 @@ export default function PurchaseBillDetails() {
                       paymentAmount
                     }
                     onChange={
-                      (
-                        event
-                      ) =>
+                      event =>
                         setPaymentAmount(
                           event.target.value
                         )
@@ -1551,21 +1464,21 @@ export default function PurchaseBillDetails() {
                       inputStyle
                     }
                   />
+
                 </FormField>
 
 
                 <FormField
                   label="Payment Date *"
                 >
+
                   <input
                     type="datetime-local"
                     value={
                       paymentDate
                     }
                     onChange={
-                      (
-                        event
-                      ) =>
+                      event =>
                         setPaymentDate(
                           event.target.value
                         )
@@ -1575,20 +1488,20 @@ export default function PurchaseBillDetails() {
                       inputStyle
                     }
                   />
+
                 </FormField>
 
 
                 <FormField
                   label="Payment Mode"
                 >
+
                   <select
                     value={
                       paymentMode
                     }
                     onChange={
-                      (
-                        event
-                      ) =>
+                      event =>
                         setPaymentMode(
                           event.target.value
                         )
@@ -1597,53 +1510,49 @@ export default function PurchaseBillDetails() {
                       inputStyle
                     }
                   >
-                    <option value="Bank Transfer">
-                      Bank Transfer
-                    </option>
 
-                    <option value="NEFT">
-                      NEFT
-                    </option>
+                    {
+                      [
+                        "Bank Transfer",
+                        "NEFT",
+                        "RTGS",
+                        "IMPS",
+                        "UPI",
+                        "Cheque",
+                        "Cash",
+                        "Other",
+                      ].map(
+                        mode => (
+                          <option
+                            key={
+                              mode
+                            }
+                            value={
+                              mode
+                            }
+                          >
+                            {mode}
+                          </option>
+                        )
+                      )
+                    }
 
-                    <option value="RTGS">
-                      RTGS
-                    </option>
-
-                    <option value="IMPS">
-                      IMPS
-                    </option>
-
-                    <option value="UPI">
-                      UPI
-                    </option>
-
-                    <option value="Cheque">
-                      Cheque
-                    </option>
-
-                    <option value="Cash">
-                      Cash
-                    </option>
-
-                    <option value="Other">
-                      Other
-                    </option>
                   </select>
+
                 </FormField>
 
 
                 <FormField
                   label="Reference Number"
                 >
+
                   <input
                     type="text"
                     value={
                       referenceNumber
                     }
                     onChange={
-                      (
-                        event
-                      ) =>
+                      event =>
                         setReferenceNumber(
                           event.target.value
                         )
@@ -1653,6 +1562,7 @@ export default function PurchaseBillDetails() {
                       inputStyle
                     }
                   />
+
                 </FormField>
 
 
@@ -1662,22 +1572,22 @@ export default function PurchaseBillDetails() {
                       "1 / -1",
                   }}
                 >
+
                   <FormField
                     label="Notes"
                   >
+
                     <textarea
+                      rows={3}
                       value={
                         paymentNotes
                       }
                       onChange={
-                        (
-                          event
-                        ) =>
+                        event =>
                           setPaymentNotes(
                             event.target.value
                           )
                       }
-                      rows={3}
                       placeholder="Optional payment remarks"
                       style={{
                         ...inputStyle,
@@ -1686,7 +1596,9 @@ export default function PurchaseBillDetails() {
                           "vertical",
                       }}
                     />
+
                   </FormField>
+
                 </div>
 
               </div>
@@ -1694,14 +1606,14 @@ export default function PurchaseBillDetails() {
 
               <div
                 style={{
-                  marginTop:
-                    "18px",
-
                   display:
                     "flex",
 
                   justifyContent:
                     "flex-end",
+
+                  marginTop:
+                    "18px",
                 }}
               >
 
@@ -1714,20 +1626,20 @@ export default function PurchaseBillDetails() {
                     minWidth:
                       "150px",
 
-                    minHeight:
-                      "39px",
-
                     display:
                       "inline-flex",
-
-                    alignItems:
-                      "center",
 
                     justifyContent:
                       "center",
 
+                    alignItems:
+                      "center",
+
                     gap:
                       "8px",
+
+                    padding:
+                      "11px 16px",
 
                     border:
                       "none",
@@ -1748,9 +1660,6 @@ export default function PurchaseBillDetails() {
                         ? "not-allowed"
                         : "pointer",
 
-                    fontSize:
-                      "11px",
-
                     fontWeight:
                       750,
                   }}
@@ -1763,7 +1672,6 @@ export default function PurchaseBillDetails() {
                           <Loader2
                             size={15}
                           />
-
                           Recording...
                         </>
                       )
@@ -1772,7 +1680,6 @@ export default function PurchaseBillDetails() {
                           <CreditCard
                             size={15}
                           />
-
                           Record Payment
                         </>
                       )
@@ -1789,73 +1696,38 @@ export default function PurchaseBillDetails() {
       }
 
 
-      {/* ==========================================================
-          FULLY PAID MESSAGE
-      ========================================================== */}
+      {/* ========================================================
+          FULLY PAID
+      ========================================================= */}
 
       {
         canRecordPayment
         && isFullyPaid
         && (
-          <div
-            style={{
-              display:
-                "flex",
-
-              alignItems:
-                "center",
-
-              gap:
-                "9px",
-
-              padding:
-                "13px 15px",
-
-              border:
-                "1px solid #c8ead8",
-
-              borderRadius:
-                "11px",
-
-              background:
-                "#effaf4",
-
-              color:
-                "#277650",
-
-              fontSize:
-                "10px",
-            }}
+          <MessageBox
+            type="success"
           >
-            <CheckCircle2
-              size={17}
-            />
-
-            This Purchase Bill has been
-            fully paid. No outstanding
-            supplier balance remains.
-          </div>
+            This Purchase Bill has been fully
+            paid. No outstanding supplier
+            balance remains.
+          </MessageBox>
         )
       }
 
 
-      {/* ==========================================================
+      {/* ========================================================
           PAYMENT HISTORY
-      ========================================================== */}
+      ========================================================= */}
 
       <section
         style={{
+          ...cardStyle,
+
+          padding:
+            0,
+
           overflow:
             "hidden",
-
-          border:
-            "1px solid #dfe7f2",
-
-          borderRadius:
-            "14px",
-
-          background:
-            "#ffffff",
         }}
       >
 
@@ -1872,7 +1744,8 @@ export default function PurchaseBillDetails() {
           <SectionHeading
             title="Payment History"
             subtitle={`${paymentHistory.length} recorded payment${
-              paymentHistory.length === 1
+              paymentHistory.length
+              === 1
                 ? ""
                 : "s"
             }`}
@@ -1890,21 +1763,10 @@ export default function PurchaseBillDetails() {
           paymentHistory.length
           === 0
             ? (
-              <div
-                style={{
-                  padding:
-                    "26px 20px",
-
-                  color:
-                    "#8a9ab1",
-
-                  fontSize:
-                    "10px",
-                }}
-              >
-                No supplier payments have
-                been recorded for this bill.
-              </div>
+              <EmptyText>
+                No supplier payments have been
+                recorded for this bill.
+              </EmptyText>
             )
             : (
               <div
@@ -1920,7 +1782,7 @@ export default function PurchaseBillDetails() {
                       "100%",
 
                     minWidth:
-                      "820px",
+                      "800px",
 
                     borderCollapse:
                       "collapse",
@@ -1934,17 +1796,16 @@ export default function PurchaseBillDetails() {
                         background:
                           "#f8fbff",
 
-                        color:
-                          "#7587a3",
-
                         textAlign:
                           "left",
+
+                        color:
+                          "#7587a3",
 
                         fontSize:
                           "9px",
                       }}
                     >
-
                       <th style={tableHeaderStyle}>
                         Payment Date
                       </th>
@@ -1968,7 +1829,6 @@ export default function PurchaseBillDetails() {
                       <th style={tableHeaderStyle}>
                         Recorded At
                       </th>
-
                     </tr>
 
                   </thead>
@@ -1978,9 +1838,7 @@ export default function PurchaseBillDetails() {
 
                     {
                       paymentHistory.map(
-                        (
-                          payment
-                        ) => (
+                        payment => (
                           <tr
                             key={
                               payment.id
@@ -1999,12 +1857,13 @@ export default function PurchaseBillDetails() {
                               }
                             </td>
 
+
                             <td
                               style={{
                                 ...tableCellStyle,
 
                                 color:
-                                  "#247553",
+                                  "#267650",
 
                                 fontWeight:
                                   800,
@@ -2017,12 +1876,14 @@ export default function PurchaseBillDetails() {
                               }
                             </td>
 
+
                             <td style={tableCellStyle}>
                               {
                                 payment.payment_mode
                                 || "—"
                               }
                             </td>
+
 
                             <td style={tableCellStyle}>
                               {
@@ -2031,12 +1892,14 @@ export default function PurchaseBillDetails() {
                               }
                             </td>
 
+
                             <td style={tableCellStyle}>
                               {
                                 payment.notes
                                 || "—"
                               }
                             </td>
+
 
                             <td style={tableCellStyle}>
                               {
@@ -2062,24 +1925,14 @@ export default function PurchaseBillDetails() {
       </section>
 
 
-      {/* ==========================================================
-          ORIGINAL FINANCIAL SUMMARY
-      ========================================================== */}
+      {/* ========================================================
+          PURCHASE VALUE
+      ========================================================= */}
 
       <section
-        style={{
-          padding:
-            "20px",
-
-          border:
-            "1px solid #dfe7f2",
-
-          borderRadius:
-            "14px",
-
-          background:
-            "#ffffff",
-        }}
+        style={
+          cardStyle
+        }
       >
 
         <SectionHeading
@@ -2118,6 +1971,7 @@ export default function PurchaseBillDetails() {
             }
           />
 
+
           <SummaryCard
             label="Total GST"
             value={
@@ -2126,6 +1980,7 @@ export default function PurchaseBillDetails() {
               )
             }
           />
+
 
           <SummaryCard
             label="Grand Total"
@@ -2142,23 +1997,19 @@ export default function PurchaseBillDetails() {
       </section>
 
 
-      {/* ==========================================================
-          ITEMS
-      ========================================================== */}
+      {/* ========================================================
+          PURCHASE BILL ITEMS
+      ========================================================= */}
 
       <section
         style={{
+          ...cardStyle,
+
+          padding:
+            0,
+
           overflow:
             "hidden",
-
-          border:
-            "1px solid #dfe7f2",
-
-          borderRadius:
-            "14px",
-
-          background:
-            "#ffffff",
         }}
       >
 
@@ -2175,12 +2026,13 @@ export default function PurchaseBillDetails() {
           <SectionHeading
             title="Purchase Bill Items"
             subtitle={`${purchaseBill.items.length} item${
-              purchaseBill.items.length === 1
+              purchaseBill.items.length
+              === 1
                 ? ""
                 : "s"
             }`}
             icon={
-              <ReceiptText
+              <Package
                 size={18}
               />
             }
@@ -2190,25 +2042,12 @@ export default function PurchaseBillDetails() {
 
 
         {
-          purchaseBill
-            .items
-            .length
+          purchaseBill.items.length
           === 0
             ? (
-              <div
-                style={{
-                  padding:
-                    "26px 20px",
-
-                  color:
-                    "#8a9ab1",
-
-                  fontSize:
-                    "10px",
-                }}
-              >
-                No items found.
-              </div>
+              <EmptyText>
+                No Purchase Bill items found.
+              </EmptyText>
             )
             : (
               <div
@@ -2224,7 +2063,7 @@ export default function PurchaseBillDetails() {
                       "100%",
 
                     minWidth:
-                      "760px",
+                      "1050px",
 
                     borderCollapse:
                       "collapse",
@@ -2238,11 +2077,11 @@ export default function PurchaseBillDetails() {
                         background:
                           "#f8fbff",
 
-                        color:
-                          "#7587a3",
-
                         textAlign:
                           "left",
+
+                        color:
+                          "#7587a3",
 
                         fontSize:
                           "9px",
@@ -2250,11 +2089,19 @@ export default function PurchaseBillDetails() {
                     >
 
                       <th style={tableHeaderStyle}>
-                        Item ID
+                        Product / Item
                       </th>
 
                       <th style={tableHeaderStyle}>
-                        Product ID
+                        Description
+                      </th>
+
+                      <th style={tableHeaderStyle}>
+                        HSN
+                      </th>
+
+                      <th style={tableHeaderStyle}>
+                        Unit
                       </th>
 
                       <th style={tableHeaderStyle}>
@@ -2281,83 +2128,127 @@ export default function PurchaseBillDetails() {
                   <tbody>
 
                     {
-                      purchaseBill
-                        .items
-                        .map(
-                          (
-                            item
-                          ) => (
-                            <tr
-                              key={
-                                item.id
-                              }
-                              style={{
-                                borderTop:
-                                  "1px solid #edf1f6",
-                              }}
-                            >
+                      purchaseBill.items.map(
+                        item => (
+                          <tr
+                            key={
+                              item.id
+                            }
+                            style={{
+                              borderTop:
+                                "1px solid #edf1f6",
+                            }}
+                          >
 
-                              <td style={tableCellStyle}>
-                                {
-                                  item.id
-                                }
-                              </td>
+                            <td style={tableCellStyle}>
 
-                              <td style={tableCellStyle}>
-                                {
-                                  item.product_id
-                                }
-                              </td>
-
-                              <td style={tableCellStyle}>
-                                {
-                                  Number(
-                                    item.quantity
-                                  ).toFixed(
-                                    2
-                                  )
-                                }
-                              </td>
-
-                              <td style={tableCellStyle}>
-                                {
-                                  formatCurrency(
-                                    item.purchase_price
-                                  )
-                                }
-                              </td>
-
-                              <td style={tableCellStyle}>
-                                {
-                                  Number(
-                                    item.gst_percentage
-                                  ).toFixed(
-                                    2
-                                  )
-                                }%
-                              </td>
-
-                              <td
+                              <div
                                 style={{
-                                  ...tableCellStyle,
+                                  color:
+                                    "#203654",
 
                                   fontWeight:
-                                    750,
+                                    800,
 
-                                  color:
-                                    "#263a59",
+                                  fontSize:
+                                    "11px",
                                 }}
                               >
                                 {
-                                  formatCurrency(
-                                    item.line_total
-                                  )
+                                  item.product_name
+                                  || `Product #${item.product_id}`
                                 }
-                              </td>
+                              </div>
 
-                            </tr>
-                          )
+                            </td>
+
+
+                            <td
+                              style={{
+                                ...tableCellStyle,
+
+                                maxWidth:
+                                  "260px",
+
+                                lineHeight:
+                                  1.5,
+                              }}
+                            >
+                              {
+                                item.description
+                                || "—"
+                              }
+                            </td>
+
+
+                            <td style={tableCellStyle}>
+                              {
+                                item.hsn_code
+                                || "—"
+                              }
+                            </td>
+
+
+                            <td style={tableCellStyle}>
+                              {
+                                item.unit
+                                || "—"
+                              }
+                            </td>
+
+
+                            <td style={tableCellStyle}>
+                              {
+                                Number(
+                                  item.quantity
+                                ).toFixed(
+                                  2
+                                )
+                              }
+                            </td>
+
+
+                            <td style={tableCellStyle}>
+                              {
+                                formatCurrency(
+                                  item.purchase_price
+                                )
+                              }
+                            </td>
+
+
+                            <td style={tableCellStyle}>
+                              {
+                                Number(
+                                  item.gst_percentage
+                                ).toFixed(
+                                  2
+                                )
+                              }%
+                            </td>
+
+
+                            <td
+                              style={{
+                                ...tableCellStyle,
+
+                                color:
+                                  "#263a59",
+
+                                fontWeight:
+                                  800,
+                              }}
+                            >
+                              {
+                                formatCurrency(
+                                  item.line_total
+                                )
+                              }
+                            </td>
+
+                          </tr>
                         )
+                      )
                     }
 
                   </tbody>
@@ -2371,24 +2262,14 @@ export default function PurchaseBillDetails() {
       </section>
 
 
-      {/* ==========================================================
+      {/* ========================================================
           REMARKS
-      ========================================================== */}
+      ========================================================= */}
 
       <section
-        style={{
-          padding:
-            "20px",
-
-          border:
-            "1px solid #dfe7f2",
-
-          borderRadius:
-            "14px",
-
-          background:
-            "#ffffff",
-        }}
+        style={
+          cardStyle
+        }
       >
 
         <div
@@ -2451,22 +2332,18 @@ export default function PurchaseBillDetails() {
 
 
 /* ================================================================
-   SECTION HEADING
+   COMPONENTS
 ================================================================ */
-
-interface SectionHeadingProps {
-  title: string;
-  subtitle: string;
-  icon:
-    React.ReactNode;
-}
-
 
 function SectionHeading({
   title,
   subtitle,
   icon,
-}: SectionHeadingProps) {
+}: {
+  title: string;
+  subtitle: string;
+  icon: ReactNode;
+}) {
 
   return (
     <div
@@ -2556,20 +2433,13 @@ function SectionHeading({
 }
 
 
-/* ================================================================
-   INFO FIELD
-================================================================ */
-
-interface InfoFieldProps {
-  label: string;
-  value: string;
-}
-
-
 function InfoField({
   label,
   value,
-}: InfoFieldProps) {
+}: {
+  label: string;
+  value: string;
+}) {
 
   return (
     <div>
@@ -2599,7 +2469,7 @@ function InfoField({
             "#213553",
 
           fontSize:
-            "10.5px",
+            "11px",
 
           fontWeight:
             750,
@@ -2613,34 +2483,22 @@ function InfoField({
 }
 
 
-/* ================================================================
-   SUMMARY CARD
-================================================================ */
-
-type SummaryVariant =
-  | "default"
-  | "primary"
-  | "success"
-  | "warning";
-
-
-interface SummaryCardProps {
-  label: string;
-  value: string;
-
-  variant?:
-    SummaryVariant;
-}
-
-
 function SummaryCard({
   label,
   value,
-  variant = "default",
-}: SummaryCardProps) {
+  variant =
+    "default",
+}: {
+  label: string;
+  value: string;
+  variant?:
+    | "default"
+    | "primary"
+    | "success"
+    | "warning";
+}) {
 
-  const styles = {
-
+  const variants = {
     default: {
       background:
         "#f8fafc",
@@ -2648,30 +2506,30 @@ function SummaryCard({
       border:
         "#e3e9f1",
 
-      value:
-        "#263a58",
+      color:
+        "#243955",
     },
 
     primary: {
       background:
-        "#f0f5ff",
+        "#eef4ff",
 
       border:
-        "#d6e2fb",
+        "#d4e1fa",
 
-      value:
-        "#3d68b7",
+      color:
+        "#3f67b8",
     },
 
     success: {
       background:
-        "#effaf4",
+        "#eff9f3",
 
       border:
-        "#cdebd9",
+        "#ccebd9",
 
-      value:
-        "#287651",
+      color:
+        "#267650",
     },
 
     warning: {
@@ -2679,36 +2537,41 @@ function SummaryCard({
         "#fff8e9",
 
       border:
-        "#f1dfb4",
+        "#f1dfb6",
 
-      value:
-        "#9b6b13",
+      color:
+        "#99670d",
     },
+  };
 
-  }[variant];
+
+  const style =
+    variants[
+      variant
+    ];
 
 
   return (
     <div
       style={{
         padding:
-          "16px",
+          "18px 16px",
 
         border:
-          `1px solid ${styles.border}`,
+          `1px solid ${style.border}`,
 
         borderRadius:
           "11px",
 
         background:
-          styles.background,
+          style.background,
       }}
     >
 
       <div
         style={{
           color:
-            "#8391a6",
+            "#8594aa",
 
           fontSize:
             "9px",
@@ -2727,16 +2590,13 @@ function SummaryCard({
             "8px",
 
           color:
-            styles.value,
+            style.color,
 
           fontSize:
-            "18px",
+            "19px",
 
           fontWeight:
             850,
-
-          letterSpacing:
-            "-0.02em",
         }}
       >
         {value}
@@ -2747,40 +2607,24 @@ function SummaryCard({
 }
 
 
-/* ================================================================
-   FORM FIELD
-================================================================ */
-
-interface FormFieldProps {
-  label: string;
-  children:
-    React.ReactNode;
-}
-
-
 function FormField({
   label,
   children,
-}: FormFieldProps) {
+}: {
+  label: string;
+  children: ReactNode;
+}) {
 
   return (
-    <label
-      style={{
-        display:
-          "flex",
+    <label>
 
-        flexDirection:
-          "column",
-
-        gap:
-          "6px",
-      }}
-    >
-
-      <span
+      <div
         style={{
+          marginBottom:
+            "6px",
+
           color:
-            "#667b99",
+            "#60728f",
 
           fontSize:
             "9px",
@@ -2790,7 +2634,7 @@ function FormField({
         }}
       >
         {label}
-      </span>
+      </div>
 
       {children}
 
@@ -2799,65 +2643,189 @@ function FormField({
 }
 
 
-/* ================================================================
-   SHARED STYLES
-================================================================ */
+function EmptyText({
+  children,
+}: {
+  children: ReactNode;
+}) {
 
-const inputStyle:
-  React.CSSProperties =
-  {
-    width:
-      "100%",
+  return (
+    <div
+      style={{
+        padding:
+          "26px 20px",
 
-    minHeight:
-      "38px",
+        color:
+          "#8a9ab1",
 
-    padding:
-      "9px 10px",
-
-    border:
-      "1px solid #dbe4ef",
-
-    borderRadius:
-      "8px",
-
-    outline:
-      "none",
-
-    background:
-      "#ffffff",
-
-    color:
-      "#263a58",
-
-    fontSize:
-      "10px",
-
-    boxSizing:
-      "border-box",
-  };
+        fontSize:
+          "10px",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 
-const tableHeaderStyle:
-  React.CSSProperties =
-  {
-    padding:
-      "11px 14px",
+function MessageBox({
+  type,
+  children,
+}: {
+  type:
+    | "success"
+    | "error";
 
-    fontWeight:
-      800,
-  };
+  children:
+    ReactNode;
+}) {
+
+  const success =
+    type === "success";
 
 
-const tableCellStyle:
-  React.CSSProperties =
-  {
-    padding:
-      "12px 14px",
+  return (
+    <div
+      style={{
+        marginTop:
+          "14px",
 
-    color:
-      "#60738f",
+        display:
+          "flex",
 
-    fontSize:
-      "9px",
-  };
+        alignItems:
+          "center",
+
+        gap:
+          "8px",
+
+        padding:
+          "12px 14px",
+
+        border:
+          success
+            ? "1px solid #c8ead8"
+            : "1px solid #fecaca",
+
+        borderRadius:
+          "10px",
+
+        background:
+          success
+            ? "#effaf4"
+            : "#fff4f4",
+
+        color:
+          success
+            ? "#277650"
+            : "#b91c1c",
+
+        fontSize:
+          "10px",
+      }}
+    >
+
+      {
+        success
+        && (
+          <CheckCircle2
+            size={16}
+          />
+        )
+      }
+
+      {children}
+
+    </div>
+  );
+}
+
+
+function PaymentBadge({
+  status,
+}: {
+  status: string;
+}) {
+
+  let background =
+    "#eef3f8";
+
+  let color =
+    "#60728e";
+
+  let border =
+    "#dbe4ef";
+
+
+  if (
+    status === "Paid"
+  ) {
+    background =
+      "#eaf8f0";
+
+    color =
+      "#267650";
+
+    border =
+      "#c8ecd8";
+  }
+
+
+  if (
+    status === "Partially Paid"
+  ) {
+    background =
+      "#fff6df";
+
+    color =
+      "#9b6d13";
+
+    border =
+      "#f3dfac";
+  }
+
+
+  if (
+    status === "Unpaid"
+  ) {
+    background =
+      "#fff0f3";
+
+    color =
+      "#b8415a";
+
+    border =
+      "#f5ccd5";
+  }
+
+
+  return (
+    <span
+      style={{
+        display:
+          "inline-flex",
+
+        padding:
+          "6px 11px",
+
+        border:
+          `1px solid ${border}`,
+
+        borderRadius:
+          "999px",
+
+        background,
+
+        color,
+
+        fontSize:
+          "10px",
+
+        fontWeight:
+          800,
+      }}
+    >
+      {status}
+    </span>
+  );
+}
