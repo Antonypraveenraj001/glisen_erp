@@ -1,6 +1,8 @@
 import axios from "axios";
 
 import type {
+  DirectStockIssuePayload,
+  DirectStockIssueResponse,
   StockMovementFilters,
   StockMovementResponse,
   StockSummaryFilters,
@@ -14,7 +16,9 @@ const API_BASE_URL =
 
 function getAuthHeaders() {
   const token =
-    localStorage.getItem("access_token");
+    localStorage.getItem(
+      "access_token"
+    );
 
   if (!token) {
     throw new Error(
@@ -23,7 +27,8 @@ function getAuthHeaders() {
   }
 
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization:
+      `Bearer ${token}`,
   };
 }
 
@@ -33,10 +38,13 @@ export async function getStockSummary(
 ): Promise<StockSummaryResponse> {
 
   const response =
-    await axios.get<StockSummaryResponse>(
+    await axios.get<
+      StockSummaryResponse
+    >(
       `${API_BASE_URL}/stock-report/summary`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
 
         params: {
           search:
@@ -59,10 +67,13 @@ export async function getStockMovements(
 ): Promise<StockMovementResponse> {
 
   const response =
-    await axios.get<StockMovementResponse>(
+    await axios.get<
+      StockMovementResponse
+    >(
       `${API_BASE_URL}/stock-report/movements`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
 
         params: {
           product_id:
@@ -81,6 +92,31 @@ export async function getStockMovements(
             filters.end_date ||
             undefined,
         },
+      }
+    );
+
+  return response.data;
+}
+
+
+/* =========================================================
+   ISSUE STOCK TO PRODUCTION
+========================================================= */
+
+export async function issueStockToProductionOrder(
+  productionOrderId: number,
+  payload: DirectStockIssuePayload
+): Promise<DirectStockIssueResponse> {
+
+  const response =
+    await axios.post<
+      DirectStockIssueResponse
+    >(
+      `${API_BASE_URL}/stock-issues/production-orders/${productionOrderId}`,
+      payload,
+      {
+        headers:
+          getAuthHeaders(),
       }
     );
 

@@ -12,6 +12,9 @@ from app.api.v1.customers import (
 from app.api.v1.dashboard import (
     router as dashboard_router,
 )
+from app.api.v1.direct_stock_issues import (
+    router as direct_stock_issues_router,
+)
 from app.api.v1.enquiries import (
     router as enquiries_router,
 )
@@ -143,6 +146,10 @@ api_router.include_router(
 
 api_router.include_router(
     shop_floor_issues_router
+)
+
+api_router.include_router(
+    direct_stock_issues_router
 )
 
 

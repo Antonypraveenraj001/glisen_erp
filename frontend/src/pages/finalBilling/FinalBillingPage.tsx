@@ -1,3 +1,5 @@
+import axios from "axios";
+
 import {
   useEffect,
   useMemo,
@@ -8,6 +10,7 @@ import {
   BadgeIndianRupee,
   CheckCircle2,
   ChevronRight,
+  FilePlus2,
   FileText,
   Loader2,
   ReceiptText,
@@ -20,13 +23,22 @@ import {
 import "./FinalBillingPage.css";
 
 import {
+  createFinalBillFromProforma,
   getFinalBillById,
   getFinalBills,
 } from "../../services/finalBillService";
 
+import {
+  getProformas,
+} from "../../services/proformaService";
+
 import type {
   FinalBill,
 } from "../../types/finalBill";
+
+import type {
+  Proforma,
+} from "../../types/proforma";
 
 
 function formatCurrency(
@@ -101,13 +113,43 @@ function formatDate(
 }
 
 
+function getLocalToday() {
+  const now =
+    new Date();
+
+  const year =
+    now.getFullYear();
+
+  const month =
+    String(
+      now.getMonth() + 1
+    ).padStart(
+      2,
+      "0"
+    );
+
+  const day =
+    String(
+      now.getDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+  return `${year}-${month}-${day}`;
+}
+
+
 function getStatusClass(
   status: string
 ) {
   const normalized =
     status
       .toLowerCase()
-      .replace(/\s+/g, "-");
+      .replace(
+        /\s+/g,
+        "-"
+      );
 
   if (
     normalized ===
@@ -169,6 +211,39 @@ function getInvoiceTypeClass(
 }
 
 
+function getApiErrorMessage(
+  error: unknown,
+  fallback: string
+) {
+  if (
+    axios.isAxiosError(
+      error
+    )
+  ) {
+    const detail =
+      error.response
+        ?.data
+        ?.detail;
+
+    if (
+      typeof detail ===
+      "string"
+    ) {
+      return detail;
+    }
+  }
+
+  if (
+    error instanceof Error &&
+    error.message
+  ) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+
 export default function FinalBillingPage() {
   const [
     bills,
@@ -222,10 +297,77 @@ export default function FinalBillingPage() {
       null
     );
 
+  /*
+   * ============================================================
+   * CREATE BILL STATES
+   * ============================================================
+   */
+
+  const [
+    createBillOpen,
+    setCreateBillOpen,
+  ] =
+    useState(false);
+
+  const [
+    proformas,
+    setProformas,
+  ] =
+    useState<Proforma[]>([]);
+
+  const [
+    proformaLoading,
+    setProformaLoading,
+  ] =
+    useState(false);
+
+  const [
+    proformaSearch,
+    setProformaSearch,
+  ] =
+    useState("");
+
+  const [
+    selectedProformaId,
+    setSelectedProformaId,
+  ] =
+    useState<number | null>(
+      null
+    );
+
+  const [
+    invoiceDate,
+    setInvoiceDate,
+  ] =
+    useState(
+      getLocalToday()
+    );
+
+  const [
+    creatingBill,
+    setCreatingBill,
+  ] =
+    useState(false);
+
+  const [
+    createBillError,
+    setCreateBillError,
+  ] =
+    useState<string | null>(
+      null
+    );
+
+
+  /*
+   * ============================================================
+   * LOAD FINAL BILLS
+   * ============================================================
+   */
 
   async function loadBills() {
     try {
       setLoading(true);
+
       setError(null);
 
       const data =
@@ -236,7 +378,10 @@ export default function FinalBillingPage() {
       console.error(err);
 
       setError(
-        "Unable to load final bills."
+        getApiErrorMessage(
+          err,
+          "Unable to load final bills."
+        )
       );
     } finally {
       setLoading(false);
@@ -244,10 +389,19 @@ export default function FinalBillingPage() {
   }
 
 
-  useEffect(() => {
-    void loadBills();
-  }, []);
+  useEffect(
+    () => {
+      void loadBills();
+    },
+    []
+  );
 
+
+  /*
+   * ============================================================
+   * BILL FILTERS
+   * ============================================================
+   */
 
   const filteredBills =
     useMemo(
@@ -263,19 +417,27 @@ export default function FinalBillingPage() {
               !query ||
               bill.invoice_number
                 .toLowerCase()
-                .includes(query) ||
+                .includes(
+                  query
+                ) ||
               bill.company_name
                 .toLowerCase()
-                .includes(query) ||
+                .includes(
+                  query
+                ) ||
               String(
                 bill.proforma_id
-              ).includes(query) ||
+              ).includes(
+                query
+              ) ||
               (
                 bill.gst_number ??
                 ""
               )
                 .toLowerCase()
-                .includes(query);
+                .includes(
+                  query
+                );
 
             const matchesStatus =
               !statusFilter ||
@@ -304,6 +466,12 @@ export default function FinalBillingPage() {
     );
 
 
+  /*
+   * ============================================================
+   * KPI VALUES
+   * ============================================================
+   */
+
   const issuedCount =
     useMemo(
       () =>
@@ -313,7 +481,9 @@ export default function FinalBillingPage() {
               .toLowerCase() ===
             "issued"
         ).length,
-      [bills]
+      [
+        bills,
+      ]
     );
 
 
@@ -326,7 +496,9 @@ export default function FinalBillingPage() {
               .toLowerCase() ===
             "draft"
         ).length,
-      [bills]
+      [
+        bills,
+      ]
     );
 
 
@@ -337,9 +509,13 @@ export default function FinalBillingPage() {
           (bill) =>
             bill.invoice_type
               .toLowerCase()
-              .includes("credit")
+              .includes(
+                "credit"
+              )
         ).length,
-      [bills]
+      [
+        bills,
+      ]
     );
 
 
@@ -357,15 +533,26 @@ export default function FinalBillingPage() {
             ),
           0
         ),
-      [bills]
+      [
+        bills,
+      ]
     );
 
+
+  /*
+   * ============================================================
+   * FINAL BILL DETAIL
+   * ============================================================
+   */
 
   async function openBillDetail(
     bill: FinalBill
   ) {
     try {
-      setDetailLoading(true);
+      setDetailLoading(
+        true
+      );
+
       setError(null);
 
       const detail =
@@ -373,28 +560,310 @@ export default function FinalBillingPage() {
           bill.id
         );
 
-      setSelectedBill(detail);
+      setSelectedBill(
+        detail
+      );
     } catch (err) {
       console.error(err);
 
       setError(
-        "Unable to load final bill details."
+        getApiErrorMessage(
+          err,
+          "Unable to load final bill details."
+        )
       );
     } finally {
-      setDetailLoading(false);
+      setDetailLoading(
+        false
+      );
     }
   }
 
 
   function closeDetail() {
-    setSelectedBill(null);
+    setSelectedBill(
+      null
+    );
+  }
+
+
+  /*
+   * ============================================================
+   * CREATE BILL
+   * ============================================================
+   */
+
+  async function openCreateBill() {
+    setCreateBillOpen(
+      true
+    );
+
+    setSelectedProformaId(
+      null
+    );
+
+    setProformaSearch(
+      ""
+    );
+
+    setInvoiceDate(
+      getLocalToday()
+    );
+
+    setCreateBillError(
+      null
+    );
+
+    try {
+      setProformaLoading(
+        true
+      );
+
+      const data =
+        await getProformas();
+
+      setProformas(
+        data
+      );
+    } catch (err) {
+      console.error(err);
+
+      setCreateBillError(
+        getApiErrorMessage(
+          err,
+          "Unable to load Proformas."
+        )
+      );
+    } finally {
+      setProformaLoading(
+        false
+      );
+    }
+  }
+
+
+  function closeCreateBill() {
+    if (
+      creatingBill
+    ) {
+      return;
+    }
+
+    setCreateBillOpen(
+      false
+    );
+
+    setSelectedProformaId(
+      null
+    );
+
+    setCreateBillError(
+      null
+    );
+  }
+
+
+  /*
+   * Original Tax Invoice /
+   * first Final Bill has no parent.
+   *
+   * Revised invoices and credit
+   * notes have parent_invoice_id.
+   *
+   * Therefore only the original
+   * document should block another
+   * Final Bill from being generated
+   * for the same Proforma.
+   */
+
+  const billedProformaIds =
+    useMemo(
+      () => {
+        return new Set(
+          bills
+            .filter(
+              (bill) =>
+                bill
+                  .parent_invoice_id ===
+                null
+            )
+            .map(
+              (bill) =>
+                bill.proforma_id
+            )
+        );
+      },
+      [
+        bills,
+      ]
+    );
+
+
+  const availableProformas =
+    useMemo(
+      () => {
+        const query =
+          proformaSearch
+            .trim()
+            .toLowerCase();
+
+        return proformas
+          .filter(
+            (proforma) =>
+              !billedProformaIds
+                .has(
+                  proforma.id
+                )
+          )
+          .filter(
+            (proforma) => {
+              if (
+                !query
+              ) {
+                return true;
+              }
+
+              return (
+                proforma
+                  .proforma_number
+                  .toLowerCase()
+                  .includes(
+                    query
+                  ) ||
+                proforma
+                  .company_name
+                  .toLowerCase()
+                  .includes(
+                    query
+                  ) ||
+                String(
+                  proforma.id
+                ).includes(
+                  query
+                ) ||
+                String(
+                  proforma.customer_id
+                ).includes(
+                  query
+                )
+              );
+            }
+          )
+          .sort(
+            (
+              a,
+              b
+            ) =>
+              new Date(
+                b.proforma_date
+              ).getTime() -
+              new Date(
+                a.proforma_date
+              ).getTime()
+          );
+      },
+      [
+        proformas,
+        billedProformaIds,
+        proformaSearch,
+      ]
+    );
+
+
+  const selectedProforma =
+    useMemo(
+      () =>
+        availableProformas
+          .find(
+            (proforma) =>
+              proforma.id ===
+              selectedProformaId
+          ) ??
+        null,
+      [
+        availableProformas,
+        selectedProformaId,
+      ]
+    );
+
+
+  async function handleCreateBill() {
+    if (
+      selectedProformaId ===
+      null
+    ) {
+      setCreateBillError(
+        "Select a Proforma first."
+      );
+
+      return;
+    }
+
+    try {
+      setCreatingBill(
+        true
+      );
+
+      setCreateBillError(
+        null
+      );
+
+      const created =
+        await createFinalBillFromProforma(
+          selectedProformaId,
+          {
+            invoice_date:
+              invoiceDate ||
+              undefined,
+          }
+        );
+
+      setBills(
+        (
+          currentBills
+        ) => [
+          created,
+          ...currentBills,
+        ]
+      );
+
+      setCreateBillOpen(
+        false
+      );
+
+      setSelectedProformaId(
+        null
+      );
+
+      setSelectedBill(
+        created
+      );
+    } catch (err) {
+      console.error(err);
+
+      setCreateBillError(
+        getApiErrorMessage(
+          err,
+          "Unable to create Final Bill."
+        )
+      );
+    } finally {
+      setCreatingBill(
+        false
+      );
+    }
   }
 
 
   return (
     <div className="final-billing-page">
 
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
       <div className="final-billing-header">
+
         <div>
           <div className="final-billing-eyebrow">
             SALES & TAX DOCUMENTS
@@ -405,24 +874,62 @@ export default function FinalBillingPage() {
           </h1>
 
           <p className="final-billing-subtitle">
-            Review tax invoices,
-            revised invoices, credit
-            notes, GST values, and
-            customer billing details.
+            Create Final Bills from completed
+            Proformas and review tax invoices,
+            revised invoices, credit notes,
+            GST values and customer billing
+            details.
           </p>
         </div>
 
-        <button
-          type="button"
-          className="final-billing-refresh"
-          onClick={() =>
-            void loadBills()
-          }
-        >
-          <RefreshCw size={16} />
 
-          Refresh
-        </button>
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            alignItems: "center",
+          }}
+        >
+
+          <button
+            type="button"
+            className="final-billing-refresh"
+            onClick={() =>
+              void openCreateBill()
+            }
+            style={{
+              background:
+                "#3478ed",
+              borderColor:
+                "#3478ed",
+              color:
+                "#ffffff",
+            }}
+          >
+            <FilePlus2
+              size={16}
+            />
+
+            Create Bill
+          </button>
+
+
+          <button
+            type="button"
+            className="final-billing-refresh"
+            onClick={() =>
+              void loadBills()
+            }
+          >
+            <RefreshCw
+              size={16}
+            />
+
+            Refresh
+          </button>
+
+        </div>
+
       </div>
 
 
@@ -432,6 +939,10 @@ export default function FinalBillingPage() {
         </div>
       )}
 
+
+      {/* ======================================================
+          KPI CARDS
+      ====================================================== */}
 
       <div className="final-billing-kpi-grid">
 
@@ -447,7 +958,9 @@ export default function FinalBillingPage() {
           </div>
 
           <div className="final-billing-kpi-icon blue">
-            <FileText size={20} />
+            <FileText
+              size={20}
+            />
           </div>
         </div>
 
@@ -464,7 +977,9 @@ export default function FinalBillingPage() {
           </div>
 
           <div className="final-billing-kpi-icon green">
-            <CheckCircle2 size={20} />
+            <CheckCircle2
+              size={20}
+            />
           </div>
         </div>
 
@@ -481,7 +996,9 @@ export default function FinalBillingPage() {
           </div>
 
           <div className="final-billing-kpi-icon lavender">
-            <ReceiptText size={20} />
+            <ReceiptText
+              size={20}
+            />
           </div>
         </div>
 
@@ -498,7 +1015,9 @@ export default function FinalBillingPage() {
           </div>
 
           <div className="final-billing-kpi-icon rose">
-            <ShieldCheck size={20} />
+            <ShieldCheck
+              size={20}
+            />
           </div>
         </div>
 
@@ -526,9 +1045,14 @@ export default function FinalBillingPage() {
       </div>
 
 
+      {/* ======================================================
+          BILL LIST
+      ====================================================== */}
+
       <div className="final-billing-panel">
 
         <div className="final-billing-panel-header">
+
           <div>
             <div className="final-billing-panel-title">
               Billing Documents
@@ -540,25 +1064,33 @@ export default function FinalBillingPage() {
             </div>
           </div>
 
+
           <div className="final-billing-record-count">
             {filteredBills.length}
             {" "}
             records
           </div>
+
         </div>
 
 
         <div className="final-billing-toolbar">
 
           <div className="final-billing-search">
-            <Search size={16} />
+            <Search
+              size={16}
+            />
 
             <input
               type="text"
               value={search}
-              onChange={(event) =>
+              onChange={(
+                event
+              ) =>
                 setSearch(
-                  event.target.value
+                  event
+                    .target
+                    .value
                 )
               }
               placeholder="Search invoice, customer, GSTIN or proforma..."
@@ -569,10 +1101,14 @@ export default function FinalBillingPage() {
                 type="button"
                 className="final-billing-search-clear"
                 onClick={() =>
-                  setSearch("")
+                  setSearch(
+                    ""
+                  )
                 }
               >
-                <X size={15} />
+                <X
+                  size={15}
+                />
               </button>
             )}
           </div>
@@ -581,9 +1117,13 @@ export default function FinalBillingPage() {
           <select
             className="final-billing-select"
             value={statusFilter}
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               setStatusFilter(
-                event.target.value
+                event
+                  .target
+                  .value
               )
             }
           >
@@ -604,9 +1144,13 @@ export default function FinalBillingPage() {
           <select
             className="final-billing-select"
             value={typeFilter}
-            onChange={(event) =>
+            onChange={(
+              event
+            ) =>
               setTypeFilter(
-                event.target.value
+                event
+                  .target
+                  .value
               )
             }
           >
@@ -642,7 +1186,9 @@ export default function FinalBillingPage() {
         ) : filteredBills.length ===
           0 ? (
           <div className="final-billing-empty">
-            <FileText size={25} />
+            <FileText
+              size={25}
+            />
 
             No billing documents found.
           </div>
@@ -698,20 +1244,26 @@ export default function FinalBillingPage() {
 
               <tbody>
                 {filteredBills.map(
-                  (bill) => (
-                    <tr key={bill.id}>
+                  (
+                    bill
+                  ) => (
+                    <tr
+                      key={bill.id}
+                    >
 
                       <td>
                         <div className="final-billing-invoice-number">
                           {
-                            bill.invoice_number
+                            bill
+                              .invoice_number
                           }
                         </div>
 
                         <div className="final-billing-row-note">
                           Proforma #
                           {
-                            bill.proforma_id
+                            bill
+                              .proforma_id
                           }
                         </div>
                       </td>
@@ -719,7 +1271,8 @@ export default function FinalBillingPage() {
 
                       <td>
                         {formatDate(
-                          bill.invoice_date
+                          bill
+                            .invoice_date
                         )}
                       </td>
 
@@ -727,13 +1280,15 @@ export default function FinalBillingPage() {
                       <td>
                         <div className="final-billing-company">
                           {
-                            bill.company_name
+                            bill
+                              .company_name
                           }
                         </div>
 
                         <div className="final-billing-row-note">
                           {
-                            bill.gst_number ||
+                            bill
+                              .gst_number ||
                             "No GSTIN"
                           }
                         </div>
@@ -743,33 +1298,39 @@ export default function FinalBillingPage() {
                       <td>
                         <span
                           className={`final-billing-type ${getInvoiceTypeClass(
-                            bill.invoice_type
+                            bill
+                              .invoice_type
                           )}`}
                         >
                           {
-                            bill.invoice_type
+                            bill
+                              .invoice_type
                           }
                         </span>
                       </td>
 
 
                       <td>
-                        R{
-                          bill.revision_number
+                        R
+                        {
+                          bill
+                            .revision_number
                         }
                       </td>
 
 
                       <td>
                         {formatCurrency(
-                          bill.taxable_amount
+                          bill
+                            .taxable_amount
                         )}
                       </td>
 
 
                       <td>
                         {formatCurrency(
-                          bill.tax_amount
+                          bill
+                            .tax_amount
                         )}
                       </td>
 
@@ -777,7 +1338,8 @@ export default function FinalBillingPage() {
                       <td>
                         <strong>
                           {formatCurrency(
-                            bill.grand_total
+                            bill
+                              .grand_total
                           )}
                         </strong>
                       </td>
@@ -839,6 +1401,527 @@ export default function FinalBillingPage() {
       )}
 
 
+      {/* ======================================================
+          CREATE BILL MODAL
+      ====================================================== */}
+
+      {createBillOpen && (
+        <div className="final-billing-modal-backdrop">
+
+          <div className="final-billing-modal">
+
+            <div className="final-billing-modal-header">
+
+              <div>
+                <div className="final-billing-modal-eyebrow">
+                  CREATE TAX INVOICE
+                </div>
+
+                <div className="final-billing-modal-title">
+                  Create Bill Against Proforma
+                </div>
+
+                <div className="final-billing-modal-subtitle">
+                  Select an unbilled Proforma.
+                  Production and finished-goods
+                  eligibility will be verified
+                  before the Draft invoice is created.
+                </div>
+              </div>
+
+
+              <button
+                type="button"
+                className="final-billing-modal-close"
+                onClick={
+                  closeCreateBill
+                }
+                disabled={
+                  creatingBill
+                }
+              >
+                <X
+                  size={18}
+                />
+              </button>
+
+            </div>
+
+
+            {createBillError && (
+              <div
+                className="final-billing-error"
+                style={{
+                  margin:
+                    "18px 20px 0",
+                }}
+              >
+                {createBillError}
+              </div>
+            )}
+
+
+            <div className="final-billing-detail-section">
+
+              <div className="final-billing-section-header">
+
+                <div>
+                  <div className="final-billing-section-title">
+                    Available Proformas
+                  </div>
+
+                  <div className="final-billing-section-subtitle">
+                    Proformas that already
+                    have an original Final
+                    Bill are hidden automatically.
+                  </div>
+                </div>
+
+
+                <div className="final-billing-section-count">
+                  {
+                    availableProformas
+                      .length
+                  }
+                  {" "}
+                  available
+                </div>
+
+              </div>
+
+
+              <div className="final-billing-toolbar">
+
+                <div className="final-billing-search">
+                  <Search
+                    size={16}
+                  />
+
+                  <input
+                    type="text"
+                    value={
+                      proformaSearch
+                    }
+                    onChange={(
+                      event
+                    ) =>
+                      setProformaSearch(
+                        event
+                          .target
+                          .value
+                      )
+                    }
+                    placeholder="Search Proforma or customer..."
+                  />
+
+                  {proformaSearch && (
+                    <button
+                      type="button"
+                      className="final-billing-search-clear"
+                      onClick={() =>
+                        setProformaSearch(
+                          ""
+                        )
+                      }
+                    >
+                      <X
+                        size={15}
+                      />
+                    </button>
+                  )}
+                </div>
+
+
+                <input
+                  type="date"
+                  className="final-billing-select"
+                  value={
+                    invoiceDate
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setInvoiceDate(
+                      event
+                        .target
+                        .value
+                    )
+                  }
+                />
+
+
+                <div
+                  className="final-billing-record-count"
+                  style={{
+                    display:
+                      "flex",
+                    alignItems:
+                      "center",
+                    justifyContent:
+                      "center",
+                    minHeight:
+                      "40px",
+                  }}
+                >
+                  Invoice Date
+                </div>
+
+              </div>
+
+
+              {proformaLoading ? (
+                <div className="final-billing-loading">
+                  <Loader2
+                    size={22}
+                    className="final-billing-spin"
+                  />
+
+                  Loading Proformas...
+                </div>
+              ) : availableProformas.length ===
+                0 ? (
+                <div className="final-billing-empty">
+                  <FileText
+                    size={25}
+                  />
+
+                  No unbilled Proformas available.
+                </div>
+              ) : (
+                <div className="final-billing-table-wrap">
+
+                  <table className="final-billing-table">
+
+                    <thead>
+                      <tr>
+                        <th>
+                          Proforma
+                        </th>
+
+                        <th>
+                          Date
+                        </th>
+
+                        <th>
+                          Customer
+                        </th>
+
+                        <th>
+                          Status
+                        </th>
+
+                        <th>
+                          Items
+                        </th>
+
+                        <th>
+                          Value
+                        </th>
+
+                        <th className="align-right">
+                          Select
+                        </th>
+                      </tr>
+                    </thead>
+
+
+                    <tbody>
+                      {availableProformas.map(
+                        (
+                          proforma
+                        ) => {
+                          const isSelected =
+                            selectedProformaId ===
+                            proforma.id;
+
+                          return (
+                            <tr
+                              key={
+                                proforma.id
+                              }
+                              style={
+                                isSelected
+                                  ? {
+                                      background:
+                                        "#f1f6ff",
+                                    }
+                                  : undefined
+                              }
+                            >
+
+                              <td>
+                                <div className="final-billing-invoice-number">
+                                  {
+                                    proforma
+                                      .proforma_number
+                                  }
+                                </div>
+
+                                <div className="final-billing-row-note">
+                                  ID #
+                                  {
+                                    proforma
+                                      .id
+                                  }
+                                </div>
+                              </td>
+
+
+                              <td>
+                                {formatDate(
+                                  proforma
+                                    .proforma_date
+                                )}
+                              </td>
+
+
+                              <td>
+                                <div className="final-billing-company">
+                                  {
+                                    proforma
+                                      .company_name
+                                  }
+                                </div>
+
+                                <div className="final-billing-row-note">
+                                  Customer #
+                                  {
+                                    proforma
+                                      .customer_id
+                                  }
+                                </div>
+                              </td>
+
+
+                              <td>
+                                {
+                                  proforma
+                                    .status
+                                }
+                              </td>
+
+
+                              <td>
+                                {
+                                  proforma
+                                    .items
+                                    .length
+                                }
+                              </td>
+
+
+                              <td>
+                                <strong>
+                                  {formatCurrency(
+                                    proforma
+                                      .grand_total
+                                  )}
+                                </strong>
+                              </td>
+
+
+                              <td className="align-right">
+                                <button
+                                  type="button"
+                                  className="final-billing-view-button"
+                                  onClick={() =>
+                                    setSelectedProformaId(
+                                      proforma.id
+                                    )
+                                  }
+                                  style={
+                                    isSelected
+                                      ? {
+                                          background:
+                                            "#3478ed",
+                                          borderColor:
+                                            "#3478ed",
+                                          color:
+                                            "#ffffff",
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  {
+                                    isSelected
+                                      ? "Selected"
+                                      : "Select"
+                                  }
+                                </button>
+                              </td>
+
+                            </tr>
+                          );
+                        }
+                      )}
+                    </tbody>
+
+                  </table>
+
+                </div>
+              )}
+
+            </div>
+
+
+            {selectedProforma && (
+              <div
+                className="final-billing-info-grid"
+                style={{
+                  gridTemplateColumns:
+                    "1fr",
+                }}
+              >
+
+                <div className="final-billing-info-card">
+
+                  <div className="final-billing-info-title">
+                    Selected Proforma
+                  </div>
+
+
+                  <div className="final-billing-info-line">
+                    <span>
+                      Proforma
+                    </span>
+
+                    <strong>
+                      {
+                        selectedProforma
+                          .proforma_number
+                      }
+                    </strong>
+                  </div>
+
+
+                  <div className="final-billing-info-line">
+                    <span>
+                      Customer
+                    </span>
+
+                    <strong>
+                      {
+                        selectedProforma
+                          .company_name
+                      }
+                    </strong>
+                  </div>
+
+
+                  <div className="final-billing-info-line">
+                    <span>
+                      Proforma Total
+                    </span>
+
+                    <strong>
+                      {formatCurrency(
+                        selectedProforma
+                          .grand_total
+                      )}
+                    </strong>
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+
+            <div
+              style={{
+                display:
+                  "flex",
+                justifyContent:
+                  "flex-end",
+                gap:
+                  "10px",
+                padding:
+                  "20px",
+                marginTop:
+                  "18px",
+                borderTop:
+                  "1px solid #e8eef6",
+              }}
+            >
+
+              <button
+                type="button"
+                className="final-billing-refresh"
+                onClick={
+                  closeCreateBill
+                }
+                disabled={
+                  creatingBill
+                }
+              >
+                Cancel
+              </button>
+
+
+              <button
+                type="button"
+                className="final-billing-refresh"
+                onClick={() =>
+                  void handleCreateBill()
+                }
+                disabled={
+                  selectedProformaId ===
+                    null ||
+                  creatingBill
+                }
+                style={{
+                  background:
+                    "#3478ed",
+                  borderColor:
+                    "#3478ed",
+                  color:
+                    "#ffffff",
+                  opacity:
+                    selectedProformaId ===
+                      null ||
+                    creatingBill
+                      ? 0.55
+                      : 1,
+                  cursor:
+                    selectedProformaId ===
+                      null ||
+                    creatingBill
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {creatingBill ? (
+                  <>
+                    <Loader2
+                      size={16}
+                      className="final-billing-spin"
+                    />
+
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <FilePlus2
+                      size={16}
+                    />
+
+                    Generate Draft Bill
+                  </>
+                )}
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+
+      {/* ======================================================
+          FINAL BILL DETAIL MODAL
+      ====================================================== */}
+
       {selectedBill && (
         <div className="final-billing-modal-backdrop">
 
@@ -884,7 +1967,9 @@ export default function FinalBillingPage() {
                   closeDetail
                 }
               >
-                <X size={18} />
+                <X
+                  size={18}
+                />
               </button>
 
             </div>
@@ -970,9 +2055,11 @@ export default function FinalBillingPage() {
             <div className="final-billing-info-grid">
 
               <div className="final-billing-info-card">
+
                 <div className="final-billing-info-title">
                   Customer Details
                 </div>
+
 
                 <div className="final-billing-info-line">
                   <span>
@@ -986,6 +2073,7 @@ export default function FinalBillingPage() {
                     }
                   </strong>
                 </div>
+
 
                 <div className="final-billing-info-line">
                   <span>
@@ -1001,6 +2089,7 @@ export default function FinalBillingPage() {
                   </strong>
                 </div>
 
+
                 <div className="final-billing-info-line">
                   <span>
                     Phone
@@ -1015,6 +2104,7 @@ export default function FinalBillingPage() {
                   </strong>
                 </div>
 
+
                 <div className="final-billing-info-line">
                   <span>
                     Email
@@ -1028,13 +2118,16 @@ export default function FinalBillingPage() {
                     }
                   </strong>
                 </div>
+
               </div>
 
 
               <div className="final-billing-info-card">
+
                 <div className="final-billing-info-title">
                   Addresses
                 </div>
+
 
                 <div className="final-billing-address-block">
                   <span>
@@ -1050,6 +2143,7 @@ export default function FinalBillingPage() {
                   </p>
                 </div>
 
+
                 <div className="final-billing-address-block">
                   <span>
                     Shipping Address
@@ -1063,6 +2157,7 @@ export default function FinalBillingPage() {
                     }
                   </p>
                 </div>
+
               </div>
 
             </div>
@@ -1071,6 +2166,7 @@ export default function FinalBillingPage() {
             <div className="final-billing-detail-section">
 
               <div className="final-billing-section-header">
+
                 <div>
                   <div className="final-billing-section-title">
                     Invoice Items
@@ -1082,6 +2178,7 @@ export default function FinalBillingPage() {
                   </div>
                 </div>
 
+
                 <div className="final-billing-section-count">
                   {
                     selectedBill
@@ -1091,6 +2188,7 @@ export default function FinalBillingPage() {
                   {" "}
                   items
                 </div>
+
               </div>
 
 
@@ -1155,91 +2253,118 @@ export default function FinalBillingPage() {
                     {selectedBill
                       .items
                       .map(
-                        (item) => (
+                        (
+                          item
+                        ) => (
                           <tr
                             key={
                               item.id
                             }
                           >
+
                             <td>
                               <strong>
                                 {
-                                  item.description ||
+                                  item
+                                    .description ||
                                   `Product #${item.product_id ?? "-"}`
                                 }
                               </strong>
                             </td>
 
+
                             <td>
                               {
-                                item.hsn_code ||
+                                item
+                                  .hsn_code ||
                                 "-"
                               }
                             </td>
 
+
                             <td>
                               {formatNumber(
-                                item.quantity
+                                item
+                                  .quantity
                               )}
                             </td>
 
+
                             <td>
                               {
-                                item.unit ||
+                                item
+                                  .unit ||
                                 "-"
                               }
                             </td>
 
-                            <td>
-                              {formatCurrency(
-                                item.unit_price
-                              )}
-                            </td>
 
                             <td>
                               {formatCurrency(
-                                item.discount_amount
+                                item
+                                  .unit_price
                               )}
                             </td>
 
+
                             <td>
                               {formatCurrency(
-                                item.taxable_amount
+                                item
+                                  .discount_amount
                               )}
                             </td>
+
+
+                            <td>
+                              {formatCurrency(
+                                item
+                                  .taxable_amount
+                              )}
+                            </td>
+
 
                             <td>
                               {formatNumber(
-                                item.gst_percent
+                                item
+                                  .gst_percent
                               )}
                               %
                             </td>
 
-                            <td>
-                              {formatCurrency(
-                                item.cgst_amount
-                              )}
-                            </td>
 
                             <td>
                               {formatCurrency(
-                                item.sgst_amount
+                                item
+                                  .cgst_amount
                               )}
                             </td>
 
+
                             <td>
                               {formatCurrency(
-                                item.igst_amount
+                                item
+                                  .sgst_amount
                               )}
                             </td>
+
+
+                            <td>
+                              {formatCurrency(
+                                item
+                                  .igst_amount
+                              )}
+                            </td>
+
 
                             <td>
                               <strong>
                                 {formatCurrency(
-                                  item.line_total
+                                  item
+                                    .line_total
                                 )}
                               </strong>
                             </td>
+
                           </tr>
                         )
                       )}
@@ -1255,9 +2380,11 @@ export default function FinalBillingPage() {
             <div className="final-billing-bottom-grid">
 
               <div className="final-billing-terms-card">
+
                 <div className="final-billing-info-title">
                   Commercial Terms
                 </div>
+
 
                 <div className="final-billing-info-line">
                   <span>
@@ -1273,6 +2400,7 @@ export default function FinalBillingPage() {
                   </strong>
                 </div>
 
+
                 <div className="final-billing-info-line">
                   <span>
                     Delivery Terms
@@ -1287,6 +2415,7 @@ export default function FinalBillingPage() {
                   </strong>
                 </div>
 
+
                 <div className="final-billing-address-block">
                   <span>
                     Notes
@@ -1300,6 +2429,7 @@ export default function FinalBillingPage() {
                     }
                   </p>
                 </div>
+
               </div>
 
 

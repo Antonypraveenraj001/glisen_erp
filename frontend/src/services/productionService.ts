@@ -6,6 +6,7 @@ import type {
   ProductionMaterialSummary,
   ProductionMaterialUpdatePayload,
   ProductionOperation,
+  ProductionOperationCompletePayload,
   ProductionOperationCreatePayload,
   ProductionOperationUpdatePayload,
   ProductionOrder,
@@ -21,7 +22,9 @@ const API_BASE_URL =
 
 function getAuthHeaders() {
   const token =
-    localStorage.getItem("access_token");
+    localStorage.getItem(
+      "access_token"
+    );
 
   if (!token) {
     throw new Error(
@@ -30,7 +33,8 @@ function getAuthHeaders() {
   }
 
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization:
+      `Bearer ${token}`,
   };
 }
 
@@ -43,10 +47,13 @@ export async function getProductionOrders():
 Promise<ProductionOrder[]> {
 
   const response =
-    await axios.get<ProductionOrder[]>(
+    await axios.get<
+      ProductionOrder[]
+    >(
       `${API_BASE_URL}/production/orders`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -59,10 +66,13 @@ export async function getProductionOrderById(
 ): Promise<ProductionOrder> {
 
   const response =
-    await axios.get<ProductionOrder>(
+    await axios.get<
+      ProductionOrder
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -75,10 +85,13 @@ export async function getProductionOrderDetail(
 ): Promise<ProductionOrderDetail> {
 
   const response =
-    await axios.get<ProductionOrderDetail>(
+    await axios.get<
+      ProductionOrderDetail
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/detail`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -91,12 +104,15 @@ export async function getProductionOrderByNumber(
 ): Promise<ProductionOrder> {
 
   const response =
-    await axios.get<ProductionOrder>(
+    await axios.get<
+      ProductionOrder
+    >(
       `${API_BASE_URL}/production/orders/number/${encodeURIComponent(
         productionNumber
       )}`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -109,10 +125,13 @@ export async function getProductionOrdersByProforma(
 ): Promise<ProductionOrder[]> {
 
   const response =
-    await axios.get<ProductionOrder[]>(
+    await axios.get<
+      ProductionOrder[]
+    >(
       `${API_BASE_URL}/production/orders/proforma/${proformaId}`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -121,15 +140,19 @@ export async function getProductionOrdersByProforma(
 
 
 export async function createProductionOrder(
-  payload: ProductionOrderCreatePayload
+  payload:
+    ProductionOrderCreatePayload
 ): Promise<ProductionOrder> {
 
   const response =
-    await axios.post<ProductionOrder>(
+    await axios.post<
+      ProductionOrder
+    >(
       `${API_BASE_URL}/production/orders`,
       payload,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -142,11 +165,14 @@ export async function createProductionOrdersFromProforma(
 ): Promise<ProductionOrder[]> {
 
   const response =
-    await axios.post<ProductionOrder[]>(
+    await axios.post<
+      ProductionOrder[]
+    >(
       `${API_BASE_URL}/production/orders/from-proforma/${proformaId}`,
       null,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -156,15 +182,19 @@ export async function createProductionOrdersFromProforma(
 
 export async function updateProductionOrder(
   productionOrderId: number,
-  payload: ProductionOrderUpdatePayload
+  payload:
+    ProductionOrderUpdatePayload
 ): Promise<ProductionOrder> {
 
   const response =
-    await axios.put<ProductionOrder>(
+    await axios.put<
+      ProductionOrder
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}`,
       payload,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -178,11 +208,14 @@ export async function updateProductionOrderStatus(
 ): Promise<ProductionOrder> {
 
   const response =
-    await axios.patch<ProductionOrder>(
+    await axios.patch<
+      ProductionOrder
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/status`,
       null,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
 
         params: {
           status_value:
@@ -200,11 +233,14 @@ export async function completeProductionOrder(
 ): Promise<ProductionOrder> {
 
   const response =
-    await axios.patch<ProductionOrder>(
+    await axios.patch<
+      ProductionOrder
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/complete`,
       null,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -219,7 +255,8 @@ export async function deleteProductionOrder(
   await axios.delete(
     `${API_BASE_URL}/production/orders/${productionOrderId}`,
     {
-      headers: getAuthHeaders(),
+      headers:
+        getAuthHeaders(),
     }
   );
 }
@@ -234,10 +271,13 @@ export async function getProductionMaterials(
 ): Promise<ProductionMaterial[]> {
 
   const response =
-    await axios.get<ProductionMaterial[]>(
+    await axios.get<
+      ProductionMaterial[]
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/materials`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -250,10 +290,13 @@ export async function getProductionMaterialSummary(
 ): Promise<ProductionMaterialSummary> {
 
   const response =
-    await axios.get<ProductionMaterialSummary>(
+    await axios.get<
+      ProductionMaterialSummary
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/materials/summary`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -263,15 +306,19 @@ export async function getProductionMaterialSummary(
 
 export async function createProductionMaterial(
   productionOrderId: number,
-  payload: ProductionMaterialCreatePayload
+  payload:
+    ProductionMaterialCreatePayload
 ): Promise<ProductionMaterial> {
 
   const response =
-    await axios.post<ProductionMaterial>(
+    await axios.post<
+      ProductionMaterial
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/materials`,
       payload,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -281,15 +328,19 @@ export async function createProductionMaterial(
 
 export async function updateProductionMaterial(
   materialId: number,
-  payload: ProductionMaterialUpdatePayload
+  payload:
+    ProductionMaterialUpdatePayload
 ): Promise<ProductionMaterial> {
 
   const response =
-    await axios.put<ProductionMaterial>(
+    await axios.put<
+      ProductionMaterial
+    >(
       `${API_BASE_URL}/production/materials/${materialId}`,
       payload,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -304,7 +355,8 @@ export async function deleteProductionMaterial(
   await axios.delete(
     `${API_BASE_URL}/production/materials/${materialId}`,
     {
-      headers: getAuthHeaders(),
+      headers:
+        getAuthHeaders(),
     }
   );
 }
@@ -319,10 +371,13 @@ export async function getProductionOperations(
 ): Promise<ProductionOperation[]> {
 
   const response =
-    await axios.get<ProductionOperation[]>(
+    await axios.get<
+      ProductionOperation[]
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/operations`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -332,15 +387,19 @@ export async function getProductionOperations(
 
 export async function createProductionOperation(
   productionOrderId: number,
-  payload: ProductionOperationCreatePayload
+  payload:
+    ProductionOperationCreatePayload
 ): Promise<ProductionOperation> {
 
   const response =
-    await axios.post<ProductionOperation>(
+    await axios.post<
+      ProductionOperation
+    >(
       `${API_BASE_URL}/production/orders/${productionOrderId}/operations`,
       payload,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -350,15 +409,61 @@ export async function createProductionOperation(
 
 export async function updateProductionOperation(
   operationId: number,
-  payload: ProductionOperationUpdatePayload
+  payload:
+    ProductionOperationUpdatePayload
 ): Promise<ProductionOperation> {
 
   const response =
-    await axios.put<ProductionOperation>(
+    await axios.put<
+      ProductionOperation
+    >(
       `${API_BASE_URL}/production/operations/${operationId}`,
       payload,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+  return response.data;
+}
+
+
+export async function startProductionOperation(
+  operationId: number
+): Promise<ProductionOperation> {
+
+  const response =
+    await axios.patch<
+      ProductionOperation
+    >(
+      `${API_BASE_URL}/production/operations/${operationId}/start`,
+      null,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+  return response.data;
+}
+
+
+export async function completeProductionOperation(
+  operationId: number,
+  payload:
+    ProductionOperationCompletePayload
+): Promise<ProductionOperation> {
+
+  const response =
+    await axios.patch<
+      ProductionOperation
+    >(
+      `${API_BASE_URL}/production/operations/${operationId}/complete`,
+      payload,
+      {
+        headers:
+          getAuthHeaders(),
       }
     );
 

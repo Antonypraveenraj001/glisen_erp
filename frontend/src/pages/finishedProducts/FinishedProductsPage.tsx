@@ -5,10 +5,12 @@ import {
 } from "react";
 
 import {
-  Boxes,
+  CheckCircle2,
   ChevronRight,
   CircleDollarSign,
+  Clock3,
   Factory,
+  FileText,
   Loader2,
   PackageCheck,
   RefreshCw,
@@ -34,6 +36,14 @@ import {
   getProductionOrders,
 } from "../../services/productionService";
 
+import {
+  getProformas,
+} from "../../services/proformaService";
+
+import {
+  getFinalBills,
+} from "../../services/finalBillService";
+
 import type {
   FinishedProduct,
 } from "../../types/finishedProduct";
@@ -46,9 +56,20 @@ import type {
   ProductionOrder,
 } from "../../types/production";
 
+import type {
+  Proforma,
+} from "../../types/proforma";
+
+import type {
+  FinalBill,
+} from "../../types/finalBill";
+
 
 function formatDate(
-  value: string | null | undefined
+  value:
+    | string
+    | null
+    | undefined
 ) {
   if (!value) {
     return "-";
@@ -72,7 +93,9 @@ function formatDate(
 
 
 function formatNumber(
-  value: string | number
+  value:
+    | string
+    | number
 ) {
   const numericValue =
     Number(value);
@@ -97,15 +120,143 @@ function formatNumber(
 
 
 interface FinishedProductRow {
-  finishedProduct: FinishedProduct;
-  product: Product | null;
-  productionOrder: ProductionOrder | null;
+  finishedProduct:
+    FinishedProduct;
+
+  product:
+    Product | null;
+
+  productionOrder:
+    ProductionOrder | null;
+
+  proforma:
+    Proforma | null;
+
+  issuedInvoice:
+    FinalBill | null;
+
+  draftInvoice:
+    FinalBill | null;
+}
+
+
+function getIssuedInvoice(
+  bills: FinalBill[],
+  proformaId:
+    number | null
+) {
+  if (
+    proformaId === null
+  ) {
+    return null;
+  }
+
+  const matchingBills =
+    bills
+      .filter(
+        (
+          bill
+        ) =>
+          bill.proforma_id ===
+            proformaId &&
+          bill.status
+            .trim()
+            .toLowerCase() ===
+            "issued" &&
+          !bill.invoice_type
+            .trim()
+            .toLowerCase()
+            .includes(
+              "credit"
+            )
+      )
+      .sort(
+        (
+          a,
+          b
+        ) => {
+          if (
+            b.revision_number !==
+            a.revision_number
+          ) {
+            return (
+              b.revision_number -
+              a.revision_number
+            );
+          }
+
+          return (
+            new Date(
+              b.invoice_date
+            ).getTime() -
+            new Date(
+              a.invoice_date
+            ).getTime()
+          );
+        }
+      );
+
+  return (
+    matchingBills[0] ??
+    null
+  );
+}
+
+
+function getDraftInvoice(
+  bills: FinalBill[],
+  proformaId:
+    number | null
+) {
+  if (
+    proformaId === null
+  ) {
+    return null;
+  }
+
+  const matchingBills =
+    bills
+      .filter(
+        (
+          bill
+        ) =>
+          bill.proforma_id ===
+            proformaId &&
+          bill.status
+            .trim()
+            .toLowerCase() ===
+            "draft" &&
+          !bill.invoice_type
+            .trim()
+            .toLowerCase()
+            .includes(
+              "credit"
+            )
+      )
+      .sort(
+        (
+          a,
+          b
+        ) =>
+          new Date(
+            b.updated_at
+          ).getTime() -
+          new Date(
+            a.updated_at
+          ).getTime()
+      );
+
+  return (
+    matchingBills[0] ??
+    null
+  );
 }
 
 
 export default function FinishedProductsPage() {
   const navigate =
     useNavigate();
+
 
   const [
     finishedProducts,
@@ -115,6 +266,7 @@ export default function FinishedProductsPage() {
       FinishedProduct[]
     >([]);
 
+
   const [
     products,
     setProducts,
@@ -122,6 +274,7 @@ export default function FinishedProductsPage() {
     useState<
       Product[]
     >([]);
+
 
   const [
     productionOrders,
@@ -131,11 +284,31 @@ export default function FinishedProductsPage() {
       ProductionOrder[]
     >([]);
 
+
+  const [
+    proformas,
+    setProformas,
+  ] =
+    useState<
+      Proforma[]
+    >([]);
+
+
+  const [
+    finalBills,
+    setFinalBills,
+  ] =
+    useState<
+      FinalBill[]
+    >([]);
+
+
   const [
     search,
     setSearch,
   ] =
     useState("");
+
 
   const [
     loading,
@@ -143,30 +316,54 @@ export default function FinishedProductsPage() {
   ] =
     useState(true);
 
+
   const [
     error,
     setError,
   ] =
     useState<
       string | null
-    >(null);
+    >(
+      null
+    );
 
+
+  // ============================================================
+  // LOAD DATA
+  // ============================================================
 
   async function loadFinishedProducts() {
     try {
-      setLoading(true);
-      setError(null);
+      setLoading(
+        true
+      );
+
+      setError(
+        null
+      );
+
 
       const [
         finishedProductData,
         productData,
         productionData,
+        proformaData,
+        finalBillData,
       ] =
-        await Promise.all([
-          getFinishedProducts(),
-          getProducts(),
-          getProductionOrders(),
-        ]);
+        await Promise.all(
+          [
+            getFinishedProducts(),
+
+            getProducts(),
+
+            getProductionOrders(),
+
+            getProformas(),
+
+            getFinalBills(),
+          ]
+        );
+
 
       setFinishedProducts(
         finishedProductData
@@ -179,14 +376,31 @@ export default function FinishedProductsPage() {
       setProductionOrders(
         productionData
       );
+
+      setProformas(
+        proformaData
+      );
+
+      setFinalBills(
+        finalBillData
+      );
+
     } catch (err) {
-      console.error(err);
+
+      console.error(
+        err
+      );
 
       setError(
         "Unable to load Finished Products."
       );
+
     } finally {
-      setLoading(false);
+
+      setLoading(
+        false
+      );
+
     }
   }
 
@@ -199,23 +413,31 @@ export default function FinishedProductsPage() {
   );
 
 
+  // ============================================================
+  // BUILD CONNECTED ROWS
+  // ============================================================
+
   const rows =
     useMemo<
       FinishedProductRow[]
     >(
       () => {
+
         const productMap =
           new Map<
             number,
             Product
           >(
             products.map(
-              (product) => [
+              (
+                product
+              ) => [
                 product.id,
                 product,
               ]
             )
           );
+
 
         const productionMap =
           new Map<
@@ -223,98 +445,200 @@ export default function FinishedProductsPage() {
             ProductionOrder
           >(
             productionOrders.map(
-              (order) => [
+              (
+                order
+              ) => [
                 order.id,
                 order,
               ]
             )
           );
 
-        return finishedProducts.map(
-          (
-            finishedProduct
-          ) => ({
-            finishedProduct,
 
-            product:
-              productMap.get(
-                finishedProduct
-                  .product_master_id
-              ) ?? null,
+        const proformaMap =
+          new Map<
+            number,
+            Proforma
+          >(
+            proformas.map(
+              (
+                proforma
+              ) => [
+                proforma.id,
+                proforma,
+              ]
+            )
+          );
 
-            productionOrder:
-              productionMap.get(
-                finishedProduct
-                  .production_order_id
-              ) ?? null,
-          })
-        );
+
+        return finishedProducts
+          .map(
+            (
+              finishedProduct
+            ) => {
+
+              const productionOrder =
+                productionMap.get(
+                  finishedProduct
+                    .production_order_id
+                ) ??
+                null;
+
+
+              const product =
+                productMap.get(
+                  finishedProduct
+                    .product_master_id
+                ) ??
+                null;
+
+
+              const proforma =
+                productionOrder
+                  ? (
+                      proformaMap.get(
+                        productionOrder
+                          .proforma_id
+                      ) ??
+                      null
+                    )
+                  : null;
+
+
+              const proformaId =
+                proforma?.id ??
+                productionOrder
+                  ?.proforma_id ??
+                null;
+
+
+              return {
+                finishedProduct,
+
+                product,
+
+                productionOrder,
+
+                proforma,
+
+                issuedInvoice:
+                  getIssuedInvoice(
+                    finalBills,
+                    proformaId
+                  ),
+
+                draftInvoice:
+                  getDraftInvoice(
+                    finalBills,
+                    proformaId
+                  ),
+              };
+            }
+          )
+          .sort(
+            (
+              a,
+              b
+            ) =>
+              new Date(
+                b.finishedProduct
+                  .created_at
+              ).getTime() -
+              new Date(
+                a.finishedProduct
+                  .created_at
+              ).getTime()
+          );
+
       },
       [
         finishedProducts,
         products,
         productionOrders,
+        proformas,
+        finalBills,
       ]
     );
 
 
+  // ============================================================
+  // SEARCH
+  // ============================================================
+
   const filteredRows =
     useMemo(
       () => {
+
         const query =
           search
             .trim()
             .toLowerCase();
 
-        if (!query) {
+
+        if (
+          !query
+        ) {
           return rows;
         }
 
+
         return rows.filter(
-          (row) => {
-            const finishedNumber =
+          (
+            row
+          ) => {
+
+            const values = [
               row
                 .finishedProduct
-                .finished_product_number
-                .toLowerCase();
+                .finished_product_number,
 
-            const productCode =
               row
                 .product
-                ?.product_code
-                .toLowerCase() ??
-              "";
+                ?.product_code,
 
-            const productName =
               row
                 .product
-                ?.product_name
-                .toLowerCase() ??
-              "";
+                ?.product_name,
 
-            const productionNumber =
               row
                 .productionOrder
-                ?.production_number
-                .toLowerCase() ??
-              "";
+                ?.production_number,
 
-            return (
-              finishedNumber.includes(
-                query
-              ) ||
-              productCode.includes(
-                query
-              ) ||
-              productName.includes(
-                query
-              ) ||
-              productionNumber.includes(
-                query
-              )
+              row
+                .proforma
+                ?.proforma_number,
+
+              row
+                .proforma
+                ?.company_name,
+
+              row
+                .issuedInvoice
+                ?.invoice_number,
+
+              row
+                .draftInvoice
+                ?.invoice_number,
+            ];
+
+
+            return values.some(
+              (
+                value
+              ) =>
+                (
+                  value ??
+                  ""
+                )
+                  .toLowerCase()
+                  .includes(
+                    query
+                  )
             );
+
           }
         );
+
       },
       [
         rows,
@@ -322,6 +646,46 @@ export default function FinishedProductsPage() {
       ]
     );
 
+
+  // ============================================================
+  // BILLING GROUPS
+  // ============================================================
+
+  const toBeBilledRows =
+    useMemo(
+      () =>
+        filteredRows.filter(
+          (
+            row
+          ) =>
+            row.issuedInvoice ===
+            null
+        ),
+      [
+        filteredRows,
+      ]
+    );
+
+
+  const billedRows =
+    useMemo(
+      () =>
+        filteredRows.filter(
+          (
+            row
+          ) =>
+            row.issuedInvoice !==
+            null
+        ),
+      [
+        filteredRows,
+      ]
+    );
+
+
+  // ============================================================
+  // KPI
+  // ============================================================
 
   const totalFinishedQuantity =
     useMemo(
@@ -340,34 +704,47 @@ export default function FinishedProductsPage() {
             ),
           0
         ),
-      [rows]
+      [
+        rows,
+      ]
     );
 
 
-  const linkedProductCount =
+  const toBeBilledCount =
     useMemo(
-      () => {
-        const productIds =
-          new Set(
-            rows
-              .filter(
-                (row) =>
-                  row.product
-                    !== null
-              )
-              .map(
-                (row) =>
-                  row
-                    .finishedProduct
-                    .product_master_id
-              )
-          );
-
-        return productIds.size;
-      },
-      [rows]
+      () =>
+        rows.filter(
+          (
+            row
+          ) =>
+            row.issuedInvoice ===
+            null
+        ).length,
+      [
+        rows,
+      ]
     );
 
+
+  const billedCount =
+    useMemo(
+      () =>
+        rows.filter(
+          (
+            row
+          ) =>
+            row.issuedInvoice !==
+            null
+        ).length,
+      [
+        rows,
+      ]
+    );
+
+
+  // ============================================================
+  // VIEW TRACEABILITY
+  // ============================================================
 
   function openTraceability(
     finishedProduct:
@@ -382,7 +759,7 @@ export default function FinishedProductsPage() {
   return (
     <div className="finished-products-page">
 
-      {/* =====================================================
+      {/* ======================================================
           HEADER
       ====================================================== */}
 
@@ -391,7 +768,7 @@ export default function FinishedProductsPage() {
         <div>
 
           <div className="finished-products-eyebrow">
-            PRODUCT TRACEABILITY
+            MANUFACTURED OUTPUT
           </div>
 
           <h1 className="finished-products-title">
@@ -399,11 +776,10 @@ export default function FinishedProductsPage() {
           </h1>
 
           <p className="finished-products-subtitle">
-            Trace every manufactured product
-            from enquiry and customer through
-            production, material consumption,
-            operations, finished-goods receipt,
-            production cost and final billing.
+            Manufactured products completed
+            by Production, separated by
+            billing status with full
+            traceability available through View.
           </p>
 
         </div>
@@ -426,10 +802,6 @@ export default function FinishedProductsPage() {
       </div>
 
 
-      {/* =====================================================
-          ERROR
-      ====================================================== */}
-
       {error && (
         <div className="finished-products-error">
           {error}
@@ -437,8 +809,8 @@ export default function FinishedProductsPage() {
       )}
 
 
-      {/* =====================================================
-          KPI CARDS
+      {/* ======================================================
+          KPI
       ====================================================== */}
 
       <div className="finished-products-kpi-grid">
@@ -453,8 +825,7 @@ export default function FinishedProductsPage() {
 
             <div className="finished-products-kpi-value">
               {
-                finishedProducts
-                  .length
+                rows.length
               }
             </div>
 
@@ -475,20 +846,46 @@ export default function FinishedProductsPage() {
           <div>
 
             <div className="finished-products-kpi-label">
-              Product Masters
+              To Be Billed
             </div>
 
             <div className="finished-products-kpi-value">
               {
-                linkedProductCount
+                toBeBilledCount
               }
             </div>
 
           </div>
 
 
-          <div className="finished-products-kpi-icon lavender">
-            <Boxes
+          <div className="finished-products-kpi-icon amber">
+            <Clock3
+              size={20}
+            />
+          </div>
+
+        </div>
+
+
+        <div className="finished-products-kpi-card">
+
+          <div>
+
+            <div className="finished-products-kpi-label">
+              Billed
+            </div>
+
+            <div className="finished-products-kpi-value">
+              {
+                billedCount
+              }
+            </div>
+
+          </div>
+
+
+          <div className="finished-products-kpi-icon green">
+            <CheckCircle2
               size={20}
             />
           </div>
@@ -513,32 +910,8 @@ export default function FinishedProductsPage() {
           </div>
 
 
-          <div className="finished-products-kpi-icon green">
+          <div className="finished-products-kpi-icon lavender">
             <Factory
-              size={20}
-            />
-          </div>
-
-        </div>
-
-
-        <div className="finished-products-kpi-card">
-
-          <div>
-
-            <div className="finished-products-kpi-label">
-              Traceability
-            </div>
-
-            <div className="finished-products-kpi-value small">
-              Active
-            </div>
-
-          </div>
-
-
-          <div className="finished-products-kpi-icon amber">
-            <CircleDollarSign
               size={20}
             />
           </div>
@@ -548,163 +921,142 @@ export default function FinishedProductsPage() {
       </div>
 
 
-      {/* =====================================================
-          FINISHED PRODUCTS TABLE
+      {/* ======================================================
+          SEARCH
       ====================================================== */}
 
-      <div className="finished-products-panel">
+      <div className="finished-products-search-panel">
 
-        <div className="finished-products-panel-header">
+        <div className="finished-products-search">
 
-          <div>
+          <Search
+            size={16}
+          />
 
-            <div className="finished-products-panel-title">
-              Manufactured Products
-            </div>
-
-            <div className="finished-products-panel-subtitle">
-              Finished products created
-              from completed production
-              and finished-goods receipts.
-            </div>
-
-          </div>
-
-
-          <div className="finished-products-count">
-            {
-              filteredRows
-                .length
+          <input
+            type="text"
+            value={
+              search
             }
-            {" "}
-            records
-          </div>
-
-        </div>
-
-
-        {/* ===================================================
-            SEARCH
-        ==================================================== */}
-
-        <div className="finished-products-toolbar">
-
-          <div className="finished-products-search">
-
-            <Search
-              size={16}
-            />
-
-            <input
-              type="text"
-              value={
-                search
-              }
-              onChange={(
+            onChange={(
+              event
+            ) =>
+              setSearch(
                 event
-              ) =>
-                setSearch(
-                  event
-                    .target
-                    .value
-                )
+                  .target
+                  .value
+              )
+            }
+            placeholder="Search product, finished product, Proforma, production order, customer or invoice..."
+          />
+
+
+          {search && (
+            <button
+              type="button"
+              className="finished-products-search-clear"
+              onClick={() =>
+                setSearch("")
               }
-              placeholder="Search finished product, product name or production number..."
-            />
-
-
-            {search && (
-              <button
-                type="button"
-                className="finished-products-search-clear"
-                onClick={() =>
-                  setSearch("")
-                }
-              >
-                <X
-                  size={15}
-                />
-              </button>
-            )}
-
-          </div>
+            >
+              <X
+                size={15}
+              />
+            </button>
+          )}
 
         </div>
 
-
-        {/* ===================================================
-            TABLE STATE
-        ==================================================== */}
-
-        {loading ? (
-
-          <div className="finished-products-state">
-
-            <Loader2
-              size={22}
-              className="finished-products-spin"
-            />
-
-            Loading Finished Products...
-
-          </div>
-
-        ) : filteredRows.length ===
-          0 ? (
-
-          <div className="finished-products-state">
-
-            <PackageCheck
-              size={25}
-            />
-
-            No Finished Products found.
-
-          </div>
-
-        ) : (
-
-          <div className="finished-products-table-wrap">
-
-            <table className="finished-products-table">
-
-              <thead>
-                <tr>
-
-                  <th>
-                    Finished Product
-                  </th>
-
-                  <th>
-                    Product
-                  </th>
-
-                  <th>
-                    Production Order
-                  </th>
-
-                  <th>
-                    Quantity
-                  </th>
-
-                  <th>
-                    Created
-                  </th>
-
-                  <th>
-                    Action
-                  </th>
-
-                </tr>
-              </thead>
+      </div>
 
 
-              <tbody>
+      {loading ? (
 
-                {filteredRows.map(
-                  (row) => (
+        <div className="finished-products-state">
 
-                    <tr
+          <Loader2
+            size={23}
+            className="finished-products-spin"
+          />
+
+          Loading Finished Products...
+
+        </div>
+
+      ) : (
+
+        <>
+
+          {/* ==================================================
+              TO BE BILLED
+          ================================================== */}
+
+          <div className="finished-products-panel">
+
+            <div className="finished-products-panel-header">
+
+              <div>
+
+                <div className="finished-products-section-heading">
+
+                  <Clock3
+                    size={18}
+                  />
+
+                  <div>
+
+                    <div className="finished-products-panel-title">
+                      TO BE BILLED
+                    </div>
+
+                    <div className="finished-products-panel-subtitle">
+                      Production is completed,
+                      but no issued invoice exists yet.
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <div className="finished-products-count amber">
+                {
+                  toBeBilledRows
+                    .length
+                }
+                {" "}
+                pending
+              </div>
+
+            </div>
+
+
+            {toBeBilledRows.length ===
+              0 ? (
+
+              <div className="finished-products-state">
+
+                <CheckCircle2
+                  size={25}
+                />
+
+                No Finished Products are waiting for billing.
+
+              </div>
+
+            ) : (
+
+              <div className="finished-products-list">
+
+                {toBeBilledRows.map(
+                  (
+                    row
+                  ) => (
+
+                    <div
+                      className="finished-product-row"
                       key={
                         row
                           .finishedProduct
@@ -712,169 +1064,158 @@ export default function FinishedProductsPage() {
                       }
                     >
 
-                      {/* ===============================
-                          FINISHED PRODUCT
-                      ================================ */}
+                      <div className="finished-product-main">
 
-                      <td>
-
-                        <div className="finished-products-primary">
-                          {
-                            row
-                              .finishedProduct
-                              .finished_product_number
-                          }
+                        <div className="finished-product-icon pending">
+                          <PackageCheck
+                            size={20}
+                          />
                         </div>
 
-                        <div className="finished-products-secondary">
-                          Traceability ID #
-                          {
-                            row
-                              .finishedProduct
-                              .id
-                          }
-                        </div>
 
-                      </td>
+                        <div>
 
-
-                      {/* ===============================
-                          PRODUCT
-                      ================================ */}
-
-                      <td>
-
-                        {row.product ? (
-
-                          <>
-
-                            <div className="finished-products-primary">
-                              {
-                                row
-                                  .product
-                                  .product_name
-                              }
-                            </div>
-
-                            <div className="finished-products-secondary">
-                              {
-                                row
-                                  .product
-                                  .product_code
-                              }
-                            </div>
-
-                          </>
-
-                        ) : (
-
-                          <span className="finished-products-muted">
-                            Product #
+                          <div className="finished-product-name">
                             {
                               row
-                                .finishedProduct
-                                .product_master_id
+                                .product
+                                ?.product_name ??
+                              `Product #${row.finishedProduct.product_master_id}`
                             }
-                          </span>
-
-                        )}
-
-                      </td>
+                          </div>
 
 
-                      {/* ===============================
-                          PRODUCTION
-                      ================================ */}
+                          <div className="finished-product-meta">
 
-                      <td>
-
-                        {row.productionOrder ? (
-
-                          <>
-
-                            <div className="finished-products-primary">
+                            <span>
                               {
                                 row
-                                  .productionOrder
-                                  .production_number
-                              }
-                            </div>
-
-                            <span className="finished-products-status">
-                              {
-                                row
-                                  .productionOrder
-                                  .status
+                                  .finishedProduct
+                                  .finished_product_number
                               }
                             </span>
 
-                          </>
+                            <span className="finished-product-dot">
+                              •
+                            </span>
 
-                        ) : (
+                            <span>
+                              Qty{" "}
+                              <strong>
+                                {formatNumber(
+                                  row
+                                    .productionOrder
+                                    ?.quantity ??
+                                  0
+                                )}
+                              </strong>
+                              {" "}
+                              {
+                                row
+                                  .product
+                                  ?.unit ??
+                                "Nos"
+                              }
+                            </span>
 
-                          <span className="finished-products-muted">
-                            Production #
-                            {
-                              row
-                                .finishedProduct
-                                .production_order_id
-                            }
-                          </span>
-
-                        )}
-
-                      </td>
-
-
-                      {/* ===============================
-                          QUANTITY
-                      ================================ */}
-
-                      <td>
-
-                        <div className="finished-products-primary">
-
-                          {formatNumber(
-                            row
-                              .productionOrder
-                              ?.quantity ??
-                            0
-                          )}
+                          </div>
 
                         </div>
 
-                        <div className="finished-products-secondary">
+                      </div>
+
+
+                      <div className="finished-product-business">
+
+                        <div className="finished-product-label">
+                          Proforma
+                        </div>
+
+                        <div className="finished-product-value">
                           {
                             row
-                              .product
-                              ?.unit ??
-                            "units"
+                              .proforma
+                              ?.proforma_number ??
+                            `PF #${row.productionOrder?.proforma_id ?? "-"}`
                           }
                         </div>
 
-                      </td>
+                        <div className="finished-product-small">
+                          {formatDate(
+                            row
+                              .proforma
+                              ?.proforma_date
+                          )}
+                        </div>
+
+                      </div>
 
 
-                      {/* ===============================
-                          CREATED
-                      ================================ */}
+                      <div className="finished-product-business">
 
-                      <td>
+                        <div className="finished-product-label">
+                          Customer
+                        </div>
 
-                        {formatDate(
-                          row
-                            .finishedProduct
-                            .created_at
+                        <div className="finished-product-value">
+                          {
+                            row
+                              .proforma
+                              ?.company_name ??
+                            "-"
+                          }
+                        </div>
+
+                        <div className="finished-product-small">
+                          {
+                            row
+                              .productionOrder
+                              ?.production_number ??
+                            "-"
+                          }
+                        </div>
+
+                      </div>
+
+
+                      <div className="finished-product-business">
+
+                        <div className="finished-product-label">
+                          Production Completed
+                        </div>
+
+                        <div className="finished-product-value">
+                          {formatDate(
+                            row
+                              .productionOrder
+                              ?.actual_end_date
+                          )}
+                        </div>
+
+
+                        {row.draftInvoice ? (
+
+                          <div className="finished-product-draft">
+                            Draft:{" "}
+                            {
+                              row
+                                .draftInvoice
+                                .invoice_number
+                            }
+                          </div>
+
+                        ) : (
+
+                          <div className="finished-product-ready">
+                            Ready for billing
+                          </div>
+
                         )}
 
-                      </td>
+                      </div>
 
 
-                      {/* ===============================
-                          TRACEABILITY ACTION
-                      ================================ */}
-
-                      <td>
+                      <div className="finished-product-action">
 
                         <button
                           type="button"
@@ -886,29 +1227,274 @@ export default function FinishedProductsPage() {
                             )
                           }
                         >
-                          View Traceability
+                          View
 
                           <ChevronRight
-                            size={14}
+                            size={15}
                           />
                         </button>
 
-                      </td>
+                      </div>
 
-                    </tr>
+                    </div>
 
                   )
                 )}
 
-              </tbody>
+              </div>
 
-            </table>
+            )}
 
           </div>
 
-        )}
 
-      </div>
+          {/* ==================================================
+              BILLED FINISHED PRODUCTS
+          ================================================== */}
+
+          <div className="finished-products-panel">
+
+            <div className="finished-products-panel-header">
+
+              <div>
+
+                <div className="finished-products-section-heading">
+
+                  <CircleDollarSign
+                    size={18}
+                  />
+
+                  <div>
+
+                    <div className="finished-products-panel-title">
+                      BILLED FINISHED PRODUCTS
+                    </div>
+
+                    <div className="finished-products-panel-subtitle">
+                      Finished Products linked
+                      to an issued Tax or Revised Invoice.
+                    </div>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <div className="finished-products-count green">
+                {
+                  billedRows
+                    .length
+                }
+                {" "}
+                billed
+              </div>
+
+            </div>
+
+
+            {billedRows.length ===
+              0 ? (
+
+              <div className="finished-products-state">
+
+                <FileText
+                  size={25}
+                />
+
+                No Finished Products have been billed yet.
+
+              </div>
+
+            ) : (
+
+              <div className="finished-products-list">
+
+                {billedRows.map(
+                  (
+                    row
+                  ) => (
+
+                    <div
+                      className="finished-product-row"
+                      key={
+                        row
+                          .finishedProduct
+                          .id
+                      }
+                    >
+
+                      <div className="finished-product-main">
+
+                        <div className="finished-product-icon billed">
+                          <CheckCircle2
+                            size={20}
+                          />
+                        </div>
+
+
+                        <div>
+
+                          <div className="finished-product-name">
+                            {
+                              row
+                                .product
+                                ?.product_name ??
+                              `Product #${row.finishedProduct.product_master_id}`
+                            }
+                          </div>
+
+
+                          <div className="finished-product-meta">
+
+                            <span>
+                              {
+                                row
+                                  .finishedProduct
+                                  .finished_product_number
+                              }
+                            </span>
+
+                            <span className="finished-product-dot">
+                              •
+                            </span>
+
+                            <span>
+                              Qty{" "}
+                              <strong>
+                                {formatNumber(
+                                  row
+                                    .productionOrder
+                                    ?.quantity ??
+                                  0
+                                )}
+                              </strong>
+                              {" "}
+                              {
+                                row
+                                  .product
+                                  ?.unit ??
+                                "Nos"
+                              }
+                            </span>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="finished-product-business">
+
+                        <div className="finished-product-label">
+                          Proforma
+                        </div>
+
+                        <div className="finished-product-value">
+                          {
+                            row
+                              .proforma
+                              ?.proforma_number ??
+                            `PF #${row.productionOrder?.proforma_id ?? "-"}`
+                          }
+                        </div>
+
+                        <div className="finished-product-small">
+                          {formatDate(
+                            row
+                              .proforma
+                              ?.proforma_date
+                          )}
+                        </div>
+
+                      </div>
+
+
+                      <div className="finished-product-business">
+
+                        <div className="finished-product-label">
+                          Invoice
+                        </div>
+
+                        <div className="finished-product-value">
+                          {
+                            row
+                              .issuedInvoice
+                              ?.invoice_number ??
+                            "-"
+                          }
+                        </div>
+
+                        <div className="finished-product-small">
+                          {
+                            row
+                              .issuedInvoice
+                              ?.invoice_type ??
+                            "-"
+                          }
+                        </div>
+
+                      </div>
+
+
+                      <div className="finished-product-business">
+
+                        <div className="finished-product-label">
+                          Billed Date
+                        </div>
+
+                        <div className="finished-product-value">
+                          {formatDate(
+                            row
+                              .issuedInvoice
+                              ?.invoice_date
+                          )}
+                        </div>
+
+                        <div className="finished-product-billed">
+                          Billed
+                        </div>
+
+                      </div>
+
+
+                      <div className="finished-product-action">
+
+                        <button
+                          type="button"
+                          className="finished-products-view"
+                          onClick={() =>
+                            openTraceability(
+                              row
+                                .finishedProduct
+                            )
+                          }
+                        >
+                          View
+
+                          <ChevronRight
+                            size={15}
+                          />
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+          </div>
+
+        </>
+
+      )}
 
     </div>
   );
