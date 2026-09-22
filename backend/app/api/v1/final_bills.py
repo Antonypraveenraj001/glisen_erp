@@ -11,7 +11,9 @@ from app.dependencies.auth import (
     require_role,
 )
 from app.dependencies.database import get_db
+
 from app.models.user import User
+
 from app.schemas.final_bill import (
     FinalBillCreateFromProforma,
     FinalBillCreditNoteCreate,
@@ -20,8 +22,19 @@ from app.schemas.final_bill import (
     FinalBillRevisionCreate,
     FinalBillUpdate,
 )
+
+from app.schemas.final_bill_payment import (
+    FinalBillPaymentCreate,
+    FinalBillPaymentResponse,
+    FinalBillPaymentSummaryResponse,
+)
+
 from app.services.final_bill_service import (
     FinalBillService,
+)
+
+from app.services.final_bill_payment_service import (
+    FinalBillPaymentService,
 )
 
 
@@ -35,6 +48,13 @@ FINAL_BILL_WRITE_ROLES = (
     "Boss",
     "Admin",
     "Sales",
+    "Accounts",
+)
+
+
+FINAL_BILL_PAYMENT_ROLES = (
+    "Boss",
+    "Admin",
     "Accounts",
 )
 
@@ -60,6 +80,7 @@ def create_final_bill_from_proforma(
     ),
 ):
     try:
+
         return (
             FinalBillService
             .create_from_proforma(
@@ -72,6 +93,7 @@ def create_final_bill_from_proforma(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -97,6 +119,7 @@ def get_all_final_bills(
         get_current_user
     ),
 ):
+
     return (
         FinalBillService
         .get_all(
@@ -126,6 +149,7 @@ def create_revised_final_bill(
     ),
 ):
     try:
+
         return (
             FinalBillService
             .create_revision(
@@ -138,6 +162,7 @@ def create_revised_final_bill(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -167,6 +192,7 @@ def create_credit_note(
     ),
 ):
     try:
+
         return (
             FinalBillService
             .create_credit_note(
@@ -179,6 +205,103 @@ def create_credit_note(
         )
 
     except ValueError as exc:
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(exc),
+        )
+
+
+# ============================================================
+# PAYMENT SUMMARY
+# ============================================================
+
+
+@router.get(
+    "/{final_bill_id}/payment-summary",
+    response_model=(
+        FinalBillPaymentSummaryResponse
+    ),
+)
+def get_final_bill_payment_summary(
+    final_bill_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+):
+
+    summary = (
+        FinalBillPaymentService
+        .get_summary(
+            db=db,
+            final_bill_id=(
+                final_bill_id
+            ),
+        )
+    )
+
+    if summary is None:
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Final Bill not found."
+            ),
+        )
+
+    return summary
+
+
+# ============================================================
+# RECORD CUSTOMER PAYMENT
+# ============================================================
+
+
+@router.post(
+    "/{final_bill_id}/payments",
+    response_model=(
+        FinalBillPaymentResponse
+    ),
+    status_code=(
+        status.HTTP_201_CREATED
+    ),
+)
+def create_final_bill_payment(
+    final_bill_id: int,
+    payment: FinalBillPaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role(
+            *FINAL_BILL_PAYMENT_ROLES
+        )
+    ),
+):
+
+    try:
+
+        return (
+            FinalBillPaymentService
+            .create_payment(
+                db=db,
+                final_bill_id=(
+                    final_bill_id
+                ),
+                payment=(
+                    payment
+                ),
+                created_by=(
+                    current_user.id
+                ),
+            )
+        )
+
+    except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -208,6 +331,7 @@ def update_final_bill_item(
     ),
 ):
     try:
+
         return (
             FinalBillService
             .update_draft_item(
@@ -219,6 +343,7 @@ def update_final_bill_item(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -246,6 +371,7 @@ def issue_final_bill(
     ),
 ):
     try:
+
         return (
             FinalBillService
             .issue_final_bill(
@@ -255,6 +381,7 @@ def issue_final_bill(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -283,6 +410,7 @@ def update_final_bill(
     ),
 ):
     try:
+
         return (
             FinalBillService
             .update_draft(
@@ -293,6 +421,7 @@ def update_final_bill(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -317,20 +446,26 @@ def get_final_bill(
         get_current_user
     ),
 ):
+
     final_bill = (
         FinalBillService
         .get_by_id(
             db=db,
-            final_bill_id=final_bill_id,
+            final_bill_id=(
+                final_bill_id
+            ),
         )
     )
 
     if final_bill is None:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_404_NOT_FOUND
             ),
-            detail="Final Bill not found.",
+            detail=(
+                "Final Bill not found."
+            ),
         )
 
     return final_bill

@@ -6,7 +6,17 @@ from sqlalchemy.orm import Session
 
 from app.models.proforma import Proforma
 from app.models.proforma_item import ProformaItem
-from app.repositories.proforma_repository import ProformaRepository
+
+from app.repositories.customer_repository import (
+    CustomerRepository,
+)
+from app.repositories.enquiry_repository import (
+    EnquiryRepository,
+)
+from app.repositories.proforma_repository import (
+    ProformaRepository,
+)
+
 from app.schemas.proforma import (
     ProformaCreate,
     ProformaItemCreate,
@@ -20,18 +30,50 @@ TWOPLACES = Decimal("0.01")
 class ProformaService:
     """
     Business logic layer for Proforma operations.
+
+    Customer and Enquiry identity are controlled by the
+    selected Enquiry. The user never manually chooses
+    Customer ID or Enquiry ID.
     """
 
-    def __init__(self, db: Session):
+    ELIGIBLE_ENQUIRY_STATUSES = {
+        "new",
+        "contacted",
+        "quotation",
+    }
+
+    BLOCKED_ENQUIRY_STATUSES = {
+        "order confirmed",
+        "production started",
+        "production completed",
+        "final bill generated",
+        "payment pending",
+        "payment received",
+        "completed",
+        "cancelled",
+    }
+
+    def __init__(
+        self,
+        db: Session,
+    ):
         self.db = db
-        self.repository = ProformaRepository(db)
+
+        self.repository = (
+            ProformaRepository(
+                db
+            )
+        )
 
     # ========================================================
     # DECIMAL HELPERS
     # ========================================================
 
     @staticmethod
-    def money(value: Decimal) -> Decimal:
+    def money(
+        value: Decimal,
+    ) -> Decimal:
+
         return value.quantize(
             TWOPLACES,
             rounding=ROUND_HALF_UP,
@@ -41,42 +83,121 @@ class ProformaService:
     # PROFORMA NUMBER
     # ========================================================
 
-    def generate_proforma_number(self) -> str:
-        """
-        Generate the next Proforma number for the current year.
-
-        Example:
-        PRO-2026-0001
-        PRO-2026-0002
-        """
+    def generate_proforma_number(
+        self,
+    ) -> str:
 
         year = date.today().year
-        prefix = f"PRO-{year}-"
 
-        existing = self.repository.get_all()
+        prefix = (
+            f"PRO-{year}-"
+        )
+
+        existing = (
+            self.repository
+            .get_all()
+        )
 
         highest_number = 0
 
         for proforma in existing:
-            number = proforma.proforma_number
 
-            if not number.startswith(prefix):
+            number = (
+                proforma.proforma_number
+            )
+
+            if not number.startswith(
+                prefix
+            ):
                 continue
 
             try:
+
                 sequence = int(
-                    number.replace(prefix, "")
+                    number.replace(
+                        prefix,
+                        "",
+                    )
                 )
 
-                if sequence > highest_number:
-                    highest_number = sequence
+                highest_number = max(
+                    highest_number,
+                    sequence,
+                )
 
             except ValueError:
+
                 continue
 
-        next_number = highest_number + 1
+        next_number = (
+            highest_number
+            + 1
+        )
 
-        return f"{prefix}{next_number:04d}"
+        return (
+            f"{prefix}"
+            f"{next_number:04d}"
+        )
+
+    # ========================================================
+    # ENQUIRY VALIDATION
+    # ========================================================
+
+    def _get_valid_enquiry(
+        self,
+        enquiry_id: int,
+    ):
+
+        enquiry = (
+            EnquiryRepository
+            .get_by_id(
+                self.db,
+                enquiry_id,
+            )
+        )
+
+        if enquiry is None:
+
+            raise ValueError(
+                "Selected Enquiry was not found."
+            )
+
+        status_value = (
+            enquiry.status
+            or ""
+        ).strip().lower()
+
+        if (
+            status_value
+            not in
+            self.ELIGIBLE_ENQUIRY_STATUSES
+        ):
+
+            raise ValueError(
+                f"{enquiry.enquiry_number} "
+                "is no longer eligible for a new Proforma "
+                f"because its status is '{enquiry.status}'."
+            )
+
+        customer = (
+            CustomerRepository
+            .get_by_id(
+                self.db,
+                enquiry.customer_id,
+            )
+        )
+
+        if customer is None:
+
+            raise ValueError(
+                "The Customer linked to this Enquiry "
+                "was not found."
+            )
+
+        return (
+            enquiry,
+            customer,
+        )
 
     # ========================================================
     # ITEM CALCULATION
@@ -86,22 +207,37 @@ class ProformaService:
         self,
         item: ProformaItemCreate,
     ) -> dict:
-        """
-        Calculate financial values for one Proforma item.
-        """
 
-        quantity = Decimal(item.quantity)
-        unit_price = Decimal(item.unit_price)
+        quantity = Decimal(
+            str(
+                item.quantity
+            )
+        )
+
+        unit_price = Decimal(
+            str(
+                item.unit_price
+            )
+        )
 
         discount_percent = Decimal(
-            item.discount_percent or 0
+            str(
+                item.discount_percent
+                or 0
+            )
         )
 
         tax_percent = Decimal(
-            item.tax_percent or 0
+            str(
+                item.tax_percent
+                or 0
+            )
         )
 
-        gross_amount = quantity * unit_price
+        gross_amount = (
+            quantity
+            * unit_price
+        )
 
         discount_amount = (
             gross_amount
@@ -126,21 +262,30 @@ class ProformaService:
         )
 
         return {
-            "gross_amount": self.money(
-                gross_amount
-            ),
-            "discount_amount": self.money(
-                discount_amount
-            ),
-            "taxable_amount": self.money(
-                taxable_amount
-            ),
-            "tax_amount": self.money(
-                tax_amount
-            ),
-            "line_total": self.money(
-                line_total
-            ),
+            "gross_amount":
+                self.money(
+                    gross_amount
+                ),
+
+            "discount_amount":
+                self.money(
+                    discount_amount
+                ),
+
+            "taxable_amount":
+                self.money(
+                    taxable_amount
+                ),
+
+            "tax_amount":
+                self.money(
+                    tax_amount
+                ),
+
+            "line_total":
+                self.money(
+                    line_total
+                ),
         }
 
     # ========================================================
@@ -149,36 +294,58 @@ class ProformaService:
 
     def calculate_totals(
         self,
-        items: List[ProformaItemCreate],
+        items: List[
+            ProformaItemCreate
+        ],
     ) -> dict:
-        """
-        Calculate Proforma-level financial totals.
-        """
 
-        subtotal = Decimal("0")
-        discount_amount = Decimal("0")
-        taxable_amount = Decimal("0")
-        tax_amount = Decimal("0")
+        subtotal = Decimal(
+            "0"
+        )
+
+        discount_amount = Decimal(
+            "0"
+        )
+
+        taxable_amount = Decimal(
+            "0"
+        )
+
+        tax_amount = Decimal(
+            "0"
+        )
 
         for item in items:
 
-            calculated = self.calculate_item(item)
+            calculated = (
+                self.calculate_item(
+                    item
+                )
+            )
 
-            subtotal += calculated[
-                "gross_amount"
-            ]
+            subtotal += (
+                calculated[
+                    "gross_amount"
+                ]
+            )
 
-            discount_amount += calculated[
-                "discount_amount"
-            ]
+            discount_amount += (
+                calculated[
+                    "discount_amount"
+                ]
+            )
 
-            taxable_amount += calculated[
-                "taxable_amount"
-            ]
+            taxable_amount += (
+                calculated[
+                    "taxable_amount"
+                ]
+            )
 
-            tax_amount += calculated[
-                "tax_amount"
-            ]
+            tax_amount += (
+                calculated[
+                    "tax_amount"
+                ]
+            )
 
         grand_total = (
             taxable_amount
@@ -186,19 +353,30 @@ class ProformaService:
         )
 
         return {
-            "subtotal": self.money(subtotal),
-            "discount_amount": self.money(
-                discount_amount
-            ),
-            "taxable_amount": self.money(
-                taxable_amount
-            ),
-            "tax_amount": self.money(
-                tax_amount
-            ),
-            "grand_total": self.money(
-                grand_total
-            ),
+            "subtotal":
+                self.money(
+                    subtotal
+                ),
+
+            "discount_amount":
+                self.money(
+                    discount_amount
+                ),
+
+            "taxable_amount":
+                self.money(
+                    taxable_amount
+                ),
+
+            "tax_amount":
+                self.money(
+                    tax_amount
+                ),
+
+            "grand_total":
+                self.money(
+                    grand_total
+                ),
         }
 
     # ========================================================
@@ -211,87 +389,260 @@ class ProformaService:
     ) -> Proforma:
 
         if not data.items:
+
             raise ValueError(
-                "At least one Proforma item is required."
+                "At least one Proforma item "
+                "is required."
             )
+
+        # ----------------------------------------------------
+        # ENQUIRY IS SOURCE OF TRUTH
+        # ----------------------------------------------------
+
+        enquiry, customer = (
+            self._get_valid_enquiry(
+                data.enquiry_id
+            )
+        )
+
+        # ----------------------------------------------------
+        # NUMBER + TOTALS
+        # ----------------------------------------------------
 
         proforma_number = (
             self.generate_proforma_number()
         )
 
-        totals = self.calculate_totals(
-            data.items
+        totals = (
+            self.calculate_totals(
+                data.items
+            )
+        )
+
+        # ----------------------------------------------------
+        # CUSTOMER DETAILS COME FROM ENQUIRY
+        # ----------------------------------------------------
+
+        default_address = (
+            enquiry.address
+            or customer.address
+            or None
         )
 
         proforma = Proforma(
-            proforma_number=proforma_number,
-            proforma_date=data.proforma_date,
-            enquiry_id=data.enquiry_id,
-            customer_id=data.customer_id,
-            company_name=data.company_name,
-            contact_person=data.contact_person,
-            phone=data.phone,
-            email=data.email,
-            billing_address=data.billing_address,
-            shipping_address=data.shipping_address,
-            payment_terms=data.payment_terms,
-            delivery_terms=data.delivery_terms,
-            validity_days=data.validity_days,
-            notes=data.notes,
+            proforma_number=(
+                proforma_number
+            ),
+
+            proforma_date=(
+                data.proforma_date
+            ),
+
+            # Internal links.
+            enquiry_id=(
+                enquiry.id
+            ),
+
+            customer_id=(
+                enquiry.customer_id
+            ),
+
+            # Customer snapshot comes from Enquiry.
+            company_name=(
+                enquiry.company_name
+            ),
+
+            contact_person=(
+                enquiry.contact_person
+            ),
+
+            phone=(
+                enquiry.phone
+            ),
+
+            email=(
+                enquiry.email
+            ),
+
+            billing_address=(
+                data.billing_address
+                or default_address
+            ),
+
+            shipping_address=(
+                data.shipping_address
+                or default_address
+            ),
+
+            payment_terms=(
+                data.payment_terms
+            ),
+
+            delivery_terms=(
+                data.delivery_terms
+            ),
+
+            validity_days=(
+                data.validity_days
+            ),
+
+            notes=(
+                data.notes
+            ),
+
             terms_and_conditions=(
                 data.terms_and_conditions
             ),
-            status=data.status,
-            subtotal=totals["subtotal"],
-            discount_amount=totals[
-                "discount_amount"
-            ],
-            taxable_amount=totals[
-                "taxable_amount"
-            ],
-            tax_amount=totals["tax_amount"],
-            grand_total=totals[
-                "grand_total"
-            ],
+
+            status=(
+                data.status
+            ),
+
+            subtotal=(
+                totals[
+                    "subtotal"
+                ]
+            ),
+
+            discount_amount=(
+                totals[
+                    "discount_amount"
+                ]
+            ),
+
+            taxable_amount=(
+                totals[
+                    "taxable_amount"
+                ]
+            ),
+
+            tax_amount=(
+                totals[
+                    "tax_amount"
+                ]
+            ),
+
+            grand_total=(
+                totals[
+                    "grand_total"
+                ]
+            ),
         )
+
+        # ----------------------------------------------------
+        # ITEMS
+        # ----------------------------------------------------
 
         for item_data in data.items:
 
-            calculated = self.calculate_item(
-                item_data
+            description = (
+                item_data.description
+                or ""
+            ).strip()
+
+            if not description:
+
+                raise ValueError(
+                    "Finished Product / Machine "
+                    "name is required."
+                )
+
+            calculated = (
+                self.calculate_item(
+                    item_data
+                )
             )
 
             item = ProformaItem(
-                product_id=item_data.product_id,
-                description=item_data.description,
-                quantity=item_data.quantity,
-                unit=item_data.unit,
-                unit_price=item_data.unit_price,
+                # New manufactured products are NOT purchased
+                # Product Master items. product_id stays NULL.
+
+                product_id=None,
+
+                description=(
+                    description
+                ),
+
+                quantity=(
+                    item_data.quantity
+                ),
+
+                unit=(
+                    item_data.unit
+                    or "Nos"
+                ),
+
+                unit_price=(
+                    item_data.unit_price
+                ),
+
                 discount_percent=(
-                    item_data.discount_percent
+                    item_data
+                    .discount_percent
                 ),
+
                 tax_percent=(
-                    item_data.tax_percent
+                    item_data
+                    .tax_percent
                 ),
-                discount_amount=calculated[
-                    "discount_amount"
-                ],
-                taxable_amount=calculated[
-                    "taxable_amount"
-                ],
-                tax_amount=calculated[
-                    "tax_amount"
-                ],
-                line_total=calculated[
-                    "line_total"
-                ],
+
+                discount_amount=(
+                    calculated[
+                        "discount_amount"
+                    ]
+                ),
+
+                taxable_amount=(
+                    calculated[
+                        "taxable_amount"
+                    ]
+                ),
+
+                tax_amount=(
+                    calculated[
+                        "tax_amount"
+                    ]
+                ),
+
+                line_total=(
+                    calculated[
+                        "line_total"
+                    ]
+                ),
             )
 
-            proforma.items.append(item)
+            proforma.items.append(
+                item
+            )
 
-        return self.repository.create(
-            proforma
+        created = (
+            self.repository
+            .create(
+                proforma
+            )
         )
+
+        # ----------------------------------------------------
+        # ENQUIRY MOVES INTO QUOTATION STAGE
+        # ----------------------------------------------------
+
+        enquiry_status = (
+            enquiry.status
+            or ""
+        ).strip().lower()
+
+        if enquiry_status in {
+            "new",
+            "contacted",
+        }:
+
+            enquiry.status = (
+                "Quotation"
+            )
+
+            self.db.flush()
+
+        return created
 
     # ========================================================
     # GET ONE
@@ -300,10 +651,15 @@ class ProformaService:
     def get_by_id(
         self,
         proforma_id: int,
-    ) -> Optional[Proforma]:
+    ) -> Optional[
+        Proforma
+    ]:
 
-        return self.repository.get_by_id(
-            proforma_id
+        return (
+            self.repository
+            .get_by_id(
+                proforma_id
+            )
         )
 
     # ========================================================
@@ -313,10 +669,15 @@ class ProformaService:
     def get_by_number(
         self,
         proforma_number: str,
-    ) -> Optional[Proforma]:
+    ) -> Optional[
+        Proforma
+    ]:
 
-        return self.repository.get_by_number(
-            proforma_number
+        return (
+            self.repository
+            .get_by_number(
+                proforma_number
+            )
         )
 
     # ========================================================
@@ -326,10 +687,15 @@ class ProformaService:
     def get_by_enquiry(
         self,
         enquiry_id: int,
-    ) -> List[Proforma]:
+    ) -> List[
+        Proforma
+    ]:
 
-        return self.repository.get_by_enquiry(
-            enquiry_id
+        return (
+            self.repository
+            .get_by_enquiry(
+                enquiry_id
+            )
         )
 
     # ========================================================
@@ -338,17 +704,33 @@ class ProformaService:
 
     def get_all(
         self,
-        search: Optional[str] = None,
-        status: Optional[str] = None,
-        customer_id: Optional[int] = None,
-        enquiry_id: Optional[int] = None,
-    ) -> List[Proforma]:
+        search: Optional[
+            str
+        ] = None,
 
-        return self.repository.get_all(
-            search=search,
-            status=status,
-            customer_id=customer_id,
-            enquiry_id=enquiry_id,
+        status: Optional[
+            str
+        ] = None,
+
+        customer_id: Optional[
+            int
+        ] = None,
+
+        enquiry_id: Optional[
+            int
+        ] = None,
+    ) -> List[
+        Proforma
+    ]:
+
+        return (
+            self.repository
+            .get_all(
+                search=search,
+                status=status,
+                customer_id=customer_id,
+                enquiry_id=enquiry_id,
+            )
         )
 
     # ========================================================
@@ -359,21 +741,48 @@ class ProformaService:
         self,
         proforma_id: int,
         data: ProformaUpdate,
-    ) -> Optional[Proforma]:
+    ) -> Optional[
+        Proforma
+    ]:
 
-        proforma = self.repository.get_by_id(
-            proforma_id
+        proforma = (
+            self.repository
+            .get_by_id(
+                proforma_id
+            )
         )
 
         if not proforma:
+
             return None
 
-        update_data = data.model_dump(
-            exclude_unset=True,
-            exclude={"items"},
+        # ----------------------------------------------------
+        # CUSTOMER / ENQUIRY IDENTITY IS LOCKED
+        # ----------------------------------------------------
+
+        update_data = (
+            data.model_dump(
+                exclude_unset=True,
+
+                exclude={
+                    "items",
+
+                    "enquiry_id",
+                    "customer_id",
+
+                    "company_name",
+                    "contact_person",
+                    "phone",
+                    "email",
+                },
+            )
         )
 
-        for field, value in update_data.items():
+        for (
+            field,
+            value,
+        ) in update_data.items():
+
             setattr(
                 proforma,
                 field,
@@ -381,75 +790,127 @@ class ProformaService:
             )
 
         # ----------------------------------------------------
-        # Replace items if items were supplied
+        # REPLACE ITEMS
         # ----------------------------------------------------
 
-        if data.items is not None:
+        if (
+            data.items
+            is not None
+        ):
 
             if not data.items:
+
                 raise ValueError(
-                    "At least one Proforma item is required."
+                    "At least one Proforma item "
+                    "is required."
                 )
 
-            totals = self.calculate_totals(
-                data.items
+            totals = (
+                self.calculate_totals(
+                    data.items
+                )
             )
 
-            proforma.subtotal = totals[
-                "subtotal"
-            ]
+            proforma.subtotal = (
+                totals[
+                    "subtotal"
+                ]
+            )
 
-            proforma.discount_amount = totals[
-                "discount_amount"
-            ]
+            proforma.discount_amount = (
+                totals[
+                    "discount_amount"
+                ]
+            )
 
-            proforma.taxable_amount = totals[
-                "taxable_amount"
-            ]
+            proforma.taxable_amount = (
+                totals[
+                    "taxable_amount"
+                ]
+            )
 
-            proforma.tax_amount = totals[
-                "tax_amount"
-            ]
+            proforma.tax_amount = (
+                totals[
+                    "tax_amount"
+                ]
+            )
 
-            proforma.grand_total = totals[
-                "grand_total"
-            ]
+            proforma.grand_total = (
+                totals[
+                    "grand_total"
+                ]
+            )
 
             proforma.items.clear()
 
             for item_data in data.items:
 
-                calculated = self.calculate_item(
-                    item_data
+                description = (
+                    item_data.description
+                    or ""
+                ).strip()
+
+                if not description:
+
+                    raise ValueError(
+                        "Finished Product / Machine "
+                        "name is required."
+                    )
+
+                calculated = (
+                    self.calculate_item(
+                        item_data
+                    )
                 )
 
                 item = ProformaItem(
-                    product_id=item_data.product_id,
-                    description=item_data.description,
-                    quantity=item_data.quantity,
-                    unit=item_data.unit,
-                    unit_price=item_data.unit_price,
+                    product_id=None,
+
+                    description=(
+                        description
+                    ),
+
+                    quantity=(
+                        item_data.quantity
+                    ),
+
+                    unit=(
+                        item_data.unit
+                        or "Nos"
+                    ),
+
+                    unit_price=(
+                        item_data.unit_price
+                    ),
+
                     discount_percent=(
-                        item_data.discount_percent
+                        item_data
+                        .discount_percent
                     ),
+
                     tax_percent=(
-                        item_data.tax_percent
+                        item_data
+                        .tax_percent
                     ),
+
                     discount_amount=(
                         calculated[
                             "discount_amount"
                         ]
                     ),
+
                     taxable_amount=(
                         calculated[
                             "taxable_amount"
                         ]
                     ),
+
                     tax_amount=(
                         calculated[
                             "tax_amount"
                         ]
                     ),
+
                     line_total=(
                         calculated[
                             "line_total"
@@ -457,10 +918,15 @@ class ProformaService:
                     ),
                 )
 
-                proforma.items.append(item)
+                proforma.items.append(
+                    item
+                )
 
         self.db.flush()
-        self.db.refresh(proforma)
+
+        self.db.refresh(
+            proforma
+        )
 
         return proforma
 
@@ -472,19 +938,97 @@ class ProformaService:
         self,
         proforma_id: int,
         status: str,
-    ) -> Optional[Proforma]:
+    ) -> Optional[
+        Proforma
+    ]:
 
-        proforma = self.repository.get_by_id(
-            proforma_id
+        proforma = (
+            self.repository
+            .get_by_id(
+                proforma_id
+            )
         )
 
         if not proforma:
+
             return None
 
-        proforma.status = status
+        normalized_status = (
+            status
+            or ""
+        ).strip()
+
+        if not normalized_status:
+
+            raise ValueError(
+                "Proforma status is required."
+            )
+
+        proforma.status = (
+            normalized_status
+        )
+
+        # ----------------------------------------------------
+        # KEEP ENQUIRY WORKFLOW SYNCHRONIZED
+        # ----------------------------------------------------
+
+        if proforma.enquiry_id:
+
+            enquiry = (
+                EnquiryRepository
+                .get_by_id(
+                    self.db,
+                    proforma.enquiry_id,
+                )
+            )
+
+            if enquiry is not None:
+
+                status_lower = (
+                    normalized_status
+                    .lower()
+                )
+
+                if status_lower in {
+                    "confirmed",
+                    "order confirmed",
+                }:
+
+                    enquiry.status = (
+                        "Order Confirmed"
+                    )
+
+                elif status_lower in {
+                    "draft",
+                    "sent",
+                    "rejected",
+                    "cancelled",
+                }:
+
+                    current_enquiry_status = (
+                        enquiry.status
+                        or ""
+                    ).strip().lower()
+
+                    if (
+                        current_enquiry_status
+                        in {
+                            "new",
+                            "contacted",
+                            "quotation",
+                            "order confirmed",
+                        }
+                    ):
+
+                        enquiry.status = (
+                            "Quotation"
+                        )
 
         self.db.flush()
-        self.db.refresh(proforma)
+
+        self.db.refresh(
+            proforma
+        )
 
         return proforma
 
@@ -497,11 +1041,15 @@ class ProformaService:
         proforma_id: int,
     ) -> bool:
 
-        proforma = self.repository.get_by_id(
-            proforma_id
+        proforma = (
+            self.repository
+            .get_by_id(
+                proforma_id
+            )
         )
 
         if not proforma:
+
             return False
 
         self.repository.delete(

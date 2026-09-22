@@ -4,6 +4,7 @@ from app.models.enquiry import Enquiry
 from app.models.expense import Expense
 from app.models.final_bill import FinalBill
 from app.models.final_bill_item import FinalBillItem
+from app.models.final_bill_payment import FinalBillPayment
 from app.models.finished_goods_receipt import FinishedGoodsReceipt
 from app.models.finished_product import FinishedProduct
 from app.models.permission import Permission
@@ -48,5 +49,6 @@ __all__ = [
     "PurchaseBillPayment",
     "FinalBill",
     "FinalBillItem",
+    "FinalBillPayment",
     "Expense",
 ]

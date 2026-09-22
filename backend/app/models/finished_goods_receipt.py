@@ -11,7 +11,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.database.base import Base
 
@@ -22,7 +26,10 @@ class FinishedGoodsReceipt(Base):
     __table_args__ = (
         UniqueConstraint(
             "production_order_id",
-            name="uq_finished_goods_receipt_production_order",
+            name=(
+                "uq_finished_goods_receipt_"
+                "production_order"
+            ),
         ),
     )
 
@@ -48,27 +55,57 @@ class FinishedGoodsReceipt(Base):
         index=True,
     )
 
-    product_id: Mapped[int] = mapped_column(
+    # ========================================================
+    # LEGACY STOCK PRODUCT LINK
+    # ========================================================
+    #
+    # Existing historical records may contain product_id.
+    #
+    # New manufactured outputs do not need to exist in the
+    # purchased Products table, therefore this is optional.
+    # ========================================================
+
+    product_id: Mapped[
+        int | None
+    ] = mapped_column(
         ForeignKey(
             "products.id",
             ondelete="RESTRICT",
         ),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
-    quantity_received: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
+    quantity_received: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(
+            12,
+            2,
+        ),
         nullable=False,
     )
 
-    stock_before: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
+    # These remain for historical/audit compatibility.
+    # Manufactured Finished Products do not increase Store stock.
+
+    stock_before: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(
+            12,
+            2,
+        ),
         nullable=False,
     )
 
-    stock_after: Mapped[Decimal] = mapped_column(
-        Numeric(12, 2),
+    stock_after: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(
+            12,
+            2,
+        ),
         nullable=False,
     )
 
@@ -81,14 +118,18 @@ class FinishedGoodsReceipt(Base):
         index=True,
     )
 
-    received_at: Mapped[datetime] = mapped_column(
+    received_at: Mapped[
+        datetime
+    ] = mapped_column(
         DateTime,
         server_default=func.now(),
         nullable=False,
         index=True,
     )
 
-    remarks: Mapped[str | None] = mapped_column(
+    remarks: Mapped[
+        str | None
+    ] = mapped_column(
         Text,
         nullable=True,
     )
@@ -103,5 +144,7 @@ class FinishedGoodsReceipt(Base):
 
     receiver = relationship(
         "User",
-        foreign_keys=[received_by],
+        foreign_keys=[
+            received_by
+        ],
     )

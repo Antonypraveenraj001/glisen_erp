@@ -3,14 +3,16 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.orm import Session, joinedload
 
+from app.models.company_settings import CompanySettings
 from app.models.customer import Customer
+from app.models.enquiry import Enquiry
 from app.models.final_bill import FinalBill
 from app.models.final_bill_item import FinalBillItem
 from app.models.finished_goods_receipt import FinishedGoodsReceipt
 from app.models.product import Product
 from app.models.production_order import ProductionOrder
 from app.models.proforma import Proforma
-from app.models.company_settings import CompanySettings
+
 from app.schemas.final_bill import (
     FinalBillItemUpdate,
     FinalBillUpdate,
@@ -25,6 +27,7 @@ class FinalBillService:
 
     @staticmethod
     def decimal(value) -> Decimal:
+
         return Decimal(
             str(
                 value
@@ -34,6 +37,7 @@ class FinalBillService:
 
     @staticmethod
     def money(value) -> Decimal:
+
         return (
             FinalBillService
             .decimal(value)
@@ -68,36 +72,46 @@ class FinalBillService:
     ) -> None:
 
         quantity = (
-            FinalBillService.decimal(
+            FinalBillService
+            .decimal(
                 item.quantity
             )
         )
 
         unit_price = (
-            FinalBillService.decimal(
+            FinalBillService
+            .decimal(
                 item.unit_price
             )
         )
 
         discount_percent = (
-            FinalBillService.decimal(
+            FinalBillService
+            .decimal(
                 item.discount_percent
             )
         )
 
         gst_percent = (
-            FinalBillService.decimal(
+            FinalBillService
+            .decimal(
                 item.gst_percent
             )
         )
 
-        if quantity <= Decimal("0.00"):
+        if (
+            quantity
+            <= Decimal("0.00")
+        ):
             raise ValueError(
                 "Final Bill item quantity "
                 "must be greater than zero."
             )
 
-        if unit_price < Decimal("0.00"):
+        if (
+            unit_price
+            < Decimal("0.00")
+        ):
             raise ValueError(
                 "Unit price cannot be negative."
             )
@@ -105,7 +119,8 @@ class FinalBillService:
         if (
             discount_percent
             < Decimal("0.00")
-            or discount_percent
+            or
+            discount_percent
             > Decimal("100.00")
         ):
             raise ValueError(
@@ -116,7 +131,8 @@ class FinalBillService:
         if (
             gst_percent
             < Decimal("0.00")
-            or gst_percent
+            or
+            gst_percent
             > Decimal("100.00")
         ):
             raise ValueError(
@@ -163,8 +179,8 @@ class FinalBillService:
             )
         )
 
-        # GST split will be implemented after
-        # company GST state configuration exists.
+        # GST split is calculated at bill level after
+        # customer/company state codes are known.
         item.cgst_amount = Decimal(
             "0.00"
         )
@@ -189,7 +205,7 @@ class FinalBillService:
             )
         )
 
-        # ============================================================
+    # ============================================================
     # RECALCULATE FINAL BILL TOTALS
     # ============================================================
 
@@ -219,11 +235,16 @@ class FinalBillService:
         # ========================================================
 
         company_settings = (
-            db.query(CompanySettings)
+            db.query(
+                CompanySettings
+            )
             .first()
         )
 
-        if company_settings is None:
+        if (
+            company_settings
+            is None
+        ):
             raise ValueError(
                 "Company GST settings have not "
                 "been configured."
@@ -235,8 +256,13 @@ class FinalBillService:
         ).strip()
 
         if (
-            len(company_state_code) != 2
-            or not company_state_code.isdigit()
+            len(
+                company_state_code
+            )
+            != 2
+            or
+            not company_state_code
+            .isdigit()
         ):
             raise ValueError(
                 "Company GST state code is invalid."
@@ -252,8 +278,14 @@ class FinalBillService:
         ).strip().upper()
 
         if (
-            len(customer_gst_number) != 15
-            or not customer_gst_number[:2].isdigit()
+            len(
+                customer_gst_number
+            )
+            != 15
+            or
+            not customer_gst_number[
+                :2
+            ].isdigit()
         ):
             raise ValueError(
                 "Customer GST number is invalid "
@@ -261,26 +293,52 @@ class FinalBillService:
             )
 
         customer_state_code = (
-            customer_gst_number[:2]
+            customer_gst_number[
+                :2
+            ]
         )
 
         is_intra_state = (
             company_state_code
-            == customer_state_code
+            ==
+            customer_state_code
         )
 
         # ========================================================
         # TOTALS
         # ========================================================
 
-        subtotal = Decimal("0.00")
-        discount_total = Decimal("0.00")
-        taxable_total = Decimal("0.00")
-        cgst_total = Decimal("0.00")
-        sgst_total = Decimal("0.00")
-        igst_total = Decimal("0.00")
-        tax_total = Decimal("0.00")
-        grand_total = Decimal("0.00")
+        subtotal = Decimal(
+            "0.00"
+        )
+
+        discount_total = Decimal(
+            "0.00"
+        )
+
+        taxable_total = Decimal(
+            "0.00"
+        )
+
+        cgst_total = Decimal(
+            "0.00"
+        )
+
+        sgst_total = Decimal(
+            "0.00"
+        )
+
+        igst_total = Decimal(
+            "0.00"
+        )
+
+        tax_total = Decimal(
+            "0.00"
+        )
+
+        grand_total = Decimal(
+            "0.00"
+        )
 
         for item in items:
 
@@ -294,7 +352,9 @@ class FinalBillService:
             # GST SPLIT
             # ====================================================
 
-            if is_intra_state:
+            if (
+                is_intra_state
+            ):
 
                 cgst_amount = (
                     FinalBillService.money(
@@ -303,8 +363,6 @@ class FinalBillService:
                     )
                 )
 
-                # Keep total exactly equal to tax_amount,
-                # including any rounding difference.
                 sgst_amount = (
                     FinalBillService.money(
                         item_tax_amount
@@ -346,7 +404,8 @@ class FinalBillService:
                 FinalBillService.decimal(
                     item.quantity
                 )
-                * FinalBillService.decimal(
+                *
+                FinalBillService.decimal(
                     item.unit_price
                 )
             )
@@ -440,7 +499,7 @@ class FinalBillService:
         )
 
     # ============================================================
-    # ELIGIBILITY CHECK
+    # PROFORMA ELIGIBILITY
     # ============================================================
 
     @staticmethod
@@ -450,7 +509,9 @@ class FinalBillService:
     ) -> None:
 
         production_orders = (
-            db.query(ProductionOrder)
+            db.query(
+                ProductionOrder
+            )
             .filter(
                 ProductionOrder.proforma_id
                 == proforma.id
@@ -458,7 +519,9 @@ class FinalBillService:
             .all()
         )
 
-        if not production_orders:
+        if (
+            not production_orders
+        ):
             raise ValueError(
                 "Final Bill cannot be created because "
                 "this Proforma has no Production Orders."
@@ -466,7 +529,8 @@ class FinalBillService:
 
         incomplete_orders = [
             order
-            for order in production_orders
+            for order
+            in production_orders
             if (
                 order.status
                 or ""
@@ -474,11 +538,14 @@ class FinalBillService:
             != "completed"
         ]
 
-        if incomplete_orders:
+        if (
+            incomplete_orders
+        ):
 
             numbers = ", ".join(
                 order.production_number
-                for order in incomplete_orders
+                for order
+                in incomplete_orders
             )
 
             raise ValueError(
@@ -490,15 +557,21 @@ class FinalBillService:
         for order in production_orders:
 
             receipt = (
-                db.query(FinishedGoodsReceipt)
+                db.query(
+                    FinishedGoodsReceipt
+                )
                 .filter(
-                    FinishedGoodsReceipt.production_order_id
+                    FinishedGoodsReceipt
+                    .production_order_id
                     == order.id
                 )
                 .first()
             )
 
-            if receipt is None:
+            if (
+                receipt
+                is None
+            ):
                 raise ValueError(
                     "Final Bill cannot be created because "
                     "Finished Goods Receipt is missing for "
@@ -520,7 +593,8 @@ class FinalBillService:
 
             if (
                 received_quantity
-                < production_quantity
+                <
+                production_quantity
             ):
                 raise ValueError(
                     "Final Bill cannot be created because "
@@ -544,8 +618,14 @@ class FinalBillService:
 
         try:
 
+            # ====================================================
+            # PROFORMA
+            # ====================================================
+
             proforma = (
-                db.query(Proforma)
+                db.query(
+                    Proforma
+                )
                 .options(
                     joinedload(
                         Proforma.items
@@ -559,65 +639,143 @@ class FinalBillService:
                 .first()
             )
 
-            if proforma is None:
+            if (
+                proforma
+                is None
+            ):
                 raise ValueError(
                     "Proforma not found."
                 )
 
+            # ====================================================
+            # PREVENT DUPLICATE ORIGINAL BILL
+            # ====================================================
+
             existing_bill = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.proforma_id
                     == proforma.id,
-                    FinalBill.parent_invoice_id
-                    .is_(None),
+
+                    FinalBill
+                    .parent_invoice_id
+                    .is_(
+                        None
+                    ),
                 )
                 .first()
             )
 
-            if existing_bill:
+            if (
+                existing_bill
+            ):
                 raise ValueError(
                     "A Final Bill already exists "
                     "for this Proforma."
                 )
 
-            customer = (
-                db.query(Customer)
+            # ====================================================
+            # ENQUIRY = CUSTOMER SOURCE OF TRUTH
+            # ====================================================
+
+            enquiry = (
+                db.query(
+                    Enquiry
+                )
                 .filter(
-                    Customer.id
-                    == proforma.customer_id,
-                    Customer.is_active
-                    == True,
+                    Enquiry.id
+                    == proforma.enquiry_id
                 )
                 .first()
             )
 
-            if customer is None:
+            if (
+                enquiry
+                is None
+            ):
                 raise ValueError(
-                    "Active customer not found "
-                    "for this Proforma."
+                    "Enquiry linked to this "
+                    "Proforma was not found."
                 )
 
-            if not proforma.items:
+            # ====================================================
+            # CUSTOMER
+            #
+            # IMPORTANT:
+            #
+            # is_active is deliberately NOT checked.
+            #
+            # Customer.is_active remains only as legacy/archive
+            # metadata. It must never block Final Billing.
+            # ====================================================
+
+            customer = (
+                db.query(
+                    Customer
+                )
+                .filter(
+                    Customer.id
+                    == enquiry.customer_id
+                )
+                .first()
+            )
+
+            if (
+                customer
+                is None
+            ):
+                raise ValueError(
+                    "Customer linked to this "
+                    "Enquiry was not found."
+                )
+
+            # Keep Proforma's internal customer FK synchronized.
+            proforma.customer_id = (
+                customer.id
+            )
+
+            # ====================================================
+            # ITEMS
+            # ====================================================
+
+            if (
+                not proforma.items
+            ):
                 raise ValueError(
                     "Final Bill cannot be created "
                     "because the Proforma has no items."
                 )
+
+            # ====================================================
+            # PRODUCTION / FINISHED PRODUCT VALIDATION
+            # ====================================================
 
             FinalBillService.validate_proforma_eligibility(
                 db=db,
                 proforma=proforma,
             )
 
+            # ====================================================
+            # INVOICE DATE
+            # ====================================================
+
             final_invoice_date = (
                 invoice_date
                 or date.today()
             )
 
+            # ====================================================
+            # INVOICE NUMBER
+            # ====================================================
+
             invoice_number = (
                 FinalBillService
                 .generate_invoice_number(
-                    proforma=proforma,
+                    proforma=(
+                        proforma
+                    ),
                     invoice_date=(
                         final_invoice_date
                     ),
@@ -625,7 +783,9 @@ class FinalBillService:
             )
 
             duplicate_number = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.invoice_number
                     == invoice_number
@@ -633,92 +793,156 @@ class FinalBillService:
                 .first()
             )
 
-            if duplicate_number:
+            if (
+                duplicate_number
+            ):
                 raise ValueError(
                     "Generated invoice number "
                     "already exists."
                 )
 
+            # ====================================================
+            # CUSTOMER SNAPSHOT
+            #
+            # Customer identity comes from Enquiry.
+            #
+            # Proforma billing/shipping addresses remain usable
+            # because they may be deliberately changed for the
+            # commercial document.
+            # ====================================================
+
             final_bill = FinalBill(
                 invoice_number=(
                     invoice_number
                 ),
+
                 invoice_date=(
                     final_invoice_date
                 ),
+
                 proforma_id=(
                     proforma.id
                 ),
+
                 customer_id=(
                     customer.id
                 ),
+
                 company_name=(
+                    enquiry.company_name
+                    or
                     proforma.company_name
-                    or customer.company_name
+                    or
+                    customer.company_name
                 ),
+
                 contact_person=(
+                    enquiry.contact_person
+                    or
                     proforma.contact_person
-                    or customer.contact_person
+                    or
+                    customer.contact_person
                 ),
+
                 phone=(
+                    enquiry.phone
+                    or
                     proforma.phone
-                    or customer.phone
+                    or
+                    customer.phone
                 ),
+
                 email=(
+                    enquiry.email
+                    or
                     proforma.email
-                    or customer.email
+                    or
+                    customer.email
                 ),
+
                 gst_number=(
+                    enquiry.gst_number
+                    or
                     customer.gst_number
                 ),
+
                 billing_address=(
                     proforma.billing_address
-                    or customer.address
+                    or
+                    enquiry.address
+                    or
+                    customer.address
                 ),
+
                 shipping_address=(
                     proforma.shipping_address
-                    or customer.address
+                    or
+                    enquiry.address
+                    or
+                    customer.address
                 ),
+
                 payment_terms=(
                     proforma.payment_terms
                 ),
+
                 delivery_terms=(
                     proforma.delivery_terms
                 ),
+
                 notes=(
                     notes
                     if notes is not None
                     else proforma.notes
                 ),
+
                 subtotal=Decimal(
                     "0.00"
                 ),
+
                 discount_amount=Decimal(
                     "0.00"
                 ),
+
                 taxable_amount=Decimal(
                     "0.00"
                 ),
+
                 cgst_amount=Decimal(
                     "0.00"
                 ),
+
                 sgst_amount=Decimal(
                     "0.00"
                 ),
+
                 igst_amount=Decimal(
                     "0.00"
                 ),
+
                 tax_amount=Decimal(
                     "0.00"
                 ),
+
                 grand_total=Decimal(
                     "0.00"
                 ),
-                invoice_type="Tax Invoice",
-                status="Draft",
+
+                invoice_type=(
+                    "Tax Invoice"
+                ),
+
+                status=(
+                    "Draft"
+                ),
+
                 revision_number=0,
+
                 parent_invoice_id=None,
-                created_by=created_by,
+
+                created_by=(
+                    created_by
+                ),
             )
 
             db.add(
@@ -727,35 +951,46 @@ class FinalBillService:
 
             db.flush()
 
+            # ====================================================
+            # COPY PROFORMA ITEMS
+            # ====================================================
+
             for proforma_item in (
                 proforma.items
             ):
 
                 quantity = (
-                    FinalBillService.decimal(
+                    FinalBillService
+                    .decimal(
                         proforma_item.quantity
                     )
                 )
 
                 unit_price = (
-                    FinalBillService.decimal(
+                    FinalBillService
+                    .decimal(
                         proforma_item.unit_price
                     )
                 )
 
                 discount_percent = (
-                    FinalBillService.decimal(
+                    FinalBillService
+                    .decimal(
                         proforma_item
                         .discount_percent
                     )
                 )
 
                 gst_percent = (
-                    FinalBillService.decimal(
-                        proforma_item.tax_percent
+                    FinalBillService
+                    .decimal(
+                        proforma_item
+                        .tax_percent
                     )
                 )
 
+                # Manufactured products may intentionally have
+                # product_id = NULL.
                 product = None
 
                 if (
@@ -764,7 +999,9 @@ class FinalBillService:
                 ):
 
                     product = (
-                        db.query(Product)
+                        db.query(
+                            Product
+                        )
                         .filter(
                             Product.id
                             == proforma_item.product_id
@@ -772,53 +1009,76 @@ class FinalBillService:
                         .first()
                     )
 
-                final_item = FinalBillItem(
-                    final_bill_id=(
-                        final_bill.id
-                    ),
-                    product_id=(
-                        proforma_item.product_id
-                    ),
-                    description=(
-                        proforma_item.description
-                    ),
-                    hsn_code=(
-                        product.hsn_code
-                        if product
-                        else None
-                    ),
-                    quantity=quantity,
-                    unit=(
-                        proforma_item.unit
-                    ),
-                    unit_price=unit_price,
-                    discount_percent=(
-                        discount_percent
-                    ),
-                    discount_amount=Decimal(
-                        "0.00"
-                    ),
-                    taxable_amount=Decimal(
-                        "0.00"
-                    ),
-                    gst_percent=(
-                        gst_percent
-                    ),
-                    cgst_amount=Decimal(
-                        "0.00"
-                    ),
-                    sgst_amount=Decimal(
-                        "0.00"
-                    ),
-                    igst_amount=Decimal(
-                        "0.00"
-                    ),
-                    tax_amount=Decimal(
-                        "0.00"
-                    ),
-                    line_total=Decimal(
-                        "0.00"
-                    ),
+                final_item = (
+                    FinalBillItem(
+                        final_bill_id=(
+                            final_bill.id
+                        ),
+
+                        product_id=(
+                            proforma_item
+                            .product_id
+                        ),
+
+                        description=(
+                            proforma_item
+                            .description
+                        ),
+
+                        hsn_code=(
+                            product.hsn_code
+                            if product
+                            else None
+                        ),
+
+                        quantity=(
+                            quantity
+                        ),
+
+                        unit=(
+                            proforma_item.unit
+                        ),
+
+                        unit_price=(
+                            unit_price
+                        ),
+
+                        discount_percent=(
+                            discount_percent
+                        ),
+
+                        discount_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        taxable_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        gst_percent=(
+                            gst_percent
+                        ),
+
+                        cgst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        sgst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        igst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        tax_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        line_total=Decimal(
+                            "0.00"
+                        ),
+                    )
                 )
 
                 FinalBillService.calculate_item_totals(
@@ -849,7 +1109,9 @@ class FinalBillService:
             )
 
         except Exception:
+
             db.rollback()
+
             raise
 
     # ============================================================
@@ -866,7 +1128,9 @@ class FinalBillService:
         try:
 
             final_bill = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.id
                     == final_bill_id
@@ -875,15 +1139,23 @@ class FinalBillService:
                 .first()
             )
 
-            if final_bill is None:
+            if (
+                final_bill
+                is None
+            ):
                 raise ValueError(
                     "Final Bill not found."
                 )
 
             if (
-                final_bill.status
-                or ""
-            ).strip().lower() != "draft":
+                (
+                    final_bill.status
+                    or ""
+                )
+                .strip()
+                .lower()
+                != "draft"
+            ):
                 raise ValueError(
                     "Only Draft Final Bills "
                     "can be edited."
@@ -898,7 +1170,8 @@ class FinalBillService:
             if (
                 "invoice_date"
                 in update_data
-                and update_data[
+                and
+                update_data[
                     "invoice_date"
                 ]
                 is None
@@ -958,7 +1231,9 @@ class FinalBillService:
             )
 
         except Exception:
+
             db.rollback()
+
             raise
 
     # ============================================================
@@ -976,7 +1251,9 @@ class FinalBillService:
         try:
 
             final_bill = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.id
                     == final_bill_id
@@ -985,25 +1262,36 @@ class FinalBillService:
                 .first()
             )
 
-            if final_bill is None:
+            if (
+                final_bill
+                is None
+            ):
                 raise ValueError(
                     "Final Bill not found."
                 )
 
             if (
-                final_bill.status
-                or ""
-            ).strip().lower() != "draft":
+                (
+                    final_bill.status
+                    or ""
+                )
+                .strip()
+                .lower()
+                != "draft"
+            ):
                 raise ValueError(
                     "Only Draft Final Bills "
                     "can be edited."
                 )
 
             final_item = (
-                db.query(FinalBillItem)
+                db.query(
+                    FinalBillItem
+                )
                 .filter(
                     FinalBillItem.id
                     == item_id,
+
                     FinalBillItem.final_bill_id
                     == final_bill.id,
                 )
@@ -1011,7 +1299,10 @@ class FinalBillService:
                 .first()
             )
 
-            if final_item is None:
+            if (
+                final_item
+                is None
+            ):
                 raise ValueError(
                     "Final Bill item not found."
                 )
@@ -1051,10 +1342,12 @@ class FinalBillService:
                         "discount_percent",
                         "gst_percent",
                     }
-                    and value is None
+                    and
+                    value is None
                 ):
                     raise ValueError(
-                        f"{field_name} cannot be empty."
+                        f"{field_name} "
+                        "cannot be empty."
                     )
 
                 setattr(
@@ -1095,7 +1388,9 @@ class FinalBillService:
             )
 
         except Exception:
+
             db.rollback()
+
             raise
 
     # ============================================================
@@ -1111,7 +1406,9 @@ class FinalBillService:
         try:
 
             final_bill = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.id
                     == final_bill_id
@@ -1120,15 +1417,23 @@ class FinalBillService:
                 .first()
             )
 
-            if final_bill is None:
+            if (
+                final_bill
+                is None
+            ):
                 raise ValueError(
                     "Final Bill not found."
                 )
 
             if (
-                final_bill.status
-                or ""
-            ).strip().lower() != "draft":
+                (
+                    final_bill.status
+                    or ""
+                )
+                .strip()
+                .lower()
+                != "draft"
+            ):
                 raise ValueError(
                     "Only Draft Final Bills "
                     "can be issued."
@@ -1143,14 +1448,19 @@ class FinalBillService:
                     "before issuing the Final Bill."
                 )
 
-            if final_bill.invoice_date is None:
+            if (
+                final_bill.invoice_date
+                is None
+            ):
                 raise ValueError(
                     "Invoice date is required "
                     "before issuing the Final Bill."
                 )
 
             items = (
-                db.query(FinalBillItem)
+                db.query(
+                    FinalBillItem
+                )
                 .filter(
                     FinalBillItem.final_bill_id
                     == final_bill.id
@@ -1158,7 +1468,9 @@ class FinalBillService:
                 .all()
             )
 
-            if not items:
+            if (
+                not items
+            ):
                 raise ValueError(
                     "Final Bill cannot be issued "
                     "without items."
@@ -1191,52 +1503,78 @@ class FinalBillService:
             # ====================================================
 
             if (
-                final_bill.invoice_type
-                or ""
-            ).strip().lower() == "credit note":
+                (
+                    final_bill.invoice_type
+                    or ""
+                )
+                .strip()
+                .lower()
+                == "credit note"
+            ):
 
-                if final_bill.parent_invoice_id is None:
+                if (
+                    final_bill.parent_invoice_id
+                    is None
+                ):
                     raise ValueError(
                         "Credit Note must reference "
                         "an original invoice."
                     )
 
                 source_bill = (
-                    db.query(FinalBill)
+                    db.query(
+                        FinalBill
+                    )
                     .filter(
                         FinalBill.id
-                        == final_bill.parent_invoice_id
+                        ==
+                        final_bill
+                        .parent_invoice_id
                     )
                     .with_for_update()
                     .first()
                 )
 
-                if source_bill is None:
+                if (
+                    source_bill
+                    is None
+                ):
                     raise ValueError(
                         "Source invoice for Credit Note "
                         "was not found."
                     )
 
                 if (
-                    source_bill.status
-                    or ""
-                ).strip().lower() != "issued":
+                    (
+                        source_bill.status
+                        or ""
+                    )
+                    .strip()
+                    .lower()
+                    != "issued"
+                ):
                     raise ValueError(
                         "Credit Note can be issued only "
                         "against an Issued invoice."
                     )
 
                 if (
-                    source_bill.invoice_type
-                    or ""
-                ).strip().lower() == "credit note":
+                    (
+                        source_bill.invoice_type
+                        or ""
+                    )
+                    .strip()
+                    .lower()
+                    == "credit note"
+                ):
                     raise ValueError(
                         "Credit Note cannot reference "
                         "another Credit Note."
                     )
 
                 credit_note_total = (
-                    FinalBillService.decimal(
+                    FinalBillService
+                    .decimal(
                         final_bill.grand_total
                     )
                 )
@@ -1251,14 +1589,19 @@ class FinalBillService:
                     )
 
                 issued_credit_notes = (
-                    db.query(FinalBill)
+                    db.query(
+                        FinalBill
+                    )
                     .filter(
                         FinalBill.parent_invoice_id
                         == source_bill.id,
+
                         FinalBill.invoice_type
                         == "Credit Note",
+
                         FinalBill.status
                         == "Issued",
+
                         FinalBill.id
                         != final_bill.id,
                     )
@@ -1267,8 +1610,10 @@ class FinalBillService:
 
                 already_credited = sum(
                     (
-                        FinalBillService.decimal(
-                            credit_note.grand_total
+                        FinalBillService
+                        .decimal(
+                            credit_note
+                            .grand_total
                         )
                         for credit_note
                         in issued_credit_notes
@@ -1277,7 +1622,8 @@ class FinalBillService:
                 )
 
                 source_total = (
-                    FinalBillService.decimal(
+                    FinalBillService
+                    .decimal(
                         source_bill.grand_total
                     )
                 )
@@ -1289,16 +1635,26 @@ class FinalBillService:
 
                 if (
                     credit_note_total
-                    > remaining_credit
+                    >
+                    remaining_credit
                 ):
                     raise ValueError(
                         "Credit Note amount exceeds "
                         "the remaining creditable "
-                        f"invoice amount of "
+                        "invoice amount of "
                         f"{FinalBillService.money(remaining_credit)}."
                     )
 
-            final_bill.status = "Issued"
+            # ====================================================
+            # ISSUE
+            #
+            # GST Report reads Issued billing documents.
+            # No separate GST posting operation is required.
+            # ====================================================
+
+            final_bill.status = (
+                "Issued"
+            )
 
             db.commit()
 
@@ -1313,10 +1669,12 @@ class FinalBillService:
             )
 
         except Exception:
+
             db.rollback()
+
             raise
 
-        # ============================================================
+    # ============================================================
     # CREATE REVISED FINAL BILL
     # ============================================================
 
@@ -1336,7 +1694,9 @@ class FinalBillService:
             # ====================================================
 
             source_bill = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .options(
                     joinedload(
                         FinalBill.items
@@ -1350,30 +1710,45 @@ class FinalBillService:
                 .first()
             )
 
-            if source_bill is None:
+            if (
+                source_bill
+                is None
+            ):
                 raise ValueError(
                     "Final Bill not found."
                 )
 
             if (
-                source_bill.status
-                or ""
-            ).strip().lower() != "issued":
+                (
+                    source_bill.status
+                    or ""
+                )
+                .strip()
+                .lower()
+                != "issued"
+            ):
                 raise ValueError(
                     "Only Issued Final Bills "
                     "can be revised."
                 )
 
             if (
-                source_bill.invoice_type
-                or ""
-            ).strip().lower() == "credit note":
+                (
+                    source_bill.invoice_type
+                    or ""
+                )
+                .strip()
+                .lower()
+                == "credit note"
+            ):
                 raise ValueError(
                     "A Credit Note cannot be revised "
                     "as a Final Bill revision."
                 )
 
-            if not source_bill.items:
+            if (
+                not source_bill.items
+            ):
                 raise ValueError(
                     "Final Bill cannot be revised "
                     "because it has no items."
@@ -1385,11 +1760,14 @@ class FinalBillService:
 
             root_invoice_id = (
                 source_bill.parent_invoice_id
-                or source_bill.id
+                or
+                source_bill.id
             )
 
             root_bill = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.id
                     == root_invoice_id
@@ -1398,7 +1776,10 @@ class FinalBillService:
                 .first()
             )
 
-            if root_bill is None:
+            if (
+                root_bill
+                is None
+            ):
                 raise ValueError(
                     "Original Final Bill not found."
                 )
@@ -1408,10 +1789,13 @@ class FinalBillService:
             # ====================================================
 
             revisions = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.parent_invoice_id
                     == root_invoice_id,
+
                     FinalBill.invoice_type
                     == "Revised Invoice",
                 )
@@ -1425,7 +1809,9 @@ class FinalBillService:
             # ONLY LATEST VERSION MAY BE REVISED
             # ====================================================
 
-            if revisions:
+            if (
+                revisions
+            ):
 
                 latest_revision = max(
                     revisions,
@@ -1459,19 +1845,25 @@ class FinalBillService:
             # ====================================================
 
             existing_draft_revision = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.parent_invoice_id
                     == root_invoice_id,
+
                     FinalBill.invoice_type
                     == "Revised Invoice",
+
                     FinalBill.status
                     == "Draft",
                 )
                 .first()
             )
 
-            if existing_draft_revision:
+            if (
+                existing_draft_revision
+            ):
                 raise ValueError(
                     "A Draft revised invoice "
                     "already exists for this Final Bill."
@@ -1484,7 +1876,8 @@ class FinalBillService:
             highest_revision = max(
                 [
                     bill.revision_number
-                    for bill in revisions
+                    for bill
+                    in revisions
                 ]
                 or [0]
             )
@@ -1494,17 +1887,15 @@ class FinalBillService:
                 + 1
             )
 
-            # ====================================================
-            # REVISION INVOICE NUMBER
-            # ====================================================
-
             revision_invoice_number = (
                 f"{root_bill.invoice_number}"
                 f"-R{next_revision_number}"
             )
 
             duplicate_number = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.invoice_number
                     == revision_invoice_number
@@ -1512,7 +1903,9 @@ class FinalBillService:
                 .first()
             )
 
-            if duplicate_number:
+            if (
+                duplicate_number
+            ):
                 raise ValueError(
                     "Generated revised invoice "
                     "number already exists."
@@ -1531,82 +1924,112 @@ class FinalBillService:
                 invoice_number=(
                     revision_invoice_number
                 ),
+
                 invoice_date=(
                     revision_invoice_date
                 ),
+
                 proforma_id=(
                     source_bill.proforma_id
                 ),
+
                 customer_id=(
                     source_bill.customer_id
                 ),
+
                 company_name=(
                     source_bill.company_name
                 ),
+
                 contact_person=(
                     source_bill.contact_person
                 ),
+
                 phone=(
                     source_bill.phone
                 ),
+
                 email=(
                     source_bill.email
                 ),
+
                 gst_number=(
                     source_bill.gst_number
                 ),
+
                 billing_address=(
                     source_bill.billing_address
                 ),
+
                 shipping_address=(
                     source_bill.shipping_address
                 ),
+
                 payment_terms=(
                     source_bill.payment_terms
                 ),
+
                 delivery_terms=(
                     source_bill.delivery_terms
                 ),
+
                 notes=(
                     notes
                     if notes is not None
                     else source_bill.notes
                 ),
+
                 subtotal=Decimal(
                     "0.00"
                 ),
+
                 discount_amount=Decimal(
                     "0.00"
                 ),
+
                 taxable_amount=Decimal(
                     "0.00"
                 ),
+
                 cgst_amount=Decimal(
                     "0.00"
                 ),
+
                 sgst_amount=Decimal(
                     "0.00"
                 ),
+
                 igst_amount=Decimal(
                     "0.00"
                 ),
+
                 tax_amount=Decimal(
                     "0.00"
                 ),
+
                 grand_total=Decimal(
                     "0.00"
                 ),
+
                 invoice_type=(
                     "Revised Invoice"
                 ),
-                status="Draft",
+
+                status=(
+                    "Draft"
+                ),
+
                 revision_number=(
                     next_revision_number
                 ),
+
                 parent_invoice_id=(
                     root_invoice_id
                 ),
-                created_by=created_by,
+
+                created_by=(
+                    created_by
+                ),
             )
 
             db.add(
@@ -1616,62 +2039,79 @@ class FinalBillService:
             db.flush()
 
             # ====================================================
-            # COPY ITEMS FROM LATEST SOURCE VERSION
+            # COPY SOURCE ITEMS
             # ====================================================
 
             for source_item in (
                 source_bill.items
             ):
 
-                revised_item = FinalBillItem(
-                    final_bill_id=(
-                        revised_bill.id
-                    ),
-                    product_id=(
-                        source_item.product_id
-                    ),
-                    description=(
-                        source_item.description
-                    ),
-                    hsn_code=(
-                        source_item.hsn_code
-                    ),
-                    quantity=(
-                        source_item.quantity
-                    ),
-                    unit=(
-                        source_item.unit
-                    ),
-                    unit_price=(
-                        source_item.unit_price
-                    ),
-                    discount_percent=(
-                        source_item.discount_percent
-                    ),
-                    discount_amount=Decimal(
-                        "0.00"
-                    ),
-                    taxable_amount=Decimal(
-                        "0.00"
-                    ),
-                    gst_percent=(
-                        source_item.gst_percent
-                    ),
-                    cgst_amount=Decimal(
-                        "0.00"
-                    ),
-                    sgst_amount=Decimal(
-                        "0.00"
-                    ),
-                    igst_amount=Decimal(
-                        "0.00"
-                    ),
-                    tax_amount=Decimal(
-                        "0.00"
-                    ),
-                    line_total=Decimal(
-                        "0.00"
-                    ),
+                revised_item = (
+                    FinalBillItem(
+                        final_bill_id=(
+                            revised_bill.id
+                        ),
+
+                        product_id=(
+                            source_item.product_id
+                        ),
+
+                        description=(
+                            source_item.description
+                        ),
+
+                        hsn_code=(
+                            source_item.hsn_code
+                        ),
+
+                        quantity=(
+                            source_item.quantity
+                        ),
+
+                        unit=(
+                            source_item.unit
+                        ),
+
+                        unit_price=(
+                            source_item.unit_price
+                        ),
+
+                        discount_percent=(
+                            source_item.discount_percent
+                        ),
+
+                        discount_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        taxable_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        gst_percent=(
+                            source_item.gst_percent
+                        ),
+
+                        cgst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        sgst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        igst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        tax_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        line_total=Decimal(
+                            "0.00"
+                        ),
+                    )
                 )
 
                 FinalBillService.calculate_item_totals(
@@ -1683,10 +2123,6 @@ class FinalBillService:
                 )
 
             db.flush()
-
-            # ====================================================
-            # RECALCULATE REVISION TOTALS
-            # ====================================================
 
             FinalBillService.recalculate_bill_totals(
                 db=db,
@@ -1706,7 +2142,9 @@ class FinalBillService:
             )
 
         except Exception:
+
             db.rollback()
+
             raise
 
     # ============================================================
@@ -1729,7 +2167,9 @@ class FinalBillService:
             # ====================================================
 
             source_bill = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .options(
                     joinedload(
                         FinalBill.items
@@ -1743,30 +2183,45 @@ class FinalBillService:
                 .first()
             )
 
-            if source_bill is None:
+            if (
+                source_bill
+                is None
+            ):
                 raise ValueError(
                     "Final Bill not found."
                 )
 
             if (
-                source_bill.status
-                or ""
-            ).strip().lower() != "issued":
+                (
+                    source_bill.status
+                    or ""
+                )
+                .strip()
+                .lower()
+                != "issued"
+            ):
                 raise ValueError(
                     "Credit Note can be created "
                     "only from an Issued invoice."
                 )
 
             if (
-                source_bill.invoice_type
-                or ""
-            ).strip().lower() == "credit note":
+                (
+                    source_bill.invoice_type
+                    or ""
+                )
+                .strip()
+                .lower()
+                == "credit note"
+            ):
                 raise ValueError(
                     "A Credit Note cannot be created "
                     "from another Credit Note."
                 )
 
-            if not source_bill.items:
+            if (
+                not source_bill.items
+            ):
                 raise ValueError(
                     "Credit Note cannot be created "
                     "because the source invoice "
@@ -1778,26 +2233,32 @@ class FinalBillService:
             # ====================================================
 
             existing_draft = (
-                db.query(FinalBill)
+                db.query(
+                    FinalBill
+                )
                 .filter(
                     FinalBill.parent_invoice_id
                     == source_bill.id,
+
                     FinalBill.invoice_type
                     == "Credit Note",
+
                     FinalBill.status
                     == "Draft",
                 )
                 .first()
             )
 
-            if existing_draft:
+            if (
+                existing_draft
+            ):
                 raise ValueError(
                     "A Draft Credit Note already "
                     "exists for this invoice."
                 )
 
             # ====================================================
-            # GENERATE CREDIT NOTE NUMBER
+            # NUMBER
             # ====================================================
 
             sequence = 1
@@ -1810,7 +2271,9 @@ class FinalBillService:
                 )
 
                 duplicate = (
-                    db.query(FinalBill)
+                    db.query(
+                        FinalBill
+                    )
                     .filter(
                         FinalBill.invoice_number
                         == credit_note_number
@@ -1818,7 +2281,10 @@ class FinalBillService:
                     .first()
                 )
 
-                if duplicate is None:
+                if (
+                    duplicate
+                    is None
+                ):
                     break
 
                 sequence += 1
@@ -1829,85 +2295,119 @@ class FinalBillService:
             )
 
             # ====================================================
-            # CREATE CREDIT NOTE HEADER
+            # HEADER
             # ====================================================
 
             credit_note = FinalBill(
                 invoice_number=(
                     credit_note_number
                 ),
+
                 invoice_date=(
                     credit_note_date
                 ),
+
                 proforma_id=(
                     source_bill.proforma_id
                 ),
+
                 customer_id=(
                     source_bill.customer_id
                 ),
+
                 company_name=(
                     source_bill.company_name
                 ),
+
                 contact_person=(
                     source_bill.contact_person
                 ),
+
                 phone=(
                     source_bill.phone
                 ),
+
                 email=(
                     source_bill.email
                 ),
+
                 gst_number=(
                     source_bill.gst_number
                 ),
+
                 billing_address=(
                     source_bill.billing_address
                 ),
+
                 shipping_address=(
                     source_bill.shipping_address
                 ),
+
                 payment_terms=(
                     source_bill.payment_terms
                 ),
+
                 delivery_terms=(
                     source_bill.delivery_terms
                 ),
+
                 notes=(
                     notes
                     if notes is not None
                     else source_bill.notes
                 ),
+
                 subtotal=Decimal(
                     "0.00"
                 ),
+
                 discount_amount=Decimal(
                     "0.00"
                 ),
+
                 taxable_amount=Decimal(
                     "0.00"
                 ),
+
                 cgst_amount=Decimal(
                     "0.00"
                 ),
+
                 sgst_amount=Decimal(
                     "0.00"
                 ),
+
                 igst_amount=Decimal(
                     "0.00"
                 ),
+
                 tax_amount=Decimal(
                     "0.00"
                 ),
+
                 grand_total=Decimal(
                     "0.00"
                 ),
-                invoice_type="Credit Note",
-                status="Draft",
+
+                invoice_type=(
+                    "Credit Note"
+                ),
+
+                status=(
+                    "Draft"
+                ),
+
                 revision_number=0,
+
+                # Credit Note belongs specifically to the invoice
+                # version against which it was created.
                 parent_invoice_id=(
                     source_bill.id
                 ),
-                created_by=created_by,
+
+                created_by=(
+                    created_by
+                ),
             )
 
             db.add(
@@ -1924,55 +2424,72 @@ class FinalBillService:
                 source_bill.items
             ):
 
-                credit_item = FinalBillItem(
-                    final_bill_id=(
-                        credit_note.id
-                    ),
-                    product_id=(
-                        source_item.product_id
-                    ),
-                    description=(
-                        source_item.description
-                    ),
-                    hsn_code=(
-                        source_item.hsn_code
-                    ),
-                    quantity=(
-                        source_item.quantity
-                    ),
-                    unit=(
-                        source_item.unit
-                    ),
-                    unit_price=(
-                        source_item.unit_price
-                    ),
-                    discount_percent=(
-                        source_item.discount_percent
-                    ),
-                    discount_amount=Decimal(
-                        "0.00"
-                    ),
-                    taxable_amount=Decimal(
-                        "0.00"
-                    ),
-                    gst_percent=(
-                        source_item.gst_percent
-                    ),
-                    cgst_amount=Decimal(
-                        "0.00"
-                    ),
-                    sgst_amount=Decimal(
-                        "0.00"
-                    ),
-                    igst_amount=Decimal(
-                        "0.00"
-                    ),
-                    tax_amount=Decimal(
-                        "0.00"
-                    ),
-                    line_total=Decimal(
-                        "0.00"
-                    ),
+                credit_item = (
+                    FinalBillItem(
+                        final_bill_id=(
+                            credit_note.id
+                        ),
+
+                        product_id=(
+                            source_item.product_id
+                        ),
+
+                        description=(
+                            source_item.description
+                        ),
+
+                        hsn_code=(
+                            source_item.hsn_code
+                        ),
+
+                        quantity=(
+                            source_item.quantity
+                        ),
+
+                        unit=(
+                            source_item.unit
+                        ),
+
+                        unit_price=(
+                            source_item.unit_price
+                        ),
+
+                        discount_percent=(
+                            source_item.discount_percent
+                        ),
+
+                        discount_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        taxable_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        gst_percent=(
+                            source_item.gst_percent
+                        ),
+
+                        cgst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        sgst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        igst_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        tax_amount=Decimal(
+                            "0.00"
+                        ),
+
+                        line_total=Decimal(
+                            "0.00"
+                        ),
+                    )
                 )
 
                 FinalBillService.calculate_item_totals(
@@ -1984,10 +2501,6 @@ class FinalBillService:
                 )
 
             db.flush()
-
-            # ====================================================
-            # RECALCULATE CREDIT NOTE TOTALS
-            # ====================================================
 
             FinalBillService.recalculate_bill_totals(
                 db=db,
@@ -2007,7 +2520,9 @@ class FinalBillService:
             )
 
         except Exception:
+
             db.rollback()
+
             raise
 
     # ============================================================
@@ -2021,7 +2536,9 @@ class FinalBillService:
     ) -> FinalBill | None:
 
         return (
-            db.query(FinalBill)
+            db.query(
+                FinalBill
+            )
             .options(
                 joinedload(
                     FinalBill.items
@@ -2044,15 +2561,22 @@ class FinalBillService:
     ) -> list[FinalBill]:
 
         return (
-            db.query(FinalBill)
+            db.query(
+                FinalBill
+            )
             .options(
                 joinedload(
                     FinalBill.items
                 )
             )
             .order_by(
-                FinalBill.invoice_date.desc(),
-                FinalBill.id.desc(),
+                FinalBill
+                .invoice_date
+                .desc(),
+
+                FinalBill
+                .id
+                .desc(),
             )
             .all()
         )

@@ -1,15 +1,20 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
 
 
 class FinishedGoodsReceiptCreate(BaseModel):
     """
-    Optional information supplied by the Store/Production user.
+    Optional information supplied when completed
+    Production is moved into Finished Products.
 
-    Quantity, product, stock values and user are all controlled
-    by the backend from the completed Production Order.
+    Quantity and manufactured product identity come
+    from the Production Order.
     """
 
     remarks: str | None = Field(
@@ -19,11 +24,16 @@ class FinishedGoodsReceiptCreate(BaseModel):
 
 
 class FinishedGoodsReceiptResponse(BaseModel):
+
     id: int
+
     receipt_number: str
 
     production_order_id: int
-    product_id: int
+
+    # Legacy purchased Product reference only.
+    # New manufactured products normally use NULL.
+    product_id: int | None = None
 
     quantity_received: Decimal
 

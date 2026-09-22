@@ -1,4 +1,12 @@
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.sql import func
 
 from app.database.base import Base
@@ -25,9 +33,13 @@ class Enquiry(Base):
         nullable=False,
     )
 
+    # Internal relationship only.
+    # User never enters or selects this ID.
     customer_id = Column(
         Integer,
-        ForeignKey("customers.id"),
+        ForeignKey(
+            "customers.id"
+        ),
         nullable=False,
         index=True,
     )
@@ -49,6 +61,32 @@ class Enquiry(Base):
 
     email = Column(
         String(150),
+        nullable=True,
+    )
+
+    gst_number = Column(
+        String(50),
+        nullable=True,
+        index=True,
+    )
+
+    address = Column(
+        String(500),
+        nullable=True,
+    )
+
+    city = Column(
+        String(100),
+        nullable=True,
+    )
+
+    state = Column(
+        String(100),
+        nullable=True,
+    )
+
+    pincode = Column(
+        String(20),
         nullable=True,
     )
 
@@ -92,10 +130,12 @@ class Enquiry(Base):
     created_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
+        nullable=False,
     )
 
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
+        nullable=False,
     )

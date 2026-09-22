@@ -18,6 +18,7 @@ from app.services.finished_product import (
 
 
 class FinishedGoodsReceiptService:
+
     def __init__(
         self,
         db: Session,
@@ -36,9 +37,9 @@ class FinishedGoodsReceiptService:
             )
         )
 
-    # ========================================================
+    # ============================================================
     # MOVE COMPLETED PRODUCTION TO FINISHED PRODUCTS
-    # ========================================================
+    # ============================================================
 
     def receive_finished_goods(
         self,
@@ -50,30 +51,22 @@ class FinishedGoodsReceiptService:
         Convert a Completed Production Order into a
         Finished Product.
 
-        IMPORTANT:
+        Manufactured Finished Products are separate from
+        purchased Products / Store stock.
 
-        Manufactured Finished Products are deliberately
-        kept separate from purchased Store stock.
+        Therefore:
 
-        Therefore this workflow DOES NOT:
-
-        - increase Product.current_stock
-        - create a purchased-stock quantity
-        - create FINISHED_GOODS_IN in the Store ledger
-
-        The Product table is only used as the product master
-        reference.
-
-        The FinishedGoodsReceipt record remains as the
-        manufacturing completion / receipt audit record.
-
-        The FinishedProduct record is then created from it.
+        - product_id may be NULL
+        - Product.current_stock is NOT changed
+        - no FINISHED_GOODS_IN Stock Movement is created
+        - production_order.product_name is the manufactured
+          product source of truth
         """
 
         try:
 
             # ====================================================
-            # LOCK PRODUCTION ORDER
+            # PRODUCTION ORDER
             # ====================================================
 
             production_order = (
@@ -84,6 +77,7 @@ class FinishedGoodsReceiptService:
             )
 
             if production_order is None:
+
                 raise ValueError(
                     "Production Order not found."
                 )
@@ -99,14 +93,49 @@ class FinishedGoodsReceiptService:
                 production_status
                 != "completed"
             ):
+
                 raise ValueError(
                     "Finished Product can only be created "
                     "from a Completed Production Order."
                 )
 
 
+            product_name = (
+                production_order.product_name
+                or ""
+            ).strip()
+
+
+            if not product_name:
+
+                raise ValueError(
+                    "The Production Order does not have "
+                    "a manufactured product name."
+                )
+
+
+            unit = (
+                production_order.unit
+                or "Nos"
+            ).strip()
+
+
+            if not unit:
+                unit = "Nos"
+
+
             # ====================================================
-            # DUPLICATE PROTECTION
+            # EXISTING RECEIPT / RECOVERY
+            # ====================================================
+            #
+            # This makes the workflow safe to retry.
+            #
+            # Example:
+            #
+            # Production completed successfully,
+            # but Finished Product creation failed later.
+            #
+            # We can safely call this workflow again.
             # ====================================================
 
             existing_receipt = (
@@ -116,38 +145,49 @@ class FinishedGoodsReceiptService:
                 )
             )
 
+
             if (
                 existing_receipt
                 is not None
             ):
-                raise ValueError(
-                    "This Production Order has already "
-                    "been moved to Finished Products."
+
+                existing_finished_product = (
+                    self.finished_product_service
+                    .get_by_production_order(
+                        production_order_id
+                    )
                 )
 
 
-            # ====================================================
-            # PRODUCT MASTER
-            # ====================================================
-            #
-            # We verify that the linked Product Master exists.
-            #
-            # We DO NOT change Product.current_stock.
-            #
-            # ====================================================
+                if (
+                    existing_finished_product
+                    is None
+                ):
 
-            product = (
-                self.repository
-                .get_product_for_update(
-                    production_order.product_id
-                )
-            )
+                    self.finished_product_service.create_from_receipt(
+                        production_order=(
+                            production_order
+                        ),
 
-            if product is None:
-                raise ValueError(
-                    f"Product {production_order.product_id} "
-                    "was not found or is inactive."
-                )
+                        finished_goods_receipt=(
+                            existing_receipt
+                        ),
+
+                        created_by=(
+                            received_by
+                        ),
+                    )
+
+
+                    self.db.commit()
+
+
+                    self.db.refresh(
+                        existing_receipt
+                    )
+
+
+                return existing_receipt
 
 
             # ====================================================
@@ -165,6 +205,7 @@ class FinishedGoodsReceiptService:
                 quantity_received
                 <= Decimal("0.00")
             ):
+
                 raise ValueError(
                     "Production quantity must be "
                     "greater than zero."
@@ -172,20 +213,7 @@ class FinishedGoodsReceiptService:
 
 
             # ====================================================
-            # IMPORTANT:
-            # DO NOT ALTER PURCHASED STOCK
-            # ====================================================
-            #
-            # These fields remain because they already exist in
-            # the FinishedGoodsReceipt table.
-            #
-            # They are intentionally kept at zero so this
-            # manufacturing workflow cannot affect Store stock.
-            #
-            # Finished quantity is represented by:
-            #
-            #     quantity_received
-            #
+            # STORE STOCK MUST NOT CHANGE
             # ====================================================
 
             stock_before = Decimal(
@@ -220,10 +248,13 @@ class FinishedGoodsReceiptService:
 
 
             if user_remarks:
+
                 remarks = (
                     user_remarks
                 )
+
             else:
+
                 remarks = (
                     "Production completed and moved "
                     "to Finished Products."
@@ -231,7 +262,15 @@ class FinishedGoodsReceiptService:
 
 
             # ====================================================
-            # FINISHED GOODS RECEIPT / AUDIT RECORD
+            # FINISHED GOODS RECEIPT
+            # ====================================================
+            #
+            # product_id is intentionally nullable.
+            #
+            # Legacy Production Orders may still have a
+            # purchased Product reference.
+            #
+            # New custom-manufactured products have NULL here.
             # ====================================================
 
             receipt = (
@@ -245,7 +284,7 @@ class FinishedGoodsReceiptService:
                     ),
 
                     product_id=(
-                        product.id
+                        production_order.product_id
                     ),
 
                     quantity_received=(
@@ -279,7 +318,7 @@ class FinishedGoodsReceiptService:
 
 
             # ====================================================
-            # CREATE FINISHED PRODUCT
+            # FINISHED PRODUCT
             # ====================================================
 
             self.finished_product_service.create_from_receipt(
@@ -318,10 +357,9 @@ class FinishedGoodsReceiptService:
 
             raise
 
-
-    # ========================================================
+    # ============================================================
     # READ
-    # ========================================================
+    # ============================================================
 
     def get_receipt(
         self,
@@ -329,7 +367,8 @@ class FinishedGoodsReceiptService:
     ) -> FinishedGoodsReceipt | None:
 
         return (
-            self.repository.get_by_id(
+            self.repository
+            .get_by_id(
                 receipt_id
             )
         )
@@ -341,7 +380,8 @@ class FinishedGoodsReceiptService:
     ) -> FinishedGoodsReceipt | None:
 
         return (
-            self.repository.get_by_number(
+            self.repository
+            .get_by_number(
                 receipt_number
             )
         )
@@ -362,16 +402,18 @@ class FinishedGoodsReceiptService:
 
     def get_all_receipts(
         self,
-    ) -> list[FinishedGoodsReceipt]:
+    ) -> list[
+        FinishedGoodsReceipt
+    ]:
 
         return (
-            self.repository.get_all()
+            self.repository
+            .get_all()
         )
 
-
-    # ========================================================
+    # ============================================================
     # RECEIPT NUMBER
-    # ========================================================
+    # ============================================================
 
     def _generate_receipt_number(
         self,
@@ -379,9 +421,9 @@ class FinishedGoodsReceiptService:
     ) -> str:
 
         year = (
-            datetime.utcnow().year
+            datetime.utcnow()
+            .year
         )
-
 
         return (
             f"FGR-{year}-"

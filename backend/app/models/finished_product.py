@@ -23,11 +23,17 @@ class FinishedProduct(Base):
     __table_args__ = (
         UniqueConstraint(
             "production_order_id",
-            name="uq_finished_product_production_order",
+            name=(
+                "uq_finished_product_"
+                "production_order"
+            ),
         ),
         UniqueConstraint(
             "finished_goods_receipt_id",
-            name="uq_finished_product_goods_receipt",
+            name=(
+                "uq_finished_product_"
+                "goods_receipt"
+            ),
         ),
     )
 
@@ -37,7 +43,9 @@ class FinishedProduct(Base):
         index=True,
     )
 
-    finished_product_number: Mapped[str] = mapped_column(
+    finished_product_number: Mapped[
+        str
+    ] = mapped_column(
         String(30),
         unique=True,
         nullable=False,
@@ -45,15 +53,46 @@ class FinishedProduct(Base):
     )
 
     # ========================================================
-    # PRODUCT / MACHINE THAT GLISEN MANUFACTURED
+    # MANUFACTURED PRODUCT
+    # ========================================================
+    #
+    # These fields are now the manufactured Finished Product
+    # source of truth.
     # ========================================================
 
-    product_master_id: Mapped[int] = mapped_column(
+    product_name: Mapped[
+        str
+    ] = mapped_column(
+        String(500),
+        nullable=False,
+    )
+
+    unit: Mapped[
+        str
+    ] = mapped_column(
+        String(50),
+        nullable=False,
+        default="Nos",
+    )
+
+    # ========================================================
+    # LEGACY PRODUCT MASTER
+    # ========================================================
+    #
+    # Historical Finished Products can retain their old link.
+    #
+    # New custom manufactured products do not require a row in
+    # the purchased Products/Stock master.
+    # ========================================================
+
+    product_master_id: Mapped[
+        int | None
+    ] = mapped_column(
         ForeignKey(
             "products.id",
             ondelete="RESTRICT",
         ),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
@@ -61,7 +100,9 @@ class FinishedProduct(Base):
     # PRODUCTION TRACEABILITY
     # ========================================================
 
-    production_order_id: Mapped[int] = mapped_column(
+    production_order_id: Mapped[
+        int
+    ] = mapped_column(
         ForeignKey(
             "production_orders.id",
             ondelete="RESTRICT",
@@ -71,10 +112,12 @@ class FinishedProduct(Base):
     )
 
     # ========================================================
-    # FINISHED GOODS / STOCK TRACEABILITY
+    # COMPLETION TRACEABILITY
     # ========================================================
 
-    finished_goods_receipt_id: Mapped[int] = mapped_column(
+    finished_goods_receipt_id: Mapped[
+        int
+    ] = mapped_column(
         ForeignKey(
             "finished_goods_receipts.id",
             ondelete="RESTRICT",
@@ -87,7 +130,9 @@ class FinishedProduct(Base):
     # AUDIT
     # ========================================================
 
-    created_by: Mapped[int] = mapped_column(
+    created_by: Mapped[
+        int
+    ] = mapped_column(
         ForeignKey(
             "users.id",
             ondelete="RESTRICT",
@@ -96,7 +141,9 @@ class FinishedProduct(Base):
         index=True,
     )
 
-    created_at: Mapped[datetime] = mapped_column(
+    created_at: Mapped[
+        datetime
+    ] = mapped_column(
         DateTime,
         server_default=func.now(),
         nullable=False,
@@ -120,5 +167,7 @@ class FinishedProduct(Base):
 
     creator = relationship(
         "User",
-        foreign_keys=[created_by],
+        foreign_keys=[
+            created_by
+        ],
     )

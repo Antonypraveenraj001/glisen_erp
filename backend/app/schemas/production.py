@@ -1,7 +1,11 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
 
 
 # ============================================================
@@ -11,17 +15,35 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class ProductionOrderCreate(BaseModel):
     """
-    Create Production Order planning data.
+    Manual/internal Production Order creation schema.
 
-    Runtime status and actual dates are controlled by the
-    production workflow and cannot be supplied manually.
+    Manufactured output is identified by product_name.
+    It does not need to exist in purchased Products/Stock.
     """
 
     proforma_id: int = Field(
         gt=0,
     )
 
-    product_id: int = Field(
+    proforma_item_id: int | None = Field(
+        default=None,
+        gt=0,
+    )
+
+    product_name: str = Field(
+        min_length=1,
+        max_length=500,
+    )
+
+    unit: str = Field(
+        default="Nos",
+        min_length=1,
+        max_length=50,
+    )
+
+    # Legacy purchased-product relationship only.
+    product_id: int | None = Field(
+        default=None,
         gt=0,
     )
 
@@ -36,11 +58,23 @@ class ProductionOrderCreate(BaseModel):
 
 class ProductionOrderUpdate(BaseModel):
     """
-    Update Production Order planning data only.
+    Update Production Order planning fields.
 
-    status, actual_start_date and actual_end_date are
-    intentionally excluded from this schema.
+    Manufactured product identity is independent from
+    purchased Products/Stock.
     """
+
+    product_name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=500,
+    )
+
+    unit: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+    )
 
     product_id: int | None = Field(
         default=None,
@@ -58,11 +92,22 @@ class ProductionOrderUpdate(BaseModel):
 
 
 class ProductionOrderResponse(BaseModel):
+
     id: int
+
     production_number: str
 
     proforma_id: int
-    product_id: int
+
+    proforma_item_id: int | None = None
+
+    product_name: str
+
+    unit: str
+
+    # Legacy only.
+    product_id: int | None = None
+
     quantity: int
 
     status: str
@@ -87,13 +132,6 @@ class ProductionOrderResponse(BaseModel):
 
 
 class ProductionMaterialCreate(BaseModel):
-    """
-    Defines a material requirement for a Production Order.
-
-    quantity_issued is intentionally NOT accepted here.
-    Actual material issue is handled through Shop Floor Issue
-    so stock movement remains controlled and auditable.
-    """
 
     product_id: int | None = None
 
@@ -122,12 +160,6 @@ class ProductionMaterialCreate(BaseModel):
 
 
 class ProductionMaterialUpdate(BaseModel):
-    """
-    Updates material planning information only.
-
-    quantity_issued and material_cost are intentionally excluded.
-    Those values are controlled by Shop Floor Issue.
-    """
 
     product_id: int | None = None
 
@@ -158,12 +190,16 @@ class ProductionMaterialUpdate(BaseModel):
 
 
 class ProductionMaterialResponse(BaseModel):
+
     id: int
     production_order_id: int
 
+    # This IS allowed to reference purchased Stock,
+    # because Production Materials are materials consumed.
     product_id: int | None = None
 
     material_name: str
+
     unit: str | None = None
 
     quantity_required: Decimal
@@ -178,6 +214,7 @@ class ProductionMaterialResponse(BaseModel):
 
 
 class ProductionMaterialSummaryResponse(BaseModel):
+
     production_order_id: int
 
     total_materials: int
@@ -195,12 +232,6 @@ class ProductionMaterialSummaryResponse(BaseModel):
 
 
 class ProductionOperationCreate(BaseModel):
-    """
-    Create the planned definition of a Production Operation.
-
-    Runtime values such as actual hours, operation cost,
-    status and timestamps are controlled by workflow endpoints.
-    """
 
     operation_name: str = Field(
         min_length=1,
@@ -228,12 +259,6 @@ class ProductionOperationCreate(BaseModel):
 
 
 class ProductionOperationUpdate(BaseModel):
-    """
-    Update planning information only.
-
-    actual_hours, operation_cost, status, started_at and
-    completed_at cannot be manually changed here.
-    """
 
     operation_name: str | None = Field(
         default=None,
@@ -262,6 +287,7 @@ class ProductionOperationUpdate(BaseModel):
 
 
 class ProductionOperationComplete(BaseModel):
+
     actual_hours: Decimal = Field(
         gt=0,
         max_digits=10,
@@ -270,10 +296,12 @@ class ProductionOperationComplete(BaseModel):
 
 
 class ProductionOperationResponse(BaseModel):
+
     id: int
     production_order_id: int
 
     operation_name: str
+
     machine_name: str | None = None
 
     hourly_rate: Decimal
@@ -293,6 +321,7 @@ class ProductionOperationResponse(BaseModel):
 
 
 class ProductionOperationSummaryResponse(BaseModel):
+
     production_order_id: int
 
     total_operations: int
@@ -312,11 +341,18 @@ class ProductionOperationSummaryResponse(BaseModel):
 # ============================================================
 
 
-class ProductionOrderDetailResponse(ProductionOrderResponse):
-    materials: list[ProductionMaterialResponse] = Field(
+class ProductionOrderDetailResponse(
+    ProductionOrderResponse
+):
+
+    materials: list[
+        ProductionMaterialResponse
+    ] = Field(
         default_factory=list,
     )
 
-    operations: list[ProductionOperationResponse] = Field(
+    operations: list[
+        ProductionOperationResponse
+    ] = Field(
         default_factory=list,
     )
