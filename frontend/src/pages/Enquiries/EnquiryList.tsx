@@ -3,6 +3,7 @@ import {
   useMemo,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 
 import axios from "axios";
@@ -20,12 +21,20 @@ import {
 import "./EnquiryList.css";
 
 
+/* ================================================================
+   TYPES
+================================================================ */
+
 interface Enquiry {
   id: number;
 
   enquiry_number: string;
   enquiry_date: string;
 
+  /*
+   * Internal database relationship only.
+   * Never displayed or entered by the user.
+   */
   customer_id: number;
 
   company_name: string;
@@ -33,6 +42,13 @@ interface Enquiry {
   contact_person?: string | null;
   phone?: string | null;
   email?: string | null;
+
+  gst_number?: string | null;
+
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
 
   machine_name?: string | null;
   machine_model?: string | null;
@@ -51,16 +67,41 @@ interface Enquiry {
 }
 
 
+interface Customer {
+  id: number;
+
+  customer_code: string;
+
+  company_name: string;
+
+  contact_person?: string | null;
+  email?: string | null;
+  phone?: string | null;
+
+  gst_number?: string | null;
+
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+}
+
+
 interface EnquiryForm {
   enquiry_date: string;
-
-  customer_id: string;
 
   company_name: string;
 
   contact_person: string;
   phone: string;
   email: string;
+
+  gst_number: string;
+
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
 
   machine_name: string;
   machine_model: string;
@@ -95,6 +136,10 @@ const STATUS_OPTIONS = [
 ];
 
 
+/* ================================================================
+   EMPTY FORM
+================================================================ */
+
 function createEmptyForm(): EnquiryForm {
   return {
     enquiry_date:
@@ -102,13 +147,18 @@ function createEmptyForm(): EnquiryForm {
         .toISOString()
         .split("T")[0],
 
-    customer_id: "",
-
     company_name: "",
 
     contact_person: "",
     phone: "",
     email: "",
+
+    gst_number: "",
+
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
 
     machine_name: "",
     machine_model: "",
@@ -125,6 +175,10 @@ function createEmptyForm(): EnquiryForm {
 }
 
 
+/* ================================================================
+   AUTH
+================================================================ */
+
 function getAuthHeaders() {
   const token =
     localStorage.getItem(
@@ -137,6 +191,10 @@ function getAuthHeaders() {
   };
 }
 
+
+/* ================================================================
+   HELPERS
+================================================================ */
 
 function formatDate(
   value:
@@ -185,6 +243,32 @@ function getStatusClass(
     );
 }
 
+
+function normalizeGST(
+  value: string
+) {
+  return value
+    .replace(
+      /\s+/g,
+      ""
+    )
+    .toUpperCase();
+}
+
+
+function valueOrEmpty(
+  value:
+    string
+    | null
+    | undefined
+) {
+  return value || "";
+}
+
+
+/* ================================================================
+   PAGE
+================================================================ */
 
 export default function EnquiryList() {
 
@@ -292,7 +376,7 @@ export default function EnquiryList() {
 
 
   /* ==============================================================
-     LOAD
+     LOAD ENQUIRIES
   ============================================================== */
 
   async function fetchEnquiries() {
@@ -451,7 +535,7 @@ export default function EnquiryList() {
 
 
   /* ==============================================================
-     FILTER
+     CLIENT SEARCH
   ============================================================== */
 
   const filteredEnquiries =
@@ -477,6 +561,7 @@ export default function EnquiryList() {
               enquiry.contact_person,
               enquiry.phone,
               enquiry.email,
+              enquiry.gst_number,
               enquiry.machine_name,
               enquiry.machine_model,
             ]
@@ -502,7 +587,7 @@ export default function EnquiryList() {
 
 
   /* ==============================================================
-     MODAL
+     CREATE MODAL
   ============================================================== */
 
   function openCreateModal() {
@@ -526,7 +611,11 @@ export default function EnquiryList() {
   }
 
 
-  function openEditModal(
+  /* ==============================================================
+     EDIT MODAL
+  ============================================================== */
+
+  async function openEditModal(
     enquiry: Enquiry
   ) {
 
@@ -534,44 +623,204 @@ export default function EnquiryList() {
       enquiry
     );
 
+    setFormError(
+      ""
+    );
+
+
+    /*
+     * Start using the Enquiry snapshot.
+     */
+    let companyName =
+      valueOrEmpty(
+        enquiry.company_name
+      );
+
+    let contactPerson =
+      valueOrEmpty(
+        enquiry.contact_person
+      );
+
+    let phone =
+      valueOrEmpty(
+        enquiry.phone
+      );
+
+    let email =
+      valueOrEmpty(
+        enquiry.email
+      );
+
+    let gstNumber =
+      valueOrEmpty(
+        enquiry.gst_number
+      );
+
+    let address =
+      valueOrEmpty(
+        enquiry.address
+      );
+
+    let city =
+      valueOrEmpty(
+        enquiry.city
+      );
+
+    let state =
+      valueOrEmpty(
+        enquiry.state
+      );
+
+    let pincode =
+      valueOrEmpty(
+        enquiry.pincode
+      );
+
+
+    /*
+     * Older enquiries were created before GST/address
+     * details were stored on Enquiry.
+     *
+     * Recover those values silently from the internally
+     * linked Customer. The Customer ID is never shown.
+     */
+    if (
+      enquiry.customer_id
+      && (
+        !gstNumber
+        || !address
+        || !city
+        || !state
+        || !pincode
+      )
+    ) {
+
+      try {
+
+        const response =
+          await axios.get<
+            Customer
+          >(
+            `${API_BASE_URL}/customers/${enquiry.customer_id}`,
+            {
+              headers:
+                getAuthHeaders(),
+            }
+          );
+
+
+        const customer =
+          response.data;
+
+
+        companyName =
+          companyName
+          || valueOrEmpty(
+            customer.company_name
+          );
+
+        contactPerson =
+          contactPerson
+          || valueOrEmpty(
+            customer.contact_person
+          );
+
+        phone =
+          phone
+          || valueOrEmpty(
+            customer.phone
+          );
+
+        email =
+          email
+          || valueOrEmpty(
+            customer.email
+          );
+
+        gstNumber =
+          gstNumber
+          || valueOrEmpty(
+            customer.gst_number
+          );
+
+        address =
+          address
+          || valueOrEmpty(
+            customer.address
+          );
+
+        city =
+          city
+          || valueOrEmpty(
+            customer.city
+          );
+
+        state =
+          state
+          || valueOrEmpty(
+            customer.state
+          );
+
+        pincode =
+          pincode
+          || valueOrEmpty(
+            customer.pincode
+          );
+
+      } catch (
+        err
+      ) {
+
+        console.error(
+          "Unable to load legacy customer details:",
+          err
+        );
+
+      }
+
+    }
+
 
     setForm({
       enquiry_date:
         enquiry.enquiry_date
         || "",
 
-      customer_id:
-        String(
-          enquiry.customer_id
-        ),
-
       company_name:
-        enquiry.company_name
-        || "",
+        companyName,
 
       contact_person:
-        enquiry.contact_person
-        || "",
+        contactPerson,
 
-      phone:
-        enquiry.phone
-        || "",
+      phone,
 
-      email:
-        enquiry.email
-        || "",
+      email,
+
+      gst_number:
+        gstNumber,
+
+      address,
+
+      city,
+
+      state,
+
+      pincode,
 
       machine_name:
-        enquiry.machine_name
-        || "",
+        valueOrEmpty(
+          enquiry.machine_name
+        ),
 
       machine_model:
-        enquiry.machine_model
-        || "",
+        valueOrEmpty(
+          enquiry.machine_model
+        ),
 
       application:
-        enquiry.application
-        || "",
+        valueOrEmpty(
+          enquiry.application
+        ),
 
       quantity:
         enquiry.quantity
@@ -584,12 +833,14 @@ export default function EnquiryList() {
           : "",
 
       requirements:
-        enquiry.requirements
-        || "",
+        valueOrEmpty(
+          enquiry.requirements
+        ),
 
       remarks:
-        enquiry.remarks
-        || "",
+        valueOrEmpty(
+          enquiry.remarks
+        ),
 
       status:
         enquiry.status
@@ -597,16 +848,16 @@ export default function EnquiryList() {
     });
 
 
-    setFormError(
-      ""
-    );
-
     setShowModal(
       true
     );
 
   }
 
+
+  /* ==============================================================
+     CLOSE MODAL
+  ============================================================== */
 
   function closeModal() {
 
@@ -632,6 +883,10 @@ export default function EnquiryList() {
   }
 
 
+  /* ==============================================================
+     FORM FIELD UPDATE
+  ============================================================== */
+
   function updateForm(
     field:
       keyof EnquiryForm,
@@ -643,8 +898,14 @@ export default function EnquiryList() {
     setForm(
       current => ({
         ...current,
+
         [field]:
-          value,
+          field ===
+          "gst_number"
+            ? normalizeGST(
+                value
+              )
+            : value,
       })
     );
 
@@ -680,34 +941,30 @@ export default function EnquiryList() {
     }
 
 
-    const customerId =
-      Number(
-        form.customer_id
-      );
-
-
-    if (
-      !Number.isInteger(
-        customerId
-      )
-      || customerId
-      <= 0
-    ) {
-
-      setFormError(
-        "Enter a valid Customer ID."
-      );
-
-      return;
-    }
-
-
     if (
       !form.company_name.trim()
     ) {
 
       setFormError(
         "Company name is required."
+      );
+
+      return;
+    }
+
+
+    const gstNumber =
+      normalizeGST(
+        form.gst_number
+      );
+
+
+    if (
+      !gstNumber
+    ) {
+
+      setFormError(
+        "GST Number is required."
       );
 
       return;
@@ -747,54 +1004,77 @@ export default function EnquiryList() {
     }
 
 
-    const payload =
-      {
-        enquiry_date:
-          form.enquiry_date,
+    /*
+     * Notice:
+     *
+     * customer_id is NOT sent.
+     *
+     * Backend resolves the customer automatically
+     * using GSTIN.
+     */
+    const payload = {
+      enquiry_date:
+        form.enquiry_date,
 
-        customer_id:
-          customerId,
+      company_name:
+        form.company_name.trim(),
 
-        company_name:
-          form.company_name.trim(),
+      contact_person:
+        form.contact_person.trim()
+        || null,
 
-        contact_person:
-          form.contact_person.trim()
-          || null,
+      phone:
+        form.phone.trim()
+        || null,
 
-        phone:
-          form.phone.trim()
-          || null,
+      email:
+        form.email.trim()
+        || null,
 
-        email:
-          form.email.trim()
-          || null,
+      gst_number:
+        gstNumber,
 
-        machine_name:
-          form.machine_name.trim()
-          || null,
+      address:
+        form.address.trim()
+        || null,
 
-        machine_model:
-          form.machine_model.trim()
-          || null,
+      city:
+        form.city.trim()
+        || null,
 
-        application:
-          form.application.trim()
-          || null,
+      state:
+        form.state.trim()
+        || null,
 
-        quantity,
+      pincode:
+        form.pincode.trim()
+        || null,
 
-        requirements:
-          form.requirements.trim()
-          || null,
+      machine_name:
+        form.machine_name.trim()
+        || null,
 
-        remarks:
-          form.remarks.trim()
-          || null,
+      machine_model:
+        form.machine_model.trim()
+        || null,
 
-        status:
-          form.status,
-      };
+      application:
+        form.application.trim()
+        || null,
+
+      quantity,
+
+      requirements:
+        form.requirements.trim()
+        || null,
+
+      remarks:
+        form.remarks.trim()
+        || null,
+
+      status:
+        form.status,
+    };
 
 
     try {
@@ -938,6 +1218,10 @@ export default function EnquiryList() {
     ).length;
 
 
+  /* ==============================================================
+     PAGE
+  ============================================================== */
+
   return (
     <div className="enquiry-page">
 
@@ -952,9 +1236,11 @@ export default function EnquiryList() {
           <div className="enquiry-title-group">
 
             <div className="enquiry-title-icon">
+
               <FileText
                 size={22}
               />
+
             </div>
 
 
@@ -971,8 +1257,9 @@ export default function EnquiryList() {
 
 
               <p>
-                Capture, track and manage customer
-                enquiries before generating a proforma.
+                Customer details are captured here once
+                and automatically connected through the
+                complete sales workflow.
               </p>
 
             </div>
@@ -1028,7 +1315,9 @@ export default function EnquiryList() {
         </section>
 
 
-        {/* KPI */}
+        {/* ======================================================
+            KPI
+        ======================================================= */}
 
         <section className="enquiry-kpi-grid">
 
@@ -1104,7 +1393,9 @@ export default function EnquiryList() {
         </section>
 
 
-        {/* FILTER */}
+        {/* ======================================================
+            FILTER
+        ======================================================= */}
 
         <section className="filter-card">
 
@@ -1126,7 +1417,7 @@ export default function EnquiryList() {
                     event.target.value
                   )
               }
-              placeholder="Search enquiry number, company, contact, phone or machine..."
+              placeholder="Search enquiry number, company, GSTIN, contact, phone or machine..."
             />
 
 
@@ -1140,9 +1431,11 @@ export default function EnquiryList() {
                     setSearch("")
                   }
                 >
+
                   <X
                     size={16}
                   />
+
                 </button>
               )
             }
@@ -1204,7 +1497,9 @@ export default function EnquiryList() {
         </section>
 
 
-        {/* ERROR */}
+        {/* ======================================================
+            ERROR
+        ======================================================= */}
 
         {
           error
@@ -1216,7 +1511,9 @@ export default function EnquiryList() {
         }
 
 
-        {/* TABLE */}
+        {/* ======================================================
+            TABLE
+        ======================================================= */}
 
         <section className="table-card">
 
@@ -1283,6 +1580,7 @@ export default function EnquiryList() {
                       <thead>
 
                         <tr>
+
                           <th>
                             Enquiry
                           </th>
@@ -1314,6 +1612,7 @@ export default function EnquiryList() {
                           <th>
                             Action
                           </th>
+
                         </tr>
 
                       </thead>
@@ -1342,11 +1641,13 @@ export default function EnquiryList() {
 
 
                                 <td>
+
                                   {
                                     formatDate(
                                       enquiry.enquiry_date
                                     )
                                   }
+
                                 </td>
 
 
@@ -1358,44 +1659,12 @@ export default function EnquiryList() {
                                     }
                                   </div>
 
-                                </td>
-
-
-                                <td>
-
-                                  <div className="contact-name">
-                                    {
-                                      enquiry.contact_person
-                                      || "—"
-                                    }
-                                  </div>
-
-                                  <div className="contact-phone">
-                                    {
-                                      enquiry.phone
-                                      || enquiry.email
-                                      || "—"
-                                    }
-                                  </div>
-
-                                </td>
-
-
-                                <td>
-
-                                  <div className="machine-name">
-                                    {
-                                      enquiry.machine_name
-                                      || "—"
-                                    }
-                                  </div>
-
                                   {
-                                    enquiry.machine_model
+                                    enquiry.gst_number
                                     && (
-                                      <div className="machine-model">
+                                      <div className="contact-phone">
                                         {
-                                          enquiry.machine_model
+                                          enquiry.gst_number
                                         }
                                       </div>
                                     )
@@ -1405,10 +1674,63 @@ export default function EnquiryList() {
 
 
                                 <td>
+
+                                  <div className="contact-name">
+
+                                    {
+                                      enquiry.contact_person
+                                      || "—"
+                                    }
+
+                                  </div>
+
+                                  <div className="contact-phone">
+
+                                    {
+                                      enquiry.phone
+                                      || enquiry.email
+                                      || "—"
+                                    }
+
+                                  </div>
+
+                                </td>
+
+
+                                <td>
+
+                                  <div className="machine-name">
+
+                                    {
+                                      enquiry.machine_name
+                                      || "—"
+                                    }
+
+                                  </div>
+
+                                  {
+                                    enquiry.machine_model
+                                    && (
+                                      <div className="machine-model">
+
+                                        {
+                                          enquiry.machine_model
+                                        }
+
+                                      </div>
+                                    )
+                                  }
+
+                                </td>
+
+
+                                <td>
+
                                   {
                                     enquiry.quantity
                                     ?? "—"
                                   }
+
                                 </td>
 
 
@@ -1419,9 +1741,11 @@ export default function EnquiryList() {
                                       enquiry.status
                                     )}`}
                                   >
+
                                     {
                                       enquiry.status
                                     }
+
                                   </span>
 
                                 </td>
@@ -1441,9 +1765,11 @@ export default function EnquiryList() {
                                         )
                                       }
                                     >
+
                                       <Printer
                                         size={16}
                                       />
+
                                     </button>
 
 
@@ -1452,14 +1778,16 @@ export default function EnquiryList() {
                                       className="icon-action-button"
                                       title="Edit enquiry"
                                       onClick={() =>
-                                        openEditModal(
+                                        void openEditModal(
                                           enquiry
                                         )
                                       }
                                     >
+
                                       <Pencil
                                         size={16}
                                       />
+
                                     </button>
 
                                   </div>
@@ -1512,26 +1840,31 @@ export default function EnquiryList() {
                   <div>
 
                     <div className="page-eyebrow">
+
                       {
                         editingEnquiry
                           ? "UPDATE RECORD"
                           : "NEW RECORD"
                       }
+
                     </div>
 
 
                     <h2>
+
                       {
                         editingEnquiry
                           ? `Edit ${editingEnquiry.enquiry_number}`
                           : "Create New Enquiry"
                       }
+
                     </h2>
 
 
                     <p>
-                      Enter customer and machine
-                      requirements below.
+                      Enter the customer details once.
+                      The ERP will automatically create
+                      or reuse the Customer using GSTIN.
                     </p>
 
                   </div>
@@ -1547,9 +1880,11 @@ export default function EnquiryList() {
                       saving
                     }
                   >
+
                     <X
                       size={20}
                     />
+
                   </button>
 
                 </div>
@@ -1559,7 +1894,9 @@ export default function EnquiryList() {
                   formError
                   && (
                     <div className="alert alert-error modal-alert">
+
                       {formError}
+
                     </div>
                   )
                 }
@@ -1571,6 +1908,10 @@ export default function EnquiryList() {
                     handleSubmit
                   }
                 >
+
+                  {/* ==================================================
+                      CUSTOMER
+                  =================================================== */}
 
                   <div className="form-section">
 
@@ -1584,8 +1925,10 @@ export default function EnquiryList() {
                       <FormField
                         label="Enquiry Date *"
                       >
+
                         <input
                           type="date"
+                          required
                           value={
                             form.enquiry_date
                           }
@@ -1597,34 +1940,18 @@ export default function EnquiryList() {
                               )
                           }
                         />
-                      </FormField>
 
-
-                      <FormField
-                        label="Customer ID *"
-                      >
-                        <input
-                          type="number"
-                          min="1"
-                          value={
-                            form.customer_id
-                          }
-                          onChange={
-                            event =>
-                              updateForm(
-                                "customer_id",
-                                event.target.value
-                              )
-                          }
-                        />
                       </FormField>
 
 
                       <FormField
                         label="Company Name *"
                       >
+
                         <input
                           type="text"
+                          required
+                          maxLength={200}
                           value={
                             form.company_name
                           }
@@ -1635,15 +1962,43 @@ export default function EnquiryList() {
                                 event.target.value
                               )
                           }
+                          placeholder="Customer company name"
                         />
+
+                      </FormField>
+
+
+                      <FormField
+                        label="GST Number *"
+                      >
+
+                        <input
+                          type="text"
+                          required
+                          maxLength={50}
+                          value={
+                            form.gst_number
+                          }
+                          onChange={
+                            event =>
+                              updateForm(
+                                "gst_number",
+                                event.target.value
+                              )
+                          }
+                          placeholder="GSTIN"
+                        />
+
                       </FormField>
 
 
                       <FormField
                         label="Contact Person"
                       >
+
                         <input
                           type="text"
+                          maxLength={150}
                           value={
                             form.contact_person
                           }
@@ -1655,14 +2010,17 @@ export default function EnquiryList() {
                               )
                           }
                         />
+
                       </FormField>
 
 
                       <FormField
                         label="Phone"
                       >
+
                         <input
                           type="text"
+                          maxLength={30}
                           value={
                             form.phone
                           }
@@ -1674,14 +2032,17 @@ export default function EnquiryList() {
                               )
                           }
                         />
+
                       </FormField>
 
 
                       <FormField
                         label="Email"
                       >
+
                         <input
                           type="email"
+                          maxLength={150}
                           value={
                             form.email
                           }
@@ -1693,12 +2054,125 @@ export default function EnquiryList() {
                               )
                           }
                         />
+
                       </FormField>
 
                     </div>
 
                   </div>
 
+
+                  {/* ==================================================
+                      ADDRESS
+                  =================================================== */}
+
+                  <div className="form-section">
+
+                    <div className="form-section-title">
+                      Customer Address
+                    </div>
+
+
+                    <div className="form-grid form-grid-3">
+
+                      <label className="form-field form-field-wide">
+
+                        <span>
+                          Address
+                        </span>
+
+                        <textarea
+                          rows={3}
+                          maxLength={500}
+                          value={
+                            form.address
+                          }
+                          onChange={
+                            event =>
+                              updateForm(
+                                "address",
+                                event.target.value
+                              )
+                          }
+                          placeholder="Billing / company address"
+                        />
+
+                      </label>
+
+
+                      <FormField
+                        label="City"
+                      >
+
+                        <input
+                          type="text"
+                          maxLength={100}
+                          value={
+                            form.city
+                          }
+                          onChange={
+                            event =>
+                              updateForm(
+                                "city",
+                                event.target.value
+                              )
+                          }
+                        />
+
+                      </FormField>
+
+
+                      <FormField
+                        label="State"
+                      >
+
+                        <input
+                          type="text"
+                          maxLength={100}
+                          value={
+                            form.state
+                          }
+                          onChange={
+                            event =>
+                              updateForm(
+                                "state",
+                                event.target.value
+                              )
+                          }
+                        />
+
+                      </FormField>
+
+
+                      <FormField
+                        label="Pincode"
+                      >
+
+                        <input
+                          type="text"
+                          maxLength={20}
+                          value={
+                            form.pincode
+                          }
+                          onChange={
+                            event =>
+                              updateForm(
+                                "pincode",
+                                event.target.value
+                              )
+                          }
+                        />
+
+                      </FormField>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* ==================================================
+                      REQUIREMENT
+                  =================================================== */}
 
                   <div className="form-section">
 
@@ -1710,10 +2184,12 @@ export default function EnquiryList() {
                     <div className="form-grid form-grid-3">
 
                       <FormField
-                        label="Machine Name"
+                        label="Machine / Product Required"
                       >
+
                         <input
                           type="text"
+                          maxLength={200}
                           value={
                             form.machine_name
                           }
@@ -1724,15 +2200,19 @@ export default function EnquiryList() {
                                 event.target.value
                               )
                           }
+                          placeholder="What the customer requires"
                         />
+
                       </FormField>
 
 
                       <FormField
-                        label="Machine Model"
+                        label="Model / Reference"
                       >
+
                         <input
                           type="text"
+                          maxLength={150}
                           value={
                             form.machine_model
                           }
@@ -1744,15 +2224,18 @@ export default function EnquiryList() {
                               )
                           }
                         />
+
                       </FormField>
 
 
                       <FormField
                         label="Quantity"
                       >
+
                         <input
                           type="number"
                           min="1"
+                          step="1"
                           value={
                             form.quantity
                           }
@@ -1764,6 +2247,7 @@ export default function EnquiryList() {
                               )
                           }
                         />
+
                       </FormField>
 
 
@@ -1775,6 +2259,7 @@ export default function EnquiryList() {
 
                         <input
                           type="text"
+                          maxLength={300}
                           value={
                             form.application
                           }
@@ -1808,6 +2293,7 @@ export default function EnquiryList() {
                                 event.target.value
                               )
                           }
+                          placeholder="Customer requirement, specification or enquiry details"
                         />
 
                       </label>
@@ -1816,6 +2302,10 @@ export default function EnquiryList() {
 
                   </div>
 
+
+                  {/* ==================================================
+                      WORKFLOW
+                  =================================================== */}
 
                   <div className="form-section">
 
@@ -1889,6 +2379,10 @@ export default function EnquiryList() {
 
                   </div>
 
+
+                  {/* ==================================================
+                      FOOTER
+                  =================================================== */}
 
                   <div className="modal-footer">
 
@@ -1994,6 +2488,10 @@ export default function EnquiryList() {
             </header>
 
 
+            {/* ==================================================
+                CUSTOMER PRINT
+            =================================================== */}
+
             <PrintSection
               title="Customer Information"
             >
@@ -2004,6 +2502,15 @@ export default function EnquiryList() {
                   label="Company Name"
                   value={
                     printEnquiry.company_name
+                  }
+                />
+
+
+                <PrintField
+                  label="GSTIN"
+                  value={
+                    printEnquiry.gst_number
+                    || "—"
                   }
                 />
 
@@ -2034,10 +2541,47 @@ export default function EnquiryList() {
                   }
                 />
 
+
+                <PrintField
+                  label="Location"
+                  value={
+                    [
+                      printEnquiry.city,
+                      printEnquiry.state,
+                      printEnquiry.pincode,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")
+                    || "—"
+                  }
+                />
+
               </div>
+
+
+              {
+                printEnquiry.address
+                && (
+                  <div
+                    className="print-long-text"
+                    style={{
+                      marginTop:
+                        "4mm",
+                    }}
+                  >
+                    {
+                      printEnquiry.address
+                    }
+                  </div>
+                )
+              }
 
             </PrintSection>
 
+
+            {/* ==================================================
+                REQUIREMENT PRINT
+            =================================================== */}
 
             <PrintSection
               title="Product / Machine Requirement"
@@ -2055,7 +2599,7 @@ export default function EnquiryList() {
 
 
                 <PrintField
-                  label="Model"
+                  label="Model / Reference"
                   value={
                     printEnquiry.machine_model
                     || "—"
@@ -2096,10 +2640,12 @@ export default function EnquiryList() {
             >
 
               <div className="print-long-text">
+
                 {
                   printEnquiry.requirements
                   || "—"
                 }
+
               </div>
 
             </PrintSection>
@@ -2113,9 +2659,11 @@ export default function EnquiryList() {
                 >
 
                   <div className="print-long-text">
+
                     {
                       printEnquiry.remarks
                     }
+
                   </div>
 
                 </PrintSection>
@@ -2154,8 +2702,9 @@ function FormField({
   children,
 }: {
   label: string;
+
   children:
-    React.ReactNode;
+    ReactNode;
 }) {
 
   return (
@@ -2209,8 +2758,9 @@ function PrintSection({
   children,
 }: {
   title: string;
+
   children:
-    React.ReactNode;
+    ReactNode;
 }) {
 
   return (

@@ -20,6 +20,7 @@ import PurchaseBillDetails from "../pages/PurchaseBills/PurchaseBillDetails";
 import EnquiryList from "../pages/Enquiries/EnquiryList";
 
 import ProformaPage from "../pages/Proformas/ProformaPage";
+import ProformaCreatePage from "../pages/Proformas/ProformaCreatePage";
 
 import ProductPage from "../pages/products/ProductPage";
 import SupplierPage from "../pages/suppliers/SupplierPage";
@@ -41,10 +42,11 @@ import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
 export default function AppRouter() {
   return (
     <BrowserRouter>
+
       <Routes>
 
         {/* =====================================================
-            PUBLIC ROUTES
+            PUBLIC
         ====================================================== */}
 
         <Route
@@ -56,7 +58,7 @@ export default function AppRouter() {
 
 
         {/* =====================================================
-            PROTECTED ROUTES
+            PROTECTED
         ====================================================== */}
 
         <Route
@@ -66,10 +68,6 @@ export default function AppRouter() {
             </ProtectedRoute>
           }
         >
-
-          {/* ===================================================
-              DEFAULT
-          ==================================================== */}
 
           <Route
             path="/"
@@ -82,9 +80,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              DASHBOARD
-          ==================================================== */}
+          {/* DASHBOARD */}
 
           <Route
             path="/dashboard"
@@ -94,9 +90,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              ENQUIRIES
-          ==================================================== */}
+          {/* ENQUIRIES */}
 
           <Route
             path="/enquiries"
@@ -106,9 +100,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              PROFORMAS
-          ==================================================== */}
+          {/* PROFORMAS */}
 
           <Route
             path="/proformas"
@@ -119,14 +111,14 @@ export default function AppRouter() {
             }
           />
 
+
           <Route
             path="/proformas/new"
             element={
-              <ProformaPage
-                key="proforma-new"
-              />
+              <ProformaCreatePage />
             }
           />
+
 
           <Route
             path="/proformas/:id"
@@ -138,9 +130,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              PURCHASE BILLS
-          ==================================================== */}
+          {/* PURCHASE BILLS */}
 
           <Route
             path="/purchase-bills"
@@ -149,6 +139,7 @@ export default function AppRouter() {
             }
           />
 
+
           <Route
             path="/purchase-bills/scan"
             element={
@@ -156,12 +147,14 @@ export default function AppRouter() {
             }
           />
 
+
           <Route
             path="/purchase-bills/review"
             element={
               <PurchaseBillReview />
             }
           />
+
 
           <Route
             path="/purchase-bills/:id"
@@ -171,9 +164,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              PRODUCTS
-          ==================================================== */}
+          {/* PRODUCTS */}
 
           <Route
             path="/products"
@@ -183,9 +174,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              SUPPLIERS
-          ==================================================== */}
+          {/* SUPPLIERS */}
 
           <Route
             path="/suppliers"
@@ -195,9 +184,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              CUSTOMERS
-          ==================================================== */}
+          {/* CUSTOMERS */}
 
           <Route
             path="/customers"
@@ -207,9 +194,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              STOCK
-          ==================================================== */}
+          {/* STOCK */}
 
           <Route
             path="/stock"
@@ -219,9 +204,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              PRODUCTION
-          ==================================================== */}
+          {/* PRODUCTION */}
 
           <Route
             path="/production"
@@ -231,9 +214,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              FINISHED PRODUCTS
-          ==================================================== */}
+          {/* FINISHED PRODUCTS */}
 
           <Route
             path="/finished-products"
@@ -241,6 +222,7 @@ export default function AppRouter() {
               <FinishedProductsPage />
             }
           />
+
 
           <Route
             path="/finished-products/:id"
@@ -250,9 +232,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              FINAL BILLING
-          ==================================================== */}
+          {/* FINAL BILLING */}
 
           <Route
             path="/final-billing"
@@ -262,9 +242,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              GST
-          ==================================================== */}
+          {/* GST */}
 
           <Route
             path="/gst"
@@ -274,9 +252,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              EXPENSES
-          ==================================================== */}
+          {/* EXPENSES */}
 
           <Route
             path="/expenses"
@@ -286,9 +262,7 @@ export default function AppRouter() {
           />
 
 
-          {/* ===================================================
-              FINANCIAL ANALYZER
-          ==================================================== */}
+          {/* FINANCIAL */}
 
           <Route
             path="/financial"
@@ -300,9 +274,7 @@ export default function AppRouter() {
         </Route>
 
 
-        {/* =====================================================
-            404
-        ====================================================== */}
+        {/* 404 */}
 
         <Route
           path="*"
@@ -320,6 +292,7 @@ export default function AppRouter() {
         />
 
       </Routes>
+
     </BrowserRouter>
   );
 }
