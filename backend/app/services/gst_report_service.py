@@ -231,7 +231,9 @@ class GSTReportService:
     # - Financial Analyzer
     #
     # Latest issued invoice revision is the effective sale.
-    # Issued credit notes reduce sales.
+    #
+    # Only Credit Notes belonging directly to the current
+    # effective invoice reduce the current sales position.
     # ============================================================
 
     @staticmethod
@@ -359,9 +361,29 @@ class GSTReportService:
 
         # ========================================================
         # LATEST EFFECTIVE INVOICES
+        #
+        # IMPORTANT:
+        #
+        # Determine the effective invoice for every revision chain
+        # BEFORE applying the selected report date range.
+        #
+        # Example:
+        #
+        # Original
+        #   ↓
+        # R1
+        #   ↓
+        # CN1 against R1
+        #   ↓
+        # R2
+        #
+        # R2 is now the current effective invoice.
+        #
+        # CN1 belongs to the superseded R1 and must therefore not
+        # reduce the current GST sales position.
         # ========================================================
 
-        effective_invoices: list[
+        all_effective_invoices: list[
             FinalBill
         ] = []
 
@@ -377,11 +399,23 @@ class GSTReportService:
                 ),
             )
 
+            all_effective_invoices.append(
+                latest_bill
+            )
+
+        # ========================================================
+        # EFFECTIVE INVOICES INSIDE REPORT PERIOD
+        # ========================================================
+
+        effective_invoices = [
+            bill
+            for bill
+            in all_effective_invoices
             if (
                 GSTReportService
                 .within_date_range(
                     document_date=(
-                        latest_bill.invoice_date
+                        bill.invoice_date
                     ),
                     start_date=(
                         start_date
@@ -390,14 +424,43 @@ class GSTReportService:
                         end_date
                     ),
                 )
-            ):
-
-                effective_invoices.append(
-                    latest_bill
-                )
+            )
+        ]
 
         # ========================================================
-        # CREDIT NOTES INSIDE PERIOD
+        # CURRENT EFFECTIVE INVOICE IDS
+        #
+        # This set is intentionally built from ALL current
+        # effective invoices, not just invoices that fall inside
+        # the selected report period.
+        #
+        # That allows a Credit Note dated inside the selected
+        # period to remain valid when its current effective source
+        # invoice was issued in an earlier period.
+        # ========================================================
+
+        effective_invoice_ids = {
+            bill.id
+            for bill
+            in all_effective_invoices
+        }
+
+        # ========================================================
+        # VALID CREDIT NOTES INSIDE PERIOD
+        #
+        # A Credit Note is included only when:
+        #
+        # 1. It is Issued.
+        #    Already guaranteed because issued_credit_notes comes
+        #    from issued_documents.
+        #
+        # 2. Its own document date is inside the report period.
+        #
+        # 3. Its parent_invoice_id points directly to the current
+        #    effective invoice version.
+        #
+        # Therefore Credit Notes created against an old superseded
+        # invoice/revision are excluded.
         # ========================================================
 
         filtered_credit_notes = [
@@ -405,6 +468,9 @@ class GSTReportService:
             for bill
             in issued_credit_notes
             if (
+                bill.parent_invoice_id
+                in effective_invoice_ids
+                and
                 GSTReportService
                 .within_date_range(
                     document_date=(
@@ -1038,8 +1104,8 @@ class GSTReportService:
     #
     # This prevents corrupt historical header values such as:
     #
-    # subtotal   = 0
-    # total_gst  = 508.50
+    # subtotal    = 0
+    # total_gst   = 508.50
     # grand_total = 508.50
     #
     # from appearing as valid input GST.
