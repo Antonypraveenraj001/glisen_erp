@@ -1,572 +1,819 @@
 import {
-    useEffect,
-    useMemo,
-    useState,
-  } from "react";
-  
-  import {
-    Building2,
-    Edit3,
-    Loader2,
-    Mail,
-    MapPin,
-    Phone,
-    Plus,
-    Search,
-    ShieldCheck,
-    UserRound,
-    X,
-  } from "lucide-react";
-  
-  import "./CustomerPage.css";
-  
-  import {
-    createCustomer,
-    deactivateCustomer,
-    getCustomers,
-    updateCustomer,
-  } from "../../services/customerService";
-  
-  import type {
-    Customer,
-    CustomerCreatePayload,
-  } from "../../types/customer";
-  
-  
-  const EMPTY_FORM: CustomerCreatePayload = {
-    customer_code: "",
-    company_name: "",
-    contact_person: "",
-    email: "",
-    phone: "",
-    gst_number: "",
-    address: "",
-    city: "",
-    state: "",
-    pincode: "",
-    is_active: true,
-  };
-  
-  
-  export default function CustomerPage() {
-    const [customers, setCustomers] =
-      useState<Customer[]>([]);
-  
-    const [search, setSearch] =
-      useState("");
-  
-    const [loading, setLoading] =
-      useState(true);
-  
-    const [saving, setSaving] =
-      useState(false);
-  
-    const [error, setError] =
-      useState<string | null>(null);
-  
-    const [showForm, setShowForm] =
-      useState(false);
-  
-    const [editingCustomer, setEditingCustomer] =
-      useState<Customer | null>(null);
-  
-    const [form, setForm] =
-      useState<CustomerCreatePayload>(
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  Building2,
+  Edit3,
+  Loader2,
+  LockKeyhole,
+  Mail,
+  MapPin,
+  Phone,
+  Search,
+  UserRound,
+  X,
+} from "lucide-react";
+
+import "./CustomerPage.css";
+
+import {
+  getCustomers,
+  updateCustomer,
+} from "../../services/customerService";
+
+import type {
+  Customer,
+  CustomerUpdatePayload,
+} from "../../types/customer";
+
+
+const EMPTY_FORM:
+CustomerUpdatePayload = {
+
+  company_name: "",
+
+  contact_person: "",
+
+  email: "",
+
+  phone: "",
+
+  address: "",
+
+  city: "",
+
+  state: "",
+
+  pincode: "",
+};
+
+
+export default function CustomerPage() {
+
+  const [
+    customers,
+    setCustomers,
+  ] =
+    useState<Customer[]>([]);
+
+
+  const [
+    search,
+    setSearch,
+  ] =
+    useState("");
+
+
+  const [
+    loading,
+    setLoading,
+  ] =
+    useState(true);
+
+
+  const [
+    saving,
+    setSaving,
+  ] =
+    useState(false);
+
+
+  const [
+    error,
+    setError,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+
+  const [
+    showForm,
+    setShowForm,
+  ] =
+    useState(false);
+
+
+  const [
+    editingCustomer,
+    setEditingCustomer,
+  ] =
+    useState<
+      Customer | null
+    >(
+      null
+    );
+
+
+  const [
+    form,
+    setForm,
+  ] =
+    useState<
+      CustomerUpdatePayload
+    >(
+      EMPTY_FORM
+    );
+
+
+  /* ==============================================================
+     LOAD CUSTOMERS
+  ============================================================== */
+
+  async function loadCustomers(
+    query = ""
+  ) {
+
+    try {
+
+      setLoading(
+        true
+      );
+
+      setError(
+        null
+      );
+
+
+      const data =
+        await getCustomers(
+          query
+        );
+
+
+      setCustomers(
+        data
+      );
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+
+      setError(
+        "Unable to load customers."
+      );
+
+    } finally {
+
+      setLoading(
+        false
+      );
+
+    }
+
+  }
+
+
+  useEffect(
+    () => {
+
+      void loadCustomers();
+
+    },
+    []
+  );
+
+
+  /* ==============================================================
+     EDIT CUSTOMER
+  ============================================================== */
+
+  function openEditForm(
+    customer: Customer
+  ) {
+
+    setEditingCustomer(
+      customer
+    );
+
+
+    setForm({
+
+      company_name:
+        customer.company_name
+        ??
+        "",
+
+      contact_person:
+        customer.contact_person
+        ??
+        "",
+
+      email:
+        customer.email
+        ??
+        "",
+
+      phone:
+        customer.phone
+        ??
+        "",
+
+      address:
+        customer.address
+        ??
+        "",
+
+      city:
+        customer.city
+        ??
+        "",
+
+      state:
+        customer.state
+        ??
+        "",
+
+      pincode:
+        customer.pincode
+        ??
+        "",
+    });
+
+
+    setShowForm(
+      true
+    );
+
+  }
+
+
+  function closeForm() {
+
+    if (
+      saving
+    ) {
+      return;
+    }
+
+
+    setShowForm(
+      false
+    );
+
+
+    setEditingCustomer(
+      null
+    );
+
+
+    setForm(
+      EMPTY_FORM
+    );
+
+  }
+
+
+  function updateField(
+    field:
+      keyof CustomerUpdatePayload,
+    value: string
+  ) {
+
+    setForm(
+      current => ({
+        ...current,
+
+        [field]:
+          value,
+      })
+    );
+
+  }
+
+
+  async function handleSubmit(
+    event:
+      React.FormEvent
+  ) {
+
+    event.preventDefault();
+
+
+    if (
+      !editingCustomer
+    ) {
+      return;
+    }
+
+
+    try {
+
+      setSaving(
+        true
+      );
+
+      setError(
+        null
+      );
+
+
+      await updateCustomer(
+        editingCustomer.id,
+        form
+      );
+
+
+      setShowForm(
+        false
+      );
+
+
+      setEditingCustomer(
+        null
+      );
+
+
+      setForm(
         EMPTY_FORM
       );
-  
-  
-    async function loadCustomers(
-      query = ""
-    ) {
-      try {
-        setLoading(true);
-        setError(null);
-  
-        const data =
-          await getCustomers(query);
-  
-        setCustomers(data);
-      } catch (err) {
-        console.error(err);
-  
-        setError(
-          "Unable to load customers."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-  
-  
-    useEffect(() => {
-      void loadCustomers();
-    }, []);
-  
-  
-    const activeCount =
-      useMemo(
-        () =>
-          customers.filter(
-            (customer) =>
-              customer.is_active
-          ).length,
-        [customers]
+
+
+      await loadCustomers(
+        search
       );
-  
-  
-    const inactiveCount =
-      useMemo(
-        () =>
-          customers.filter(
-            (customer) =>
-              !customer.is_active
-          ).length,
-        [customers]
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
       );
-  
-  
-    function openCreateForm() {
-      setEditingCustomer(null);
-      setForm(EMPTY_FORM);
-      setShowForm(true);
+
+
+      setError(
+        "Unable to update customer."
+      );
+
+    } finally {
+
+      setSaving(
+        false
+      );
+
     }
-  
-  
-    function openEditForm(
-      customer: Customer
-    ) {
-      setEditingCustomer(customer);
-  
-      setForm({
-        customer_code:
-          customer.customer_code,
-  
-        company_name:
-          customer.company_name,
-  
-        contact_person:
-          customer.contact_person,
-  
-        email:
-          customer.email,
-  
-        phone:
-          customer.phone,
-  
-        gst_number:
-          customer.gst_number,
-  
-        address:
-          customer.address,
-  
-        city:
-          customer.city,
-  
-        state:
-          customer.state,
-  
-        pincode:
-          customer.pincode,
-  
-        is_active:
-          customer.is_active,
-      });
-  
-      setShowForm(true);
-    }
-  
-  
-    function closeForm() {
-      setShowForm(false);
-      setEditingCustomer(null);
-      setForm(EMPTY_FORM);
-    }
-  
-  
-    function updateField(
-      field: keyof CustomerCreatePayload,
-      value: string | boolean
-    ) {
-      setForm((current) => ({
-        ...current,
-        [field]: value,
-      }));
-    }
-  
-  
-    async function handleSubmit(
-      event: React.FormEvent
-    ) {
-      event.preventDefault();
-  
-      try {
-        setSaving(true);
-        setError(null);
-  
-        if (editingCustomer) {
-          await updateCustomer(
-            editingCustomer.id,
-            form
-          );
-        } else {
-          await createCustomer(form);
-        }
-  
-        closeForm();
-  
-        await loadCustomers(search);
-      } catch (err) {
-        console.error(err);
-  
-        setError(
-          editingCustomer
-            ? "Unable to update customer."
-            : "Unable to create customer."
-        );
-      } finally {
-        setSaving(false);
-      }
-    }
-  
-  
-    async function handleDeactivate(
-      customer: Customer
-    ) {
-      const confirmed =
-        window.confirm(
-          `Deactivate ${customer.company_name}?`
-        );
-  
-      if (!confirmed) {
-        return;
-      }
-  
-      try {
-        setError(null);
-  
-        await deactivateCustomer(
-          customer.id
-        );
-  
-        await loadCustomers(search);
-      } catch (err) {
-        console.error(err);
-  
-        setError(
-          "Unable to deactivate customer."
-        );
-      }
-    }
-  
-  
-    async function handleSearch(
-      event: React.FormEvent
-    ) {
-      event.preventDefault();
-  
-      await loadCustomers(search);
-    }
-  
-  
-    async function handleClearSearch() {
-      setSearch("");
-  
-      await loadCustomers("");
-    }
-  
-  
-    return (
-      <div className="customer-page">
-  
-        <div className="customer-page-header">
-          <div>
-            <div className="customer-eyebrow">
-              CUSTOMER MASTER
-            </div>
-  
-            <h1 className="customer-title">
-              Customers
-            </h1>
-  
-            <p className="customer-subtitle">
-              Manage customer companies,
-              contact information, GST details,
-              and active sales relationships.
-            </p>
+
+  }
+
+
+  /* ==============================================================
+     SEARCH
+  ============================================================== */
+
+  async function handleSearch(
+    event:
+      React.FormEvent
+  ) {
+
+    event.preventDefault();
+
+
+    await loadCustomers(
+      search
+    );
+
+  }
+
+
+  async function handleClearSearch() {
+
+    setSearch(
+      ""
+    );
+
+
+    await loadCustomers(
+      ""
+    );
+
+  }
+
+
+  /* ==============================================================
+     UI
+  ============================================================== */
+
+  return (
+    <div className="customer-page">
+
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
+
+      <div className="customer-page-header">
+
+        <div>
+
+          <div className="customer-eyebrow">
+            CUSTOMER MASTER
           </div>
-  
-          <button
-            type="button"
-            className="customer-primary-button"
-            onClick={openCreateForm}
-          >
-            <Plus size={17} />
-  
-            Add Customer
-          </button>
+
+
+          <h1 className="customer-title">
+            Customers
+          </h1>
+
+
+          <p className="customer-subtitle">
+            Customer records are created and
+            reused automatically from Enquiries
+            using GSTIN.
+          </p>
+
         </div>
-  
-  
-        {error && (
+
+      </div>
+
+
+      {
+        error
+        && (
           <div className="customer-error">
             {error}
           </div>
-        )}
-  
-  
-        <div className="customer-kpi-grid">
-  
-          <div className="customer-kpi-card">
-            <div>
-              <div className="customer-kpi-label">
-                Total Customers
-              </div>
-  
-              <div className="customer-kpi-value">
-                {customers.length}
-              </div>
+        )
+      }
+
+
+      {/* ======================================================
+          KPI
+      ====================================================== */}
+
+      <div className="customer-kpi-grid">
+
+        <div className="customer-kpi-card">
+
+          <div>
+
+            <div className="customer-kpi-label">
+              Total Customers
             </div>
-  
-            <div className="customer-kpi-icon blue">
-              <Building2 size={20} />
+
+
+            <div className="customer-kpi-value">
+
+              {
+                customers.length
+              }
+
             </div>
+
+
+            <div
+              style={{
+                marginTop:
+                  "6px",
+
+                fontSize:
+                  "11px",
+
+                color:
+                  "#8290a8",
+              }}
+            >
+              Automatically maintained from Enquiries
+            </div>
+
           </div>
-  
-  
-          <div className="customer-kpi-card">
-            <div>
-              <div className="customer-kpi-label">
-                Active Customers
-              </div>
-  
-              <div className="customer-kpi-value">
-                {activeCount}
-              </div>
-            </div>
-  
-            <div className="customer-kpi-icon green">
-              <ShieldCheck size={20} />
-            </div>
+
+
+          <div className="customer-kpi-icon blue">
+
+            <Building2
+              size={20}
+            />
+
           </div>
-  
-  
-          <div className="customer-kpi-card">
-            <div>
-              <div className="customer-kpi-label">
-                Inactive Customers
-              </div>
-  
-              <div className="customer-kpi-value">
-                {inactiveCount}
-              </div>
-            </div>
-  
-            <div className="customer-kpi-icon rose">
-              <Building2 size={20} />
-            </div>
-          </div>
-  
+
         </div>
-  
-  
-        <div className="customer-toolbar">
-          <form
-            className="customer-search"
-            onSubmit={handleSearch}
-          >
-            <Search size={17} />
-  
-            <input
-              type="text"
-              value={search}
-              onChange={(event) =>
+
+      </div>
+
+
+      {/* ======================================================
+          SEARCH
+      ====================================================== */}
+
+      <div className="customer-toolbar">
+
+        <form
+          className="customer-search"
+          onSubmit={
+            handleSearch
+          }
+        >
+
+          <Search
+            size={17}
+          />
+
+
+          <input
+            type="text"
+            value={
+              search
+            }
+            onChange={
+              event =>
                 setSearch(
                   event.target.value
                 )
-              }
-              placeholder="Search code, company, contact or phone..."
-            />
-  
-            {search && (
+            }
+            placeholder="Search customer code, company, GSTIN, contact or phone..."
+          />
+
+
+          {
+            search
+            && (
               <button
                 type="button"
                 className="customer-search-clear"
-                onClick={handleClearSearch}
-                title="Clear search"
+                onClick={
+                  handleClearSearch
+                }
               >
-                <X size={15} />
+
+                <X
+                  size={15}
+                />
+
               </button>
-            )}
-  
-            <button
-              type="submit"
-              className="customer-secondary-button"
-            >
-              Search
-            </button>
-          </form>
-        </div>
-  
-  
-        <div className="customer-panel">
-  
-          <div className="customer-panel-header">
-            <div>
-              <div className="customer-panel-title">
-                Customer Directory
-              </div>
-  
-              <div className="customer-panel-subtitle">
-                Registered customers available
-                for sales transactions.
-              </div>
+            )
+          }
+
+
+          <button
+            type="submit"
+            className="customer-secondary-button"
+          >
+            Search
+          </button>
+
+        </form>
+
+      </div>
+
+
+      {/* ======================================================
+          DIRECTORY
+      ====================================================== */}
+
+      <div className="customer-panel">
+
+        <div className="customer-panel-header">
+
+          <div>
+
+            <div className="customer-panel-title">
+              Customer Directory
             </div>
-  
-            <div className="customer-panel-badge">
-              {customers.length} records
+
+
+            <div className="customer-panel-subtitle">
+              Customer Master records created
+              automatically from sales Enquiries.
             </div>
+
           </div>
-  
-  
-          {loading ? (
+
+
+          <div className="customer-panel-badge">
+
+            {
+              customers.length
+            }
+            {" records"}
+
+          </div>
+
+        </div>
+
+
+        {
+          loading
+          ? (
             <div className="customer-loading-state">
+
               <Loader2
                 size={23}
                 className="customer-spin"
               />
-  
+
               Loading customers...
+
             </div>
-          ) : customers.length === 0 ? (
+          )
+          :
+          customers.length
+          === 0
+          ? (
             <div className="customer-empty-state">
-              <Building2 size={25} />
-  
+
+              <Building2
+                size={25}
+              />
+
               <div>
                 No customers found.
               </div>
+
             </div>
-          ) : (
+          )
+          : (
             <div className="customer-table-wrap">
-  
+
               <table className="customer-table">
-  
+
                 <thead>
+
                   <tr>
+
                     <th>
                       Customer
                     </th>
-  
+
                     <th>
                       Contact
                     </th>
-  
+
                     <th>
                       Email
                     </th>
-  
+
                     <th>
                       Phone
                     </th>
-  
+
                     <th>
                       GSTIN
                     </th>
-  
+
                     <th>
                       Location
                     </th>
-  
-                    <th>
-                      Status
-                    </th>
-  
+
                     <th className="align-right">
-                      Actions
+                      Action
                     </th>
+
                   </tr>
+
                 </thead>
-  
-  
+
+
                 <tbody>
-                  {customers.map(
-                    (customer) => (
-                      <tr key={customer.id}>
-  
-                        <td>
-                          <div className="customer-company">
-                            {customer.company_name}
-                          </div>
-  
-                          <div className="customer-code">
-                            {customer.customer_code}
-                          </div>
-                        </td>
-  
-  
-                        <td>
-                          <div className="customer-inline">
-                            <UserRound size={13} />
-  
-                            {customer.contact_person}
-                          </div>
-                        </td>
-  
-  
-                        <td>
-                          <div className="customer-inline">
-                            <Mail size={13} />
-  
-                            {customer.email}
-                          </div>
-                        </td>
-  
-  
-                        <td>
-                          <div className="customer-inline">
-                            <Phone size={13} />
-  
-                            {customer.phone}
-                          </div>
-                        </td>
-  
-  
-                        <td>
-                          <span className="customer-gstin">
-                            {customer.gst_number}
-                          </span>
-                        </td>
-  
-  
-                        <td>
-                          <div className="customer-inline">
-                            <MapPin size={13} />
-  
-                            {customer.city},
-                            {" "}
-                            {customer.state}
-                          </div>
-                        </td>
-  
-  
-                        <td>
-                          <span
-                            className={
-                              customer.is_active
-                                ? "customer-status active"
-                                : "customer-status inactive"
-                            }
-                          >
-                            {customer.is_active
-                              ? "Active"
-                              : "Inactive"}
-                          </span>
-                        </td>
-  
-  
-                        <td className="align-right">
-                          <div className="customer-actions">
-  
+
+                  {
+                    customers.map(
+                      customer => (
+                        <tr
+                          key={
+                            customer.id
+                          }
+                        >
+
+                          <td>
+
+                            <div className="customer-company">
+
+                              {
+                                customer
+                                  .company_name
+                              }
+
+                            </div>
+
+
+                            <div className="customer-code">
+
+                              {
+                                customer
+                                  .customer_code
+                              }
+
+                            </div>
+
+                          </td>
+
+
+                          <td>
+
+                            <div className="customer-inline">
+
+                              <UserRound
+                                size={13}
+                              />
+
+                              {
+                                customer
+                                  .contact_person
+                                ||
+                                "-"
+                              }
+
+                            </div>
+
+                          </td>
+
+
+                          <td>
+
+                            <div className="customer-inline">
+
+                              <Mail
+                                size={13}
+                              />
+
+                              {
+                                customer.email
+                                ||
+                                "-"
+                              }
+
+                            </div>
+
+                          </td>
+
+
+                          <td>
+
+                            <div className="customer-inline">
+
+                              <Phone
+                                size={13}
+                              />
+
+                              {
+                                customer.phone
+                                ||
+                                "-"
+                              }
+
+                            </div>
+
+                          </td>
+
+
+                          <td>
+
+                            <span className="customer-gstin">
+
+                              {
+                                customer.gst_number
+                                ||
+                                "-"
+                              }
+
+                            </span>
+
+                          </td>
+
+
+                          <td>
+
+                            <div className="customer-inline">
+
+                              <MapPin
+                                size={13}
+                              />
+
+                              {
+                                customer.city
+                                ||
+                                "-"
+                              }
+
+                              {
+                                customer.state
+                                ? (
+                                  <>
+                                    {", "}
+                                    {
+                                      customer.state
+                                    }
+                                  </>
+                                )
+                                : null
+                              }
+
+                            </div>
+
+                          </td>
+
+
+                          <td className="align-right">
+
                             <button
                               type="button"
                               className="customer-icon-button"
@@ -575,336 +822,574 @@ import {
                                   customer
                                 )
                               }
-                              title="Edit customer"
+                              title="Edit customer details"
                             >
-                              <Edit3 size={15} />
+
+                              <Edit3
+                                size={15}
+                              />
+
                             </button>
-  
-  
-                            {customer.is_active && (
-                              <button
-                                type="button"
-                                className="customer-deactivate-button"
-                                onClick={() =>
-                                  handleDeactivate(
-                                    customer
-                                  )
-                                }
-                              >
-                                Deactivate
-                              </button>
-                            )}
-  
-                          </div>
-                        </td>
-  
-                      </tr>
+
+                          </td>
+
+                        </tr>
+                      )
                     )
-                  )}
+                  }
+
                 </tbody>
-  
+
               </table>
+
             </div>
-          )}
-  
-        </div>
-  
-  
-        {showForm && (
+          )
+        }
+
+      </div>
+
+
+      {/* ======================================================
+          EDIT MODAL
+      ====================================================== */}
+
+      {
+        showForm
+        &&
+        editingCustomer
+        && (
           <div className="customer-modal-backdrop">
-  
+
             <div className="customer-modal">
-  
+
               <div className="customer-modal-header">
+
                 <div>
+
                   <div className="customer-modal-title">
-                    {editingCustomer
-                      ? "Edit Customer"
-                      : "Add Customer"}
+                    Edit Customer
                   </div>
-  
+
+
                   <div className="customer-modal-subtitle">
-                    Enter customer master information.
+                    Contact and address information
+                    can be corrected here.
                   </div>
+
                 </div>
-  
+
+
                 <button
                   type="button"
                   className="customer-modal-close"
-                  onClick={closeForm}
+                  onClick={
+                    closeForm
+                  }
+                  disabled={
+                    saving
+                  }
                 >
-                  <X size={18} />
+
+                  <X
+                    size={18}
+                  />
+
                 </button>
+
               </div>
-  
-  
+
+
               <form
                 className="customer-form"
-                onSubmit={handleSubmit}
+                onSubmit={
+                  handleSubmit
+                }
               >
-  
+
+                {/* ==================================================
+                    LOCKED CUSTOMER IDENTITY
+
+                    These are text DISPLAY BLOCKS, not inputs.
+                    They cannot be typed into or edited.
+                ================================================== */}
+
                 <div className="customer-form-grid">
-  
-                  <label className="customer-field">
+
+                  <div className="customer-field">
+
                     <span>
-                      Customer Code *
+                      Customer Code
                     </span>
-  
-                    <input
-                      required
-                      value={
-                        form.customer_code
-                      }
-                      onChange={(event) =>
-                        updateField(
-                          "customer_code",
-                          event.target.value
-                        )
-                      }
-                    />
-                  </label>
-  
-  
+
+
+                    <div
+                      style={{
+                        minHeight:
+                          "42px",
+
+                        display:
+                          "flex",
+
+                        alignItems:
+                          "center",
+
+                        justifyContent:
+                          "space-between",
+
+                        gap:
+                          "10px",
+
+                        padding:
+                          "0 13px",
+
+                        border:
+                          "1px solid #dbe5f2",
+
+                        borderRadius:
+                          "8px",
+
+                        background:
+                          "#f3f6fa",
+
+                        color:
+                          "#53647f",
+
+                        fontWeight:
+                          700,
+
+                        userSelect:
+                          "text",
+                      }}
+                    >
+
+                      <span>
+
+                        {
+                          editingCustomer
+                            .customer_code
+                        }
+
+                      </span>
+
+
+                      <LockKeyhole
+                        size={15}
+                        style={{
+                          color:
+                            "#8290a8",
+
+                          flexShrink:
+                            0,
+                        }}
+                      />
+
+                    </div>
+
+                  </div>
+
+
+                  <div className="customer-field">
+
+                    <span>
+                      GST Number
+                    </span>
+
+
+                    <div
+                      style={{
+                        minHeight:
+                          "42px",
+
+                        display:
+                          "flex",
+
+                        alignItems:
+                          "center",
+
+                        justifyContent:
+                          "space-between",
+
+                        gap:
+                          "10px",
+
+                        padding:
+                          "0 13px",
+
+                        border:
+                          "1px solid #dbe5f2",
+
+                        borderRadius:
+                          "8px",
+
+                        background:
+                          "#f3f6fa",
+
+                        color:
+                          "#53647f",
+
+                        fontWeight:
+                          700,
+
+                        userSelect:
+                          "text",
+                      }}
+                    >
+
+                      <span>
+
+                        {
+                          editingCustomer
+                            .gst_number
+                          ||
+                          "-"
+                        }
+
+                      </span>
+
+
+                      <LockKeyhole
+                        size={15}
+                        style={{
+                          color:
+                            "#8290a8",
+
+                          flexShrink:
+                            0,
+                        }}
+                      />
+
+                    </div>
+
+                  </div>
+
+
+                  {/* ==========================================
+                      COMPANY NAME
+                  ========================================== */}
+
                   <label className="customer-field">
+
                     <span>
                       Company Name *
                     </span>
-  
+
+
                     <input
                       required
                       value={
                         form.company_name
                       }
-                      onChange={(event) =>
-                        updateField(
-                          "company_name",
-                          event.target.value
-                        )
+                      onChange={
+                        event =>
+                          updateField(
+                            "company_name",
+                            event.target.value
+                          )
                       }
                     />
+
                   </label>
-  
-  
+
+
+                  {/* ==========================================
+                      CONTACT PERSON
+                  ========================================== */}
+
                   <label className="customer-field">
+
                     <span>
-                      Contact Person *
+                      Contact Person
                     </span>
-  
+
+
                     <input
-                      required
                       value={
                         form.contact_person
                       }
-                      onChange={(event) =>
-                        updateField(
-                          "contact_person",
-                          event.target.value
-                        )
+                      onChange={
+                        event =>
+                          updateField(
+                            "contact_person",
+                            event.target.value
+                          )
                       }
                     />
+
                   </label>
-  
-  
+
+
+                  {/* ==========================================
+                      EMAIL
+                  ========================================== */}
+
                   <label className="customer-field">
+
                     <span>
-                      Email *
+                      Email
                     </span>
-  
+
+
                     <input
-                      required
                       type="email"
                       value={
                         form.email
                       }
-                      onChange={(event) =>
-                        updateField(
-                          "email",
-                          event.target.value
-                        )
+                      onChange={
+                        event =>
+                          updateField(
+                            "email",
+                            event.target.value
+                          )
                       }
                     />
+
                   </label>
-  
-  
+
+
+                  {/* ==========================================
+                      PHONE
+                  ========================================== */}
+
                   <label className="customer-field">
+
                     <span>
-                      Phone *
+                      Phone
                     </span>
-  
+
+
                     <input
-                      required
                       value={
                         form.phone
                       }
-                      onChange={(event) =>
-                        updateField(
-                          "phone",
-                          event.target.value
-                        )
+                      onChange={
+                        event =>
+                          updateField(
+                            "phone",
+                            event.target.value
+                          )
                       }
                     />
+
                   </label>
-  
-  
+
+
+                  {/* ==========================================
+                      CITY
+                  ========================================== */}
+
                   <label className="customer-field">
+
                     <span>
-                      GST Number *
+                      City
                     </span>
-  
+
+
                     <input
-                      required
-                      value={
-                        form.gst_number
-                      }
-                      onChange={(event) =>
-                        updateField(
-                          "gst_number",
-                          event.target.value
-                        )
-                      }
-                    />
-                  </label>
-  
-  
-                  <label className="customer-field">
-                    <span>
-                      City *
-                    </span>
-  
-                    <input
-                      required
                       value={
                         form.city
                       }
-                      onChange={(event) =>
-                        updateField(
-                          "city",
-                          event.target.value
-                        )
+                      onChange={
+                        event =>
+                          updateField(
+                            "city",
+                            event.target.value
+                          )
                       }
                     />
+
                   </label>
-  
-  
+
+
+                  {/* ==========================================
+                      STATE
+                  ========================================== */}
+
                   <label className="customer-field">
+
                     <span>
-                      State *
+                      State
                     </span>
-  
+
+
                     <input
-                      required
                       value={
                         form.state
                       }
-                      onChange={(event) =>
-                        updateField(
-                          "state",
-                          event.target.value
-                        )
+                      onChange={
+                        event =>
+                          updateField(
+                            "state",
+                            event.target.value
+                          )
                       }
                     />
+
                   </label>
-  
-  
+
+
+                  {/* ==========================================
+                      PINCODE
+                  ========================================== */}
+
                   <label className="customer-field">
+
                     <span>
-                      Pincode *
+                      Pincode
                     </span>
-  
+
+
                     <input
-                      required
                       value={
                         form.pincode
                       }
-                      onChange={(event) =>
-                        updateField(
-                          "pincode",
-                          event.target.value
-                        )
+                      onChange={
+                        event =>
+                          updateField(
+                            "pincode",
+                            event.target.value
+                          )
                       }
                     />
+
                   </label>
-  
-  
-                  <label className="customer-checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={
-                        form.is_active
-                      }
-                      onChange={(event) =>
-                        updateField(
-                          "is_active",
-                          event.target.checked
-                        )
-                      }
-                    />
-  
-                    Active Customer
-                  </label>
-  
+
                 </div>
-  
-  
+
+
+                {/* ============================================
+                    ADDRESS
+                ============================================ */}
+
                 <label className="customer-field customer-field-full">
+
                   <span>
-                    Address *
+                    Address
                   </span>
-  
+
+
                   <textarea
-                    required
                     rows={3}
                     value={
                       form.address
                     }
-                    onChange={(event) =>
-                      updateField(
-                        "address",
-                        event.target.value
-                      )
+                    onChange={
+                      event =>
+                        updateField(
+                          "address",
+                          event.target.value
+                        )
                     }
                   />
+
                 </label>
-  
-  
+
+
+                {/* ============================================
+                    IDENTITY NOTICE
+                ============================================ */}
+
+                <div
+                  style={{
+                    margin:
+                      "0 0 18px",
+
+                    padding:
+                      "12px 14px",
+
+                    border:
+                      "1px solid #dbe5f2",
+
+                    borderRadius:
+                      "9px",
+
+                    background:
+                      "#f8fafc",
+
+                    color:
+                      "#677791",
+
+                    fontSize:
+                      "11px",
+
+                    display:
+                      "flex",
+
+                    alignItems:
+                      "center",
+
+                    gap:
+                      "8px",
+                  }}
+                >
+
+                  <LockKeyhole
+                    size={15}
+                  />
+
+                  Customer Code and GSTIN are
+                  locked customer identity fields.
+                  GSTIN corrections must be made
+                  through the Enquiry workflow.
+
+                </div>
+
+
+                {/* ============================================
+                    ACTIONS
+                ============================================ */}
+
                 <div className="customer-form-actions">
-  
+
                   <button
                     type="button"
                     className="customer-ghost-button"
-                    onClick={closeForm}
+                    onClick={
+                      closeForm
+                    }
+                    disabled={
+                      saving
+                    }
                   >
                     Cancel
                   </button>
-  
-  
+
+
                   <button
                     type="submit"
                     className="customer-primary-button"
-                    disabled={saving}
+                    disabled={
+                      saving
+                    }
                   >
-                    {saving ? (
-                      <Loader2
-                        size={16}
-                        className="customer-spin"
-                      />
-                    ) : (
-                      <Plus size={16} />
-                    )}
-  
-                    {editingCustomer
-                      ? "Save Changes"
-                      : "Create Customer"}
+
+                    {
+                      saving
+                      && (
+                        <Loader2
+                          size={16}
+                          className="customer-spin"
+                        />
+                      )
+                    }
+
+                    {
+                      saving
+                        ? "Saving..."
+                        : "Save Changes"
+                    }
+
                   </button>
-  
+
                 </div>
-  
+
               </form>
-  
+
             </div>
+
           </div>
-        )}
-  
-      </div>
-    );
-  }
+        )
+      }
+
+    </div>
+  );
+}

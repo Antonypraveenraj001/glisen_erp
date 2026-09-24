@@ -39,7 +39,7 @@
   margin-bottom: 5px;
   color: #64748b;
   font-size: 9px;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: 0.14em;
 }
 
@@ -48,7 +48,7 @@
   color: #111827;
   font-size: 25px;
   line-height: 1.15;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: -0.025em;
 }
 
@@ -57,6 +57,7 @@
   color: #64748b;
   font-size: 12px;
   line-height: 1.5;
+  font-weight: 400;
 }
 
 .page-actions {
@@ -81,7 +82,7 @@
   padding: 0 14px;
   border-radius: 9px;
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 700;
   cursor: pointer;
   transition:
     transform 0.12s ease,
@@ -195,7 +196,7 @@
   color: #111827;
   font-size: 20px;
   line-height: 1.1;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .proforma-kpi small {
@@ -370,7 +371,7 @@
   text-align: left;
   white-space: nowrap;
   font-size: 9px;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: 0.035em;
   text-transform: uppercase;
 }
@@ -403,26 +404,18 @@
 }
 
 .record-secondary {
+  display: block;
   margin-top: 3px;
   color: #94a3b8;
   font-size: 9px;
+  line-height: 1.35;
+  font-weight: 500;
 }
 
 .customer-name {
   color: #334155;
+  font-size: 11px;
   font-weight: 700;
-}
-
-.id-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border-radius: 7px;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 9px;
-  font-weight: 750;
 }
 
 .amount {
@@ -441,7 +434,9 @@
   background: #f8fafc;
   color: #475569;
   font-size: 9px;
+  line-height: 1;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .status-badge.draft {
@@ -456,7 +451,20 @@
   color: #2563eb;
 }
 
-.status-badge.confirmed {
+.status-badge.confirmed,
+.status-badge.order-confirmed {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.status-badge.production-started {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-badge.production-completed {
   border-color: #bbf7d0;
   background: #f0fdf4;
   color: #15803d;
@@ -598,6 +606,7 @@
   margin: 0;
   color: #172033;
   font-size: 13px;
+  line-height: 1.25;
   font-weight: 800;
 }
 
@@ -605,6 +614,8 @@
   margin: 4px 0 0;
   color: #94a3b8;
   font-size: 9px;
+  line-height: 1.4;
+  font-weight: 400;
 }
 
 .form-grid {
@@ -622,6 +633,41 @@
     repeat(3, minmax(0, 1fr));
 }
 
+/* =========================================================
+   READ-ONLY INFORMATION CELLS
+
+   Proforma detail page uses plain DIVs instead of inputs.
+   These rules make them match the old compact ERP style.
+========================================================= */
+
+.form-grid > div {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.form-grid > div > .record-secondary {
+  display: block;
+  margin: 0 0 5px;
+  color: #94a3b8;
+  font-size: 8px;
+  line-height: 1.2;
+  font-weight: 650;
+}
+
+.form-grid > div > strong {
+  display: block;
+  margin: 0;
+  color: #334155;
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 700;
+  letter-spacing: 0;
+  word-break: break-word;
+}
+
 .form-grid label {
   display: flex;
   flex-direction: column;
@@ -631,7 +677,7 @@
 .form-grid label > span {
   color: #475569;
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .form-grid input,
@@ -644,6 +690,7 @@
   background: #ffffff;
   color: #1e293b;
   font-size: 11px;
+  font-weight: 400;
   transition:
     border-color 0.12s ease,
     box-shadow 0.12s ease;
@@ -686,26 +733,39 @@
 
 .items-table {
   width: 100%;
-  min-width: 1000px;
+  min-width: 840px;
   border-collapse: collapse;
+  table-layout: auto;
 }
 
 .items-table th {
   height: 39px;
-  padding: 0 8px;
+  padding: 0 9px;
   background: #f8fafc;
   border-bottom: 1px solid #e5eaf0;
   color: #64748b;
   text-align: left;
   font-size: 8px;
-  font-weight: 850;
+  line-height: 1.2;
+  font-weight: 800;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .items-table td {
-  padding: 7px;
+  padding: 9px;
   border-bottom: 1px solid #eef2f6;
+  color: #475569;
+  font-size: 10px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.items-table td strong {
+  color: #334155;
+  font-size: 10px;
+  line-height: 1.4;
+  font-weight: 700;
 }
 
 .items-table tbody tr:last-child td {
@@ -728,29 +788,65 @@
   border-color: #93c5fd;
 }
 
+/*
+  Current table:
+  1 Description
+  2 Qty
+  3 Unit
+  4 Unit Price
+  5 Discount
+  6 GST
+  7 Total
+  8 Edit action, when editing
+*/
+
+.items-table th:first-child,
 .items-table td:first-child {
-  width: 75px;
+  min-width: 220px;
+  width: auto;
 }
 
+.items-table th:nth-child(2),
 .items-table td:nth-child(2) {
-  min-width: 210px;
-}
-
-.items-table td:nth-child(3) {
   width: 70px;
+  min-width: 70px;
 }
 
-.items-table td:nth-child(4) {
+.items-table th:nth-child(3),
+.items-table td:nth-child(3) {
   width: 75px;
+  min-width: 75px;
 }
 
+.items-table th:nth-child(4),
+.items-table td:nth-child(4) {
+  width: 110px;
+  min-width: 110px;
+}
+
+.items-table th:nth-child(5),
 .items-table td:nth-child(5) {
-  width: 105px;
+  width: 90px;
+  min-width: 90px;
 }
 
-.items-table td:nth-child(6),
+.items-table th:nth-child(6),
+.items-table td:nth-child(6) {
+  width: 80px;
+  min-width: 80px;
+}
+
+.items-table th:nth-child(7),
 .items-table td:nth-child(7) {
-  width: 90px;
+  width: 115px;
+  min-width: 115px;
+  white-space: nowrap;
+}
+
+.items-table th:nth-child(8),
+.items-table td:nth-child(8) {
+  width: 45px;
+  min-width: 45px;
 }
 
 .line-total {
@@ -806,7 +902,7 @@
 .status-card-title span {
   color: #94a3b8;
   font-size: 8px;
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: 0.12em;
 }
 
@@ -814,7 +910,8 @@
   margin: 5px 0 0;
   color: #172033;
   font-size: 13px;
-  font-weight: 850;
+  line-height: 1.25;
+  font-weight: 800;
 }
 
 .summary-card-header svg {
@@ -839,7 +936,8 @@
   margin-top: 5px;
   color: #172033;
   font-size: 23px;
-  font-weight: 850;
+  line-height: 1.15;
+  font-weight: 800;
   letter-spacing: -0.025em;
 }
 
@@ -867,7 +965,7 @@
 .summary-meta strong {
   color: #334155;
   font-size: 10px;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .summary-divider {
@@ -930,7 +1028,11 @@
 ========================================================= */
 
 .spin {
-  animation: proforma-spin 0.8s linear infinite;
+  animation:
+    proforma-spin
+    0.8s
+    linear
+    infinite;
 }
 
 @keyframes proforma-spin {
@@ -944,6 +1046,7 @@
 ========================================================= */
 
 @media (max-width: 1200px) {
+
   .proforma-kpi-grid {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
@@ -969,6 +1072,7 @@
 }
 
 @media (max-width: 800px) {
+
   .proforma-page-header {
     flex-direction: column;
   }
@@ -1008,6 +1112,7 @@
 }
 
 @media (max-width: 600px) {
+
   .page-heading {
     gap: 10px;
   }
@@ -1091,10 +1196,6 @@
     background: #ffffff !important;
   }
 
-  /*
-    Reserve the top of the first printed page for
-    the company letterhead / printed company header.
-  */
   .proforma-page::before {
     content: "";
     display: block;
@@ -1117,11 +1218,8 @@
     border-bottom:
       1px solid #d9dee7;
 
-    break-inside:
-      avoid;
-
-    page-break-inside:
-      avoid;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .page-heading {
@@ -1168,6 +1266,7 @@
   .summary-card {
     width: 100% !important;
     box-sizing: border-box;
+
     margin:
       0
       0
@@ -1190,16 +1289,10 @@
       #ffffff !important;
   }
 
-  /*
-    Keep normal information blocks together.
-  */
   .form-card:not(:has(.items-table-wrapper)),
   .summary-card {
-    break-inside:
-      avoid-page;
-
-    page-break-inside:
-      avoid;
+    break-inside: avoid-page;
+    page-break-inside: avoid;
   }
 
   .form-card-heading {
@@ -1234,60 +1327,47 @@
     grid-column: span 2 !important;
   }
 
-  /*
-    Inputs should look like document fields,
-    not editable browser controls.
-  */
+  .form-grid > div {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  .form-grid > div > .record-secondary {
+    margin-bottom: 1mm;
+    color: #64748b !important;
+    font-size: 7.5px !important;
+  }
+
+  .form-grid > div > strong {
+    color: #111827 !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+  }
+
   .form-grid input,
   .form-grid select,
   .form-grid textarea,
   .items-table input {
-    border:
-      0 !important;
-
-    border-radius:
-      0 !important;
-
-    box-shadow:
-      none !important;
-
-    outline:
-      none !important;
-
-    background:
-      transparent !important;
-
-    color:
-      #111827 !important;
-
-    padding:
-      0 !important;
-
-    height:
-      auto !important;
-
-    min-height:
-      0 !important;
-
-    font-size:
-      9px !important;
-
-    appearance:
-      none;
-
-    -webkit-appearance:
-      none;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: transparent !important;
+    color: #111827 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    font-size: 9px !important;
+    appearance: none;
+    -webkit-appearance: none;
   }
 
   .form-grid textarea {
-    resize:
-      none !important;
-
-    overflow:
-      visible !important;
-
-    white-space:
-      pre-wrap;
+    resize: none !important;
+    overflow: visible !important;
+    white-space: pre-wrap;
   }
 
   .form-grid label > span {
@@ -1296,9 +1376,6 @@
     color: #64748b !important;
   }
 
-  /*
-    Item table print behaviour.
-  */
   .items-table-wrapper {
     width: 100% !important;
     overflow: visible !important;
@@ -1318,25 +1395,21 @@
   }
 
   .items-table thead {
-    display:
-      table-header-group;
+    display: table-header-group;
   }
 
   .items-table tfoot {
-    display:
-      table-footer-group;
+    display: table-footer-group;
   }
 
   .items-table tr {
-    break-inside:
-      avoid;
-
-    page-break-inside:
-      avoid;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .items-table th {
     height: auto !important;
+
     padding:
       2mm
       1.5mm !important;
@@ -1372,49 +1445,68 @@
       top;
   }
 
-  .items-table td:first-child {
-    width: 7% !important;
+  .items-table td strong {
+    font-size: 7px !important;
   }
 
-  .items-table td:nth-child(2) {
+  .items-table th:first-child,
+  .items-table td:first-child {
     width: 30% !important;
     min-width: 0 !important;
   }
 
+  .items-table th:nth-child(2),
+  .items-table td:nth-child(2) {
+    width: 8% !important;
+    min-width: 0 !important;
+  }
+
+  .items-table th:nth-child(3),
   .items-table td:nth-child(3) {
     width: 8% !important;
+    min-width: 0 !important;
   }
 
+  .items-table th:nth-child(4),
   .items-table td:nth-child(4) {
-    width: 8% !important;
+    width: 15% !important;
+    min-width: 0 !important;
   }
 
+  .items-table th:nth-child(5),
   .items-table td:nth-child(5) {
-    width: 13% !important;
+    width: 11% !important;
+    min-width: 0 !important;
   }
 
-  .items-table td:nth-child(6),
-  .items-table td:nth-child(7) {
+  .items-table th:nth-child(6),
+  .items-table td:nth-child(6) {
     width: 10% !important;
+    min-width: 0 !important;
+  }
+
+  .items-table th:nth-child(7),
+  .items-table td:nth-child(7) {
+    width: 18% !important;
+    min-width: 0 !important;
+  }
+
+  .items-table th:nth-child(8),
+  .items-table td:nth-child(8) {
+    display: none !important;
   }
 
   .line-total {
     font-size: 7px !important;
   }
 
-  /*
-    Summary should stay intact.
-  */
   .summary-card {
     margin-top: 2mm !important;
   }
 
   .summary-card-header {
-    break-after:
-      avoid;
-
-    page-break-after:
-      avoid;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .summary-card-header h3 {
@@ -1449,30 +1541,17 @@
     font-size: 8px;
   }
 
-  /*
-    Do not allow major document blocks to start
-    with only their heading at the bottom of a page.
-  */
   .form-card-heading,
   .summary-card-header,
   label {
-    break-after:
-      avoid;
-
-    page-break-after:
-      avoid;
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
-  /*
-    Keep each field group from being broken internally.
-  */
   .form-grid > *,
   .summary-lines > *,
   .summary-meta > * {
-    break-inside:
-      avoid;
-
-    page-break-inside:
-      avoid;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

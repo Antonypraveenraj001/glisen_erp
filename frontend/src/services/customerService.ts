@@ -2,7 +2,6 @@ import axios from "axios";
 
 import type {
   Customer,
-  CustomerCreatePayload,
   CustomerUpdatePayload,
 } from "../types/customer";
 
@@ -13,7 +12,9 @@ const API_BASE_URL =
 
 function getAuthHeaders() {
   const token =
-    localStorage.getItem("access_token");
+    localStorage.getItem(
+      "access_token"
+    );
 
   if (!token) {
     throw new Error(
@@ -22,24 +23,33 @@ function getAuthHeaders() {
   }
 
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization:
+      `Bearer ${token}`,
   };
 }
 
+
+/* ============================================================
+   GET CUSTOMERS
+============================================================ */
 
 export async function getCustomers(
   search?: string
 ): Promise<Customer[]> {
 
   const response =
-    await axios.get<Customer[]>(
+    await axios.get<
+      Customer[]
+    >(
       `${API_BASE_URL}/customers`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
 
         params: {
           search:
-            search?.trim() ||
+            search?.trim()
+            ||
             undefined,
         },
       }
@@ -49,15 +59,22 @@ export async function getCustomers(
 }
 
 
+/* ============================================================
+   GET CUSTOMER BY ID
+============================================================ */
+
 export async function getCustomerById(
   customerId: number
 ): Promise<Customer> {
 
   const response =
-    await axios.get<Customer>(
+    await axios.get<
+      Customer
+    >(
       `${API_BASE_URL}/customers/${customerId}`,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
@@ -65,22 +82,12 @@ export async function getCustomerById(
 }
 
 
-export async function createCustomer(
-  payload: CustomerCreatePayload
-): Promise<Customer> {
+/* ============================================================
+   UPDATE CUSTOMER DETAILS
 
-  const response =
-    await axios.post<Customer>(
-      `${API_BASE_URL}/customers`,
-      payload,
-      {
-        headers: getAuthHeaders(),
-      }
-    );
-
-  return response.data;
-}
-
+   Customer Code and GSTIN are intentionally NOT part of the
+   payload and cannot be changed from Customer Master.
+============================================================ */
 
 export async function updateCustomer(
   customerId: number,
@@ -88,26 +95,16 @@ export async function updateCustomer(
 ): Promise<Customer> {
 
   const response =
-    await axios.put<Customer>(
+    await axios.put<
+      Customer
+    >(
       `${API_BASE_URL}/customers/${customerId}`,
       payload,
       {
-        headers: getAuthHeaders(),
+        headers:
+          getAuthHeaders(),
       }
     );
 
   return response.data;
-}
-
-
-export async function deactivateCustomer(
-  customerId: number
-): Promise<void> {
-
-  await axios.delete(
-    `${API_BASE_URL}/customers/${customerId}`,
-    {
-      headers: getAuthHeaders(),
-    }
-  );
 }

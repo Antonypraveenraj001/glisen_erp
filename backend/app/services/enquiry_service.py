@@ -32,7 +32,10 @@ class EnquiryService:
         normalized = (
             gst_number
             or ""
-        ).strip().upper()
+        ).strip().upper().replace(
+            " ",
+            "",
+        )
 
         if not normalized:
             raise ValueError(
@@ -40,6 +43,25 @@ class EnquiryService:
             )
 
         return normalized
+
+    # ============================================================
+    # NORMALIZE COMPANY NAME
+    # ============================================================
+
+    @staticmethod
+    def _normalize_company_name(
+        company_name: str | None,
+    ) -> str:
+
+        return " ".join(
+            (
+                company_name
+                or ""
+            )
+            .strip()
+            .lower()
+            .split()
+        )
 
     # ============================================================
     # CUSTOMER CODE
@@ -79,9 +101,7 @@ class EnquiryService:
                 else ""
             )
 
-            if (
-                suffix.isdigit()
-            ):
+            if suffix.isdigit():
 
                 highest_number = max(
                     highest_number,
@@ -120,8 +140,10 @@ class EnquiryService:
             db.query(Customer)
             .filter(
                 func.upper(
-                    func.trim(
-                        Customer.gst_number
+                    func.replace(
+                        Customer.gst_number,
+                        " ",
+                        "",
                     )
                 )
                 == normalized_gst
@@ -155,6 +177,13 @@ class EnquiryService:
             )
         )
 
+        normalized_company = (
+            EnquiryService
+            ._normalize_company_name(
+                company_name
+            )
+        )
+
         customer = (
             EnquiryService
             ._find_customer_by_gst(
@@ -166,16 +195,49 @@ class EnquiryService:
         )
 
         # ========================================================
-        # EXISTING CUSTOMER
-        #
-        # Update master with the latest Enquiry details.
-        # is_active is intentionally NOT used to block anything.
+        # GSTIN ALREADY EXISTS
         # ========================================================
 
         if (
             customer
             is not None
         ):
+
+            existing_company = (
+                EnquiryService
+                ._normalize_company_name(
+                    customer.company_name
+                )
+            )
+
+            # ----------------------------------------------------
+            # CRITICAL PROTECTION
+            #
+            # Never overwrite Customer A with Customer B merely
+            # because both were given the same GSTIN.
+            # ----------------------------------------------------
+
+            if (
+                existing_company
+                != normalized_company
+            ):
+
+                raise ValueError(
+                    f"GST Number {normalized_gst} is already "
+                    f"linked to customer "
+                    f"'{customer.company_name}' "
+                    f"({customer.customer_code}). "
+                    f"It cannot also be used for "
+                    f"'{company_name}'. "
+                    f"Please correct the GST Number "
+                    f"in the Enquiry."
+                )
+
+            # ====================================================
+            # SAME CUSTOMER
+            #
+            # Refresh master information from latest Enquiry.
+            # ====================================================
 
             customer.company_name = (
                 company_name.strip()
@@ -213,6 +275,10 @@ class EnquiryService:
                 pincode
             )
 
+            # Kept internally only.
+            # Returning customer becomes active automatically.
+            customer.is_active = True
+
             db.flush()
 
             return customer
@@ -228,36 +294,43 @@ class EnquiryService:
                     db
                 )
             ),
+
             company_name=(
                 company_name.strip()
             ),
+
             contact_person=(
                 contact_person
             ),
+
             phone=(
                 phone
             ),
+
             email=(
                 email
             ),
+
             gst_number=(
                 normalized_gst
             ),
+
             address=(
                 address
             ),
+
             city=(
                 city
             ),
+
             state=(
                 state
             ),
+
             pincode=(
                 pincode
             ),
 
-            # Kept only as legacy/archive metadata.
-            # It must not control sales or billing.
             is_active=True,
         )
 
@@ -356,37 +429,46 @@ class EnquiryService:
                 EnquiryService
                 ._get_or_create_customer(
                     db=db,
+
                     company_name=(
                         enquiry_data
                         .company_name
                     ),
+
                     gst_number=(
                         gst_number
                     ),
+
                     contact_person=(
                         enquiry_data
                         .contact_person
                     ),
+
                     phone=(
                         enquiry_data
                         .phone
                     ),
+
                     email=(
                         enquiry_data
                         .email
                     ),
+
                     address=(
                         enquiry_data
                         .address
                     ),
+
                     city=(
                         enquiry_data
                         .city
                     ),
+
                     state=(
                         enquiry_data
                         .state
                     ),
+
                     pincode=(
                         enquiry_data
                         .pincode
@@ -405,73 +487,91 @@ class EnquiryService:
                 enquiry_number=(
                     enquiry_number
                 ),
+
                 enquiry_date=(
                     enquiry_data
                     .enquiry_date
                 ),
+
                 customer_id=(
                     customer.id
                 ),
+
                 company_name=(
                     enquiry_data
                     .company_name
                     .strip()
                 ),
+
                 contact_person=(
                     enquiry_data
                     .contact_person
                 ),
+
                 phone=(
                     enquiry_data
                     .phone
                 ),
+
                 email=(
                     enquiry_data
                     .email
                 ),
+
                 gst_number=(
                     gst_number
                 ),
+
                 address=(
                     enquiry_data
                     .address
                 ),
+
                 city=(
                     enquiry_data
                     .city
                 ),
+
                 state=(
                     enquiry_data
                     .state
                 ),
+
                 pincode=(
                     enquiry_data
                     .pincode
                 ),
+
                 machine_name=(
                     enquiry_data
                     .machine_name
                 ),
+
                 machine_model=(
                     enquiry_data
                     .machine_model
                 ),
+
                 application=(
                     enquiry_data
                     .application
                 ),
+
                 quantity=(
                     enquiry_data
                     .quantity
                 ),
+
                 requirements=(
                     enquiry_data
                     .requirements
                 ),
+
                 remarks=(
                     enquiry_data
                     .remarks
                 ),
+
                 status=(
                     enquiry_data
                     .status
@@ -587,7 +687,7 @@ class EnquiryService:
             )
 
             # ====================================================
-            # BUILD FINAL CUSTOMER SNAPSHOT
+            # FINAL CUSTOMER SNAPSHOT
             # ====================================================
 
             company_name = (
@@ -661,37 +761,46 @@ class EnquiryService:
             )
 
             # ====================================================
-            # CREATE / REUSE CUSTOMER BY GSTIN
+            # CREATE / REUSE CUSTOMER
             # ====================================================
 
             customer = (
                 EnquiryService
                 ._get_or_create_customer(
                     db=db,
+
                     company_name=(
                         company_name
                     ),
+
                     gst_number=(
                         normalized_gst
                     ),
+
                     contact_person=(
                         contact_person
                     ),
+
                     phone=(
                         phone
                     ),
+
                     email=(
                         email
                     ),
+
                     address=(
                         address
                     ),
+
                     city=(
                         city
                     ),
+
                     state=(
                         state
                     ),
+
                     pincode=(
                         pincode
                     ),
@@ -717,19 +826,12 @@ class EnquiryService:
                     value,
                 )
 
-            # Always store normalized GST.
             enquiry.gst_number = (
                 normalized_gst
             )
 
             # ====================================================
             # SYNC UNBILLED PROFORMAS
-            #
-            # If customer identity was corrected in Enquiry,
-            # existing unbilled Proformas must follow it.
-            #
-            # Once an original Final Bill exists, transaction
-            # history is left untouched.
             # ====================================================
 
             proformas = (
@@ -751,8 +853,11 @@ class EnquiryService:
                         FinalBill.proforma_id
                         == proforma.id,
 
-                        FinalBill.parent_invoice_id
-                        .is_(None),
+                        FinalBill
+                        .parent_invoice_id
+                        .is_(
+                            None
+                        ),
                     )
                     .first()
                 )
