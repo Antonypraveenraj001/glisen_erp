@@ -23,19 +23,24 @@ class DashboardRepository:
         db: Session,
     ) -> int:
         """
-        Count enquiries that are still operationally open.
+        Count only enquiries that are still waiting for
+        customer/order confirmation.
 
-        The Enquiry model currently stores status as a free
-        string rather than an enum, so terminal statuses are
-        excluded explicitly.
+        In the Glisen workflow an enquiry is OPEN only while it is:
 
-        Unknown / active workflow statuses remain counted.
+            New
+            Contacted
+            Quotation
+
+        Once the order is confirmed, cancelled, production starts,
+        billing starts, payment is received, etc., the enquiry is
+        no longer considered an open sales enquiry.
         """
 
-        terminal_statuses = [
-            "Closed",
-            "Cancelled",
-            "Canceled",
+        open_statuses = [
+            "new",
+            "contacted",
+            "quotation",
         ]
 
         count = (
@@ -46,13 +51,11 @@ class DashboardRepository:
             )
             .filter(
                 func.lower(
-                    Enquiry.status
-                ).notin_(
-                    [
-                        status.lower()
-                        for status
-                        in terminal_statuses
-                    ]
+                    func.trim(
+                        Enquiry.status
+                    )
+                ).in_(
+                    open_statuses
                 )
             )
             .scalar()
@@ -72,18 +75,19 @@ class DashboardRepository:
         db: Session,
     ):
         """
-        Return currently active Production Orders.
+        Return production that is actually running now.
 
-        Completed and Cancelled production orders are excluded.
+        Only In Progress / Started production orders are shown.
 
-        Current operation is selected from unfinished operations
-        using this priority:
+        IMPORTANT:
 
-            1. In Progress operation
-            2. Pending operation
-            3. Other non-completed operation
+        Manufactured output is NOT required to exist in the
+        purchased Product / Stock master.
 
-        No artificial percentage, operator or ETA is generated.
+        ProductionOrder.product_name is the manufacturing
+        source of truth.
+
+        product_id remains an optional legacy relationship only.
         """
 
         production_orders = (
@@ -97,22 +101,43 @@ class DashboardRepository:
                 Proforma.id
                 == ProductionOrder.proforma_id,
             )
-            .join(
+
+            # ----------------------------------------------------
+            # IMPORTANT
+            #
+            # New manufactured production orders normally have
+            # product_id = NULL.
+            #
+            # Therefore Product must be OUTER joined.
+            # An inner join would silently remove those jobs from
+            # the Dashboard.
+            # ----------------------------------------------------
+
+            .outerjoin(
                 Product,
                 Product.id
                 == ProductionOrder.product_id,
             )
+
+            # ----------------------------------------------------
+            # LIVE means production has actually started.
+            #
+            # Pending Production Orders are intentionally excluded.
+            # ----------------------------------------------------
+
             .filter(
                 func.lower(
-                    ProductionOrder.status
-                ).notin_(
+                    func.trim(
+                        ProductionOrder.status
+                    )
+                ).in_(
                     [
-                        "completed",
-                        "cancelled",
-                        "canceled",
+                        "in progress",
+                        "started",
                     ]
                 )
             )
+
             .order_by(
                 ProductionOrder.id.desc()
             )
@@ -149,6 +174,7 @@ class DashboardRepository:
             # ----------------------------------------------------
 
             for operation in operations:
+
                 operation_status = (
                     operation.status
                     or ""
@@ -160,18 +186,25 @@ class DashboardRepository:
                     "in_progress",
                     "started",
                 }:
+
                     current_operation = (
                         operation
                     )
+
                     break
 
             # ----------------------------------------------------
             # PRIORITY 2 - PENDING
+            #
+            # If production itself is running but the next
+            # operation has not started yet, show the first pending
+            # operation as the current manufacturing step.
             # ----------------------------------------------------
 
             if current_operation is None:
 
                 for operation in operations:
+
                     operation_status = (
                         operation.status
                         or ""
@@ -182,18 +215,21 @@ class DashboardRepository:
                         "not started",
                         "not_started",
                     }:
+
                         current_operation = (
                             operation
                         )
+
                         break
 
             # ----------------------------------------------------
-            # PRIORITY 3 - ANY NON-COMPLETED OPERATION
+            # PRIORITY 3 - ANY OTHER NON-COMPLETED OPERATION
             # ----------------------------------------------------
 
             if current_operation is None:
 
                 for operation in operations:
+
                     operation_status = (
                         operation.status
                         or ""
@@ -204,9 +240,11 @@ class DashboardRepository:
                         "cancelled",
                         "canceled",
                     }:
+
                         current_operation = (
                             operation
                         )
+
                         break
 
             result.append(
@@ -232,16 +270,30 @@ class DashboardRepository:
                         proforma.company_name
                     ),
 
+                    # --------------------------------------------
+                    # LEGACY PRODUCT MASTER LINK
+                    #
+                    # NULL for normal manufactured products.
+                    # --------------------------------------------
+
                     "product_id": (
-                        product.id
+                        production_order
+                        .product_id
                     ),
 
                     "product_code": (
                         product.product_code
+                        if product is not None
+                        else None
                     ),
 
+                    # --------------------------------------------
+                    # MANUFACTURED PRODUCT SOURCE OF TRUTH
+                    # --------------------------------------------
+
                     "product_name": (
-                        product.product_name
+                        production_order
+                        .product_name
                     ),
 
                     "quantity": (

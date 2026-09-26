@@ -13,27 +13,48 @@ from app.schemas.purchase_bill_payment import (
 # ================================================================
 
 class DashboardLiveProductionItem(BaseModel):
+
     production_order_id: int
+
     production_number: str
 
     proforma_id: int
+
     proforma_number: str
 
     company_name: str
 
-    product_id: int
-    product_code: str
+    # ------------------------------------------------------------
+    # OPTIONAL LEGACY PRODUCT MASTER LINK
+    #
+    # New manufactured output does not need to exist in the
+    # purchased Product / Stock master.
+    # ------------------------------------------------------------
+
+    product_id: int | None = None
+
+    product_code: str | None = None
+
+    # ------------------------------------------------------------
+    # MANUFACTURED PRODUCT SOURCE OF TRUTH
+    # ------------------------------------------------------------
+
     product_name: str
 
     quantity: int
+
     status: str
 
     planned_start_date: date | None = None
+
     actual_start_date: date | None = None
+
     actual_end_date: date | None = None
 
     current_operation: str | None = None
+
     machine_name: str | None = None
+
     operation_status: str | None = None
 
 
@@ -42,14 +63,19 @@ class DashboardLiveProductionItem(BaseModel):
 # ================================================================
 
 class DashboardQuarterPerformance(BaseModel):
+
     label: str
 
     start_date: date
+
     end_date: date
 
     net_sales: Decimal
+
     production_cost: Decimal
+
     company_expenses: Decimal
+
     net_profit: Decimal
 
 
@@ -58,13 +84,17 @@ class DashboardQuarterPerformance(BaseModel):
 # ================================================================
 
 class DashboardMonthlySalesItem(BaseModel):
+
     month_key: str
+
     month_label: str
 
     start_date: date
+
     end_date: date
 
     net_sales: Decimal
+
     is_future: bool
 
 
@@ -85,13 +115,21 @@ class DashboardSummary(BaseModel):
     # ------------------------------------------------------------
 
     financial_year_label: str
+
     financial_year_start: date
+
     financial_year_end: date
 
     # ------------------------------------------------------------
     # BOSS-ONLY KPI
     #
-    # None for all non-Boss users.
+    # Open means:
+    #
+    # New
+    # Contacted
+    # Quotation
+    #
+    # None for non-Boss users.
     # ------------------------------------------------------------
 
     open_enquiries: int | None = None
@@ -126,8 +164,6 @@ class DashboardSummary(BaseModel):
 
     # ------------------------------------------------------------
     # BOSS-ONLY FY MONTHLY SALES
-    #
-    # Empty list for non-Boss users.
     # ------------------------------------------------------------
 
     monthly_sales: list[
@@ -137,8 +173,7 @@ class DashboardSummary(BaseModel):
     # ------------------------------------------------------------
     # PURCHASE BILL PAYMENT WATCH
     #
-    # Boss / Accounts / Purchase based on API permissions.
-    # Empty list for other roles.
+    # Boss / Accounts / Purchase.
     # ------------------------------------------------------------
 
     unpaid_purchase_bills: list[
