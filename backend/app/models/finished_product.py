@@ -1,9 +1,11 @@
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     UniqueConstraint,
     func,
@@ -55,10 +57,6 @@ class FinishedProduct(Base):
     # ========================================================
     # MANUFACTURED PRODUCT
     # ========================================================
-    #
-    # These fields are now the manufactured Finished Product
-    # source of truth.
-    # ========================================================
 
     product_name: Mapped[
         str
@@ -77,12 +75,6 @@ class FinishedProduct(Base):
 
     # ========================================================
     # LEGACY PRODUCT MASTER
-    # ========================================================
-    #
-    # Historical Finished Products can retain their old link.
-    #
-    # New custom manufactured products do not require a row in
-    # the purchased Products/Stock master.
     # ========================================================
 
     product_master_id: Mapped[
@@ -123,6 +115,89 @@ class FinishedProduct(Base):
             ondelete="RESTRICT",
         ),
         nullable=False,
+        index=True,
+    )
+
+    # ========================================================
+    # IMMUTABLE PRODUCTION COST SNAPSHOT
+    #
+    # These values will be calculated when production is
+    # completed and the Finished Product is created.
+    #
+    # They must NOT change later when salary, rent or another
+    # regular overhead is updated.
+    # ========================================================
+
+    material_cost: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+    )
+
+    operation_cost: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+    )
+
+    direct_expense_cost: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+    )
+
+    allocated_staff_cost: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+    )
+
+    allocated_overhead_cost: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+    )
+
+    total_production_cost: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+    )
+
+    unit_cost: Mapped[
+        Decimal
+    ] = mapped_column(
+        Numeric(14, 2),
+        nullable=False,
+        default=Decimal("0.00"),
+        server_default="0.00",
+    )
+
+    # NULL means an older Finished Product has not yet had
+    # its historical production-cost snapshot generated.
+    cost_snapshot_at: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime,
+        nullable=True,
         index=True,
     )
 

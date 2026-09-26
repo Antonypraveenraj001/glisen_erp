@@ -1,4 +1,7 @@
-from datetime import date, datetime
+from datetime import (
+    date,
+    datetime,
+)
 from decimal import Decimal
 
 from pydantic import (
@@ -27,22 +30,57 @@ from app.schemas.shop_floor_issue import (
 # ============================================================
 
 
-class FinishedProductResponse(BaseModel):
+class FinishedProductResponse(
+    BaseModel
+):
+
     id: int
 
     finished_product_number: str
 
-    # Manufactured output source of truth.
     product_name: str
 
     unit: str
 
-    # Legacy purchased Product relationship.
     product_master_id: int | None = None
 
     production_order_id: int
 
     finished_goods_receipt_id: int
+
+    # ========================================================
+    # FROZEN PRODUCTION COST SNAPSHOT
+    # ========================================================
+
+    material_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    operation_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    direct_expense_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    allocated_staff_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    allocated_overhead_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    total_production_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    unit_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    cost_snapshot_at: datetime | None = None
 
     created_by: int
 
@@ -58,7 +96,10 @@ class FinishedProductResponse(BaseModel):
 # ============================================================
 
 
-class FinishedProductMasterResponse(BaseModel):
+class FinishedProductMasterResponse(
+    BaseModel
+):
+
     id: int
 
     product_code: str
@@ -85,7 +126,10 @@ class FinishedProductMasterResponse(BaseModel):
 # ============================================================
 
 
-class FinishedProductCustomerResponse(BaseModel):
+class FinishedProductCustomerResponse(
+    BaseModel
+):
+
     id: int
 
     customer_code: str
@@ -118,7 +162,10 @@ class FinishedProductCustomerResponse(BaseModel):
 # ============================================================
 
 
-class FinishedProductEnquiryResponse(BaseModel):
+class FinishedProductEnquiryResponse(
+    BaseModel
+):
+
     id: int
 
     enquiry_number: str
@@ -169,7 +216,10 @@ class FinishedProductEnquiryResponse(BaseModel):
 # ============================================================
 
 
-class FinishedProductProformaResponse(BaseModel):
+class FinishedProductProformaResponse(
+    BaseModel
+):
+
     id: int
 
     proforma_number: str
@@ -204,7 +254,10 @@ class FinishedProductProformaResponse(BaseModel):
 # ============================================================
 
 
-class FinishedProductProductionResponse(BaseModel):
+class FinishedProductProductionResponse(
+    BaseModel
+):
+
     id: int
 
     production_number: str
@@ -217,7 +270,6 @@ class FinishedProductProductionResponse(BaseModel):
 
     unit: str
 
-    # Legacy purchased Product relationship.
     product_id: int | None = None
 
     quantity: int
@@ -246,7 +298,14 @@ class FinishedProductProductionResponse(BaseModel):
 # ============================================================
 
 
-class FinishedProductCostSummaryResponse(BaseModel):
+class FinishedProductCostSummaryResponse(
+    BaseModel
+):
+
+    # ========================================================
+    # DIRECT COSTS
+    # ========================================================
+
     actual_material_cost: Decimal = Field(
         default=Decimal("0.00"),
     )
@@ -254,6 +313,26 @@ class FinishedProductCostSummaryResponse(BaseModel):
     actual_operation_cost: Decimal = Field(
         default=Decimal("0.00"),
     )
+
+    direct_expense_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    # ========================================================
+    # INDIRECT COSTS
+    # ========================================================
+
+    allocated_staff_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    allocated_overhead_cost: Decimal = Field(
+        default=Decimal("0.00"),
+    )
+
+    # ========================================================
+    # TOTAL
+    # ========================================================
 
     actual_production_cost: Decimal = Field(
         default=Decimal("0.00"),
@@ -267,22 +346,31 @@ class FinishedProductCostSummaryResponse(BaseModel):
         default=Decimal("0.00"),
     )
 
+    cost_snapshot_at: datetime | None = None
+
 
 # ============================================================
 # BILLING TRACEABILITY
 # ============================================================
 
 
-class FinishedProductBillingResponse(BaseModel):
+class FinishedProductBillingResponse(
+    BaseModel
+):
+
     original_invoice: FinalBillResponse | None = None
 
     effective_invoice: FinalBillResponse | None = None
 
-    revisions: list[FinalBillResponse] = Field(
+    revisions: list[
+        FinalBillResponse
+    ] = Field(
         default_factory=list,
     )
 
-    credit_notes: list[FinalBillResponse] = Field(
+    credit_notes: list[
+        FinalBillResponse
+    ] = Field(
         default_factory=list,
     )
 
@@ -292,12 +380,16 @@ class FinishedProductBillingResponse(BaseModel):
 # ============================================================
 
 
-class FinishedProductTraceabilityResponse(BaseModel):
+class FinishedProductTraceabilityResponse(
+    BaseModel
+):
+
     finished_product: FinishedProductResponse
 
-    # Legacy finished products may have Product Master data.
-    # New manufactured products normally do not.
-    product_master: FinishedProductMasterResponse | None = None
+    product_master: (
+        FinishedProductMasterResponse
+        | None
+    ) = None
 
     customer: FinishedProductCustomerResponse
 
@@ -307,15 +399,21 @@ class FinishedProductTraceabilityResponse(BaseModel):
 
     production_order: FinishedProductProductionResponse
 
-    production_materials: list[ProductionMaterialResponse] = Field(
+    production_materials: list[
+        ProductionMaterialResponse
+    ] = Field(
         default_factory=list,
     )
 
-    shop_floor_issues: list[ShopFloorIssueResponse] = Field(
+    shop_floor_issues: list[
+        ShopFloorIssueResponse
+    ] = Field(
         default_factory=list,
     )
 
-    production_operations: list[ProductionOperationResponse] = Field(
+    production_operations: list[
+        ProductionOperationResponse
+    ] = Field(
         default_factory=list,
     )
 
@@ -324,5 +422,7 @@ class FinishedProductTraceabilityResponse(BaseModel):
     cost_summary: FinishedProductCostSummaryResponse
 
     billing: FinishedProductBillingResponse = Field(
-        default_factory=FinishedProductBillingResponse,
+        default_factory=(
+            FinishedProductBillingResponse
+        ),
     )

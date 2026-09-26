@@ -15,6 +15,9 @@ from app.schemas.finished_goods_receipt import (
 from app.services.finished_product import (
     FinishedProductService,
 )
+from app.services.production_cost_service import (
+    ProductionCostService,
+)
 
 
 class FinishedGoodsReceiptService:
@@ -61,6 +64,20 @@ class FinishedGoodsReceiptService:
         - no FINISHED_GOODS_IN Stock Movement is created
         - production_order.product_name is the manufactured
           product source of truth
+
+        Production costing:
+
+        - actual material cost
+        - actual operation cost
+        - direct production expense
+        - allocated staff salary
+        - allocated company overhead
+
+        are frozen into the Finished Product when the Finished
+        Goods Receipt is created.
+
+        Later salary / rent / overhead changes therefore do not
+        modify the historical Finished Product cost.
         """
 
         try:
@@ -121,6 +138,7 @@ class FinishedGoodsReceiptService:
 
 
             if not unit:
+
                 unit = "Nos"
 
 
@@ -128,14 +146,14 @@ class FinishedGoodsReceiptService:
             # EXISTING RECEIPT / RECOVERY
             # ====================================================
             #
-            # This makes the workflow safe to retry.
+            # This keeps the workflow safe to retry.
             #
-            # Example:
+            # If a receipt already exists but its Finished Product
+            # was never created, recreate the Finished Product and
+            # freeze its cost in the same transaction.
             #
-            # Production completed successfully,
-            # but Finished Product creation failed later.
-            #
-            # We can safely call this workflow again.
+            # Existing historical Finished Products are NOT
+            # automatically recalculated here.
             # ====================================================
 
             existing_receipt = (
@@ -164,17 +182,31 @@ class FinishedGoodsReceiptService:
                     is None
                 ):
 
-                    self.finished_product_service.create_from_receipt(
-                        production_order=(
-                            production_order
+                    finished_product = (
+                        self.finished_product_service
+                        .create_from_receipt(
+                            production_order=(
+                                production_order
+                            ),
+
+                            finished_goods_receipt=(
+                                existing_receipt
+                            ),
+
+                            created_by=(
+                                received_by
+                            ),
+                        )
+                    )
+
+
+                    self._apply_cost_snapshot(
+                        finished_product=(
+                            finished_product
                         ),
 
-                        finished_goods_receipt=(
-                            existing_receipt
-                        ),
-
-                        created_by=(
-                            received_by
+                        production_order_id=(
+                            production_order.id
                         ),
                     )
 
@@ -321,17 +353,46 @@ class FinishedGoodsReceiptService:
             # FINISHED PRODUCT
             # ====================================================
 
-            self.finished_product_service.create_from_receipt(
-                production_order=(
-                    production_order
+            finished_product = (
+                self.finished_product_service
+                .create_from_receipt(
+                    production_order=(
+                        production_order
+                    ),
+
+                    finished_goods_receipt=(
+                        created_receipt
+                    ),
+
+                    created_by=(
+                        received_by
+                    ),
+                )
+            )
+
+
+            # ====================================================
+            # FREEZE PRODUCTION COST
+            # ====================================================
+            #
+            # This happens before COMMIT.
+            #
+            # Therefore:
+            #
+            # Receipt
+            # + Finished Product
+            # + Cost Snapshot
+            #
+            # are committed together.
+            # ====================================================
+
+            self._apply_cost_snapshot(
+                finished_product=(
+                    finished_product
                 ),
 
-                finished_goods_receipt=(
-                    created_receipt
-                ),
-
-                created_by=(
-                    received_by
+                production_order_id=(
+                    production_order.id
                 ),
             )
 
@@ -356,6 +417,119 @@ class FinishedGoodsReceiptService:
             self.db.rollback()
 
             raise
+
+    # ============================================================
+    # FREEZE FINISHED PRODUCT COST
+    # ============================================================
+
+    def _apply_cost_snapshot(
+        self,
+        finished_product,
+        production_order_id: int,
+    ) -> None:
+
+        # --------------------------------------------------------
+        # NEVER REWRITE AN EXISTING SNAPSHOT
+        # --------------------------------------------------------
+
+        if (
+            finished_product.cost_snapshot_at
+            is not None
+        ):
+
+            return
+
+
+        # --------------------------------------------------------
+        # CALCULATE FINAL PRODUCTION COST
+        # --------------------------------------------------------
+
+        cost = (
+            ProductionCostService
+            .calculate(
+                db=self.db,
+
+                production_order_id=(
+                    production_order_id
+                ),
+            )
+        )
+
+
+        # --------------------------------------------------------
+        # DIRECT COSTS
+        # --------------------------------------------------------
+
+        finished_product.material_cost = (
+            cost[
+                "material_cost"
+            ]
+        )
+
+
+        finished_product.operation_cost = (
+            cost[
+                "operation_cost"
+            ]
+        )
+
+
+        finished_product.direct_expense_cost = (
+            cost[
+                "direct_expense_cost"
+            ]
+        )
+
+
+        # --------------------------------------------------------
+        # INDIRECT COSTS
+        # --------------------------------------------------------
+
+        finished_product.allocated_staff_cost = (
+            cost[
+                "allocated_staff_cost"
+            ]
+        )
+
+
+        finished_product.allocated_overhead_cost = (
+            cost[
+                "allocated_overhead_cost"
+            ]
+        )
+
+
+        # --------------------------------------------------------
+        # FINAL COST
+        # --------------------------------------------------------
+
+        finished_product.total_production_cost = (
+            cost[
+                "total_production_cost"
+            ]
+        )
+
+
+        finished_product.unit_cost = (
+            cost[
+                "unit_cost"
+            ]
+        )
+
+
+        # --------------------------------------------------------
+        # SNAPSHOT TIMESTAMP
+        #
+        # Once this timestamp exists, the historical Finished
+        # Product cost is considered frozen.
+        # --------------------------------------------------------
+
+        finished_product.cost_snapshot_at = (
+            datetime.utcnow()
+        )
+
+
+        self.db.flush()
 
     # ============================================================
     # READ

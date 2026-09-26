@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   Boxes,
   Building2,
-  CircleDollarSign,
   ClipboardList,
   Factory,
   FileText,
@@ -16,7 +15,6 @@ import {
   ReceiptText,
   Settings2,
   ShoppingCart,
-  Wrench,
 } from "lucide-react";
 
 import {
@@ -25,6 +23,9 @@ import {
 } from "react-router-dom";
 
 import "./FinishedProductDetailPage.css";
+
+import FinishedProductCostSummaryView
+  from "./FinishedProductCostSummary";
 
 import {
   getFinishedProductTraceability,
@@ -38,6 +39,7 @@ import type {
 /* ================================================================
    HELPERS
 ================================================================ */
+
 
 function formatNumber(
   value: string | number
@@ -148,6 +150,7 @@ function getStatusClass(
    PAGE
 ================================================================ */
 
+
 export default function FinishedProductDetailPage() {
 
   const {
@@ -196,6 +199,7 @@ export default function FinishedProductDetailPage() {
      LOAD
   ============================================================== */
 
+
   useEffect(
     () => {
 
@@ -222,7 +226,6 @@ export default function FinishedProductDetailPage() {
           );
 
           return;
-
         }
 
 
@@ -284,6 +287,7 @@ export default function FinishedProductDetailPage() {
      LOADING
   ============================================================== */
 
+
   if (
     loading
   ) {
@@ -307,6 +311,7 @@ export default function FinishedProductDetailPage() {
   /* ==============================================================
      ERROR
   ============================================================== */
+
 
   if (
     error
@@ -356,6 +361,7 @@ export default function FinishedProductDetailPage() {
      DATA
   ============================================================== */
 
+
   const {
     finished_product,
     product_master,
@@ -400,52 +406,58 @@ export default function FinishedProductDetailPage() {
       ? [
           product_master.product_code,
           product_master.category,
+
           product_master.hsn_code
             ? `HSN ${product_master.hsn_code}`
             : null,
         ]
-          .filter(Boolean)
-          .join(" • ")
+          .filter(
+            Boolean
+          )
+          .join(
+            " • "
+          )
       : null;
 
 
   /*
-   * IMPORTANT:
+   * Enquiry snapshot remains the transactional
+   * customer source of truth.
    *
-   * The Enquiry snapshot is used for transactional
-   * customer display.
-   *
-   * We intentionally do NOT use traceability.customer
-   * here because older enquiries may contain an incorrect
-   * historical Customer ID.
-   *
-   * Enquiry represents the customer information actually
-   * captured for this sale.
+   * This prevents later Customer Master changes
+   * from changing the customer details displayed
+   * against this historical manufactured product.
    */
   const customerName =
     enquiry.company_name
-    || proforma.company_name
-    || "-";
+    ||
+    proforma.company_name
+    ||
+    "-";
 
 
   const customerContact =
     enquiry.contact_person
-    || "-";
+    ||
+    "-";
 
 
   const customerPhone =
     enquiry.phone
-    || "-";
+    ||
+    "-";
 
 
   const customerEmail =
     enquiry.email
-    || "-";
+    ||
+    "-";
 
 
   const customerGST =
     enquiry.gst_number
-    || "-";
+    ||
+    "-";
 
 
   const customerAddress = [
@@ -454,17 +466,29 @@ export default function FinishedProductDetailPage() {
     enquiry.state,
     enquiry.pincode,
   ]
-    .filter(Boolean)
-    .join(", ")
-    || "-";
+    .filter(
+      Boolean
+    )
+    .join(
+      ", "
+    )
+    ||
+    "-";
+
+
+  /* ==============================================================
+     UI
+  ============================================================== */
 
 
   return (
     <div className="fp-detail-page">
 
+
       {/* ======================================================
           BACK
       ====================================================== */}
+
 
       <button
         type="button"
@@ -488,6 +512,7 @@ export default function FinishedProductDetailPage() {
       {/* ======================================================
           HERO
       ====================================================== */}
+
 
       <section className="fp-detail-hero">
 
@@ -522,7 +547,13 @@ export default function FinishedProductDetailPage() {
             {
               legacyProductMeta
               ??
-              `${production_order.production_number} • ${proforma.proforma_number}`
+              (
+                `${production_order.production_number}`
+                +
+                " • "
+                +
+                `${proforma.proforma_number}`
+              )
             }
 
           </div>
@@ -569,152 +600,21 @@ export default function FinishedProductDetailPage() {
 
 
       {/* ======================================================
-          COST SUMMARY
+          FROZEN PRODUCTION COST
       ====================================================== */}
 
-      <section className="fp-detail-kpi-grid">
 
-        <div className="fp-detail-kpi-card">
-
-          <div className="fp-detail-kpi-icon blue">
-
-            <ShoppingCart
-              size={19}
-            />
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Material Cost
-            </span>
-
-
-            <strong>
-
-              {
-                formatCurrency(
-                  cost_summary
-                    .actual_material_cost
-                )
-              }
-
-            </strong>
-
-          </div>
-
-        </div>
-
-
-        <div className="fp-detail-kpi-card">
-
-          <div className="fp-detail-kpi-icon lavender">
-
-            <Wrench
-              size={19}
-            />
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Operation Cost
-            </span>
-
-
-            <strong>
-
-              {
-                formatCurrency(
-                  cost_summary
-                    .actual_operation_cost
-                )
-              }
-
-            </strong>
-
-          </div>
-
-        </div>
-
-
-        <div className="fp-detail-kpi-card highlight">
-
-          <div className="fp-detail-kpi-icon green">
-
-            <Factory
-              size={19}
-            />
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Actual Production Cost
-            </span>
-
-
-            <strong>
-
-              {
-                formatCurrency(
-                  cost_summary
-                    .actual_production_cost
-                )
-              }
-
-            </strong>
-
-          </div>
-
-        </div>
-
-
-        <div className="fp-detail-kpi-card">
-
-          <div className="fp-detail-kpi-icon amber">
-
-            <CircleDollarSign
-              size={19}
-            />
-
-          </div>
-
-
-          <div>
-
-            <span>
-              Cost Per Unit
-            </span>
-
-
-            <strong>
-
-              {
-                formatCurrency(
-                  cost_summary
-                    .cost_per_unit
-                )
-              }
-
-            </strong>
-
-          </div>
-
-        </div>
-
-      </section>
+      <FinishedProductCostSummaryView
+        costSummary={
+          cost_summary
+        }
+      />
 
 
       {/* ======================================================
           BUSINESS ORIGIN
       ====================================================== */}
+
 
       <section className="fp-detail-section">
 
@@ -748,9 +648,11 @@ export default function FinishedProductDetailPage() {
 
         <div className="fp-detail-info-grid">
 
+
           {/* ==================================================
-              CUSTOMER — ENQUIRY SNAPSHOT
+              CUSTOMER
           ================================================== */}
+
 
           <div className="fp-detail-info-card">
 
@@ -812,6 +714,7 @@ export default function FinishedProductDetailPage() {
               ENQUIRY
           ================================================== */}
 
+
           <div className="fp-detail-info-card">
 
             <ClipboardList
@@ -849,8 +752,7 @@ export default function FinishedProductDetailPage() {
             <small>
 
               {
-                enquiry
-                  .machine_name
+                enquiry.machine_name
                 ??
                 productName
               }
@@ -863,6 +765,7 @@ export default function FinishedProductDetailPage() {
           {/* ==================================================
               PROFORMA
           ================================================== */}
+
 
           <div className="fp-detail-info-card">
 
@@ -913,6 +816,7 @@ export default function FinishedProductDetailPage() {
           {/* ==================================================
               PRODUCTION ORDER
           ================================================== */}
+
 
           <div className="fp-detail-info-card">
 
@@ -972,6 +876,7 @@ export default function FinishedProductDetailPage() {
               FINISHED GOODS RECEIPT
           ================================================== */}
 
+
           <div className="fp-detail-info-card">
 
             <PackageCheck
@@ -1030,24 +935,43 @@ export default function FinishedProductDetailPage() {
         </div>
 
 
-        {/* CUSTOMER SNAPSHOT DETAIL */}
+        {/* ==================================================
+            CUSTOMER SNAPSHOT DETAIL
+        ================================================== */}
+
 
         <div
           style={{
-            marginTop: "16px",
-            padding: "16px",
-            border: "1px solid #e7edf5",
-            borderRadius: "12px",
-            background: "#f9fbfe",
+            margin:
+              "0 20px 20px",
+
+            padding:
+              "16px",
+
+            border:
+              "1px solid #e7edf5",
+
+            borderRadius:
+              "12px",
+
+            background:
+              "#f9fbfe",
           }}
         >
 
           <div
             style={{
-              marginBottom: "12px",
-              color: "#203757",
-              fontSize: "12px",
-              fontWeight: 800,
+              marginBottom:
+                "12px",
+
+              color:
+                "#203757",
+
+              fontSize:
+                "12px",
+
+              fontWeight:
+                800,
             }}
           >
             Customer Details from Enquiry
@@ -1056,32 +980,52 @@ export default function FinishedProductDetailPage() {
 
           <div
             style={{
-              display: "grid",
+              display:
+                "grid",
+
               gridTemplateColumns:
                 "repeat(2, minmax(0, 1fr))",
-              gap: "12px 24px",
+
+              gap:
+                "12px 24px",
             }}
           >
+
 
             <div>
 
               <div
                 style={{
-                  color: "#8796ad",
-                  fontSize: "9px",
-                  fontWeight: 750,
-                  textTransform: "uppercase",
+                  color:
+                    "#8796ad",
+
+                  fontSize:
+                    "9px",
+
+                  fontWeight:
+                    750,
+
+                  textTransform:
+                    "uppercase",
                 }}
               >
                 Company
               </div>
 
+
               <div
                 style={{
-                  marginTop: "4px",
-                  color: "#203757",
-                  fontSize: "11px",
-                  fontWeight: 750,
+                  marginTop:
+                    "4px",
+
+                  color:
+                    "#203757",
+
+                  fontSize:
+                    "11px",
+
+                  fontWeight:
+                    750,
                 }}
               >
                 {customerName}
@@ -1094,21 +1038,36 @@ export default function FinishedProductDetailPage() {
 
               <div
                 style={{
-                  color: "#8796ad",
-                  fontSize: "9px",
-                  fontWeight: 750,
-                  textTransform: "uppercase",
+                  color:
+                    "#8796ad",
+
+                  fontSize:
+                    "9px",
+
+                  fontWeight:
+                    750,
+
+                  textTransform:
+                    "uppercase",
                 }}
               >
                 GSTIN
               </div>
 
+
               <div
                 style={{
-                  marginTop: "4px",
-                  color: "#203757",
-                  fontSize: "11px",
-                  fontWeight: 750,
+                  marginTop:
+                    "4px",
+
+                  color:
+                    "#203757",
+
+                  fontSize:
+                    "11px",
+
+                  fontWeight:
+                    750,
                 }}
               >
                 {customerGST}
@@ -1121,21 +1080,36 @@ export default function FinishedProductDetailPage() {
 
               <div
                 style={{
-                  color: "#8796ad",
-                  fontSize: "9px",
-                  fontWeight: 750,
-                  textTransform: "uppercase",
+                  color:
+                    "#8796ad",
+
+                  fontSize:
+                    "9px",
+
+                  fontWeight:
+                    750,
+
+                  textTransform:
+                    "uppercase",
                 }}
               >
                 Contact
               </div>
 
+
               <div
                 style={{
-                  marginTop: "4px",
-                  color: "#203757",
-                  fontSize: "11px",
-                  fontWeight: 750,
+                  marginTop:
+                    "4px",
+
+                  color:
+                    "#203757",
+
+                  fontSize:
+                    "11px",
+
+                  fontWeight:
+                    750,
                 }}
               >
                 {customerContact}
@@ -1148,21 +1122,36 @@ export default function FinishedProductDetailPage() {
 
               <div
                 style={{
-                  color: "#8796ad",
-                  fontSize: "9px",
-                  fontWeight: 750,
-                  textTransform: "uppercase",
+                  color:
+                    "#8796ad",
+
+                  fontSize:
+                    "9px",
+
+                  fontWeight:
+                    750,
+
+                  textTransform:
+                    "uppercase",
                 }}
               >
                 Phone
               </div>
 
+
               <div
                 style={{
-                  marginTop: "4px",
-                  color: "#203757",
-                  fontSize: "11px",
-                  fontWeight: 750,
+                  marginTop:
+                    "4px",
+
+                  color:
+                    "#203757",
+
+                  fontSize:
+                    "11px",
+
+                  fontWeight:
+                    750,
                 }}
               >
                 {customerPhone}
@@ -1175,21 +1164,36 @@ export default function FinishedProductDetailPage() {
 
               <div
                 style={{
-                  color: "#8796ad",
-                  fontSize: "9px",
-                  fontWeight: 750,
-                  textTransform: "uppercase",
+                  color:
+                    "#8796ad",
+
+                  fontSize:
+                    "9px",
+
+                  fontWeight:
+                    750,
+
+                  textTransform:
+                    "uppercase",
                 }}
               >
                 Email
               </div>
 
+
               <div
                 style={{
-                  marginTop: "4px",
-                  color: "#203757",
-                  fontSize: "11px",
-                  fontWeight: 750,
+                  marginTop:
+                    "4px",
+
+                  color:
+                    "#203757",
+
+                  fontSize:
+                    "11px",
+
+                  fontWeight:
+                    750,
                 }}
               >
                 {customerEmail}
@@ -1202,21 +1206,36 @@ export default function FinishedProductDetailPage() {
 
               <div
                 style={{
-                  color: "#8796ad",
-                  fontSize: "9px",
-                  fontWeight: 750,
-                  textTransform: "uppercase",
+                  color:
+                    "#8796ad",
+
+                  fontSize:
+                    "9px",
+
+                  fontWeight:
+                    750,
+
+                  textTransform:
+                    "uppercase",
                 }}
               >
                 Address
               </div>
 
+
               <div
                 style={{
-                  marginTop: "4px",
-                  color: "#203757",
-                  fontSize: "11px",
-                  fontWeight: 750,
+                  marginTop:
+                    "4px",
+
+                  color:
+                    "#203757",
+
+                  fontSize:
+                    "11px",
+
+                  fontWeight:
+                    750,
                 }}
               >
                 {customerAddress}
@@ -1232,8 +1251,9 @@ export default function FinishedProductDetailPage() {
 
 
       {/* ======================================================
-          MATERIALS
+          PRODUCTION MATERIALS
       ====================================================== */}
+
 
       <section className="fp-detail-section">
 
@@ -1256,8 +1276,8 @@ export default function FinishedProductDetailPage() {
 
 
             <p>
-              Purchased materials actually issued
-              from Store to manufacture this product.
+              Purchased materials required and issued
+              for this Production Order.
             </p>
 
           </div>
@@ -1424,6 +1444,7 @@ export default function FinishedProductDetailPage() {
           STORE MATERIAL ISSUES
       ====================================================== */}
 
+
       <section className="fp-detail-section">
 
         <div className="fp-detail-section-header">
@@ -1445,8 +1466,8 @@ export default function FinishedProductDetailPage() {
 
 
             <p>
-              Actual stock movements used to calculate
-              material cost.
+              Actual Store stock movements that form
+              the material-cost component.
             </p>
 
           </div>
@@ -1520,7 +1541,12 @@ export default function FinishedProductDetailPage() {
                           <td>
 
                             <strong>
-                              {issue.issue_number}
+
+                              {
+                                issue
+                                  .issue_number
+                              }
+
                             </strong>
 
                           </td>
@@ -1530,7 +1556,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatNumber(
-                                issue.quantity_issued
+                                issue
+                                  .quantity_issued
                               )
                             }
 
@@ -1541,7 +1568,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatCurrency(
-                                issue.unit_cost
+                                issue
+                                  .unit_cost
                               )
                             }
 
@@ -1554,7 +1582,8 @@ export default function FinishedProductDetailPage() {
 
                               {
                                 formatCurrency(
-                                  issue.total_cost
+                                  issue
+                                    .total_cost
                                 )
                               }
 
@@ -1567,7 +1596,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatNumber(
-                                issue.stock_before
+                                issue
+                                  .stock_before
                               )
                             }
 
@@ -1575,7 +1605,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatNumber(
-                                issue.stock_after
+                                issue
+                                  .stock_after
                               )
                             }
 
@@ -1586,7 +1617,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatDate(
-                                issue.issued_at
+                                issue
+                                  .issued_at
                               )
                             }
 
@@ -1608,8 +1640,9 @@ export default function FinishedProductDetailPage() {
 
 
       {/* ======================================================
-          OPERATIONS
+          PRODUCTION OPERATIONS
       ====================================================== */}
+
 
       <section className="fp-detail-section">
 
@@ -1711,10 +1744,12 @@ export default function FinishedProductDetailPage() {
                           <td>
 
                             <strong>
+
                               {
                                 operation
                                   .operation_name
                               }
+
                             </strong>
 
                           </td>
@@ -1723,8 +1758,10 @@ export default function FinishedProductDetailPage() {
                           <td>
 
                             {
-                              operation.machine_name
-                              ?? "-"
+                              operation
+                                .machine_name
+                              ??
+                              "-"
                             }
 
                           </td>
@@ -1734,7 +1771,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatNumber(
-                                operation.planned_hours
+                                operation
+                                  .planned_hours
                               )
                             }
 
@@ -1745,7 +1783,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatNumber(
-                                operation.actual_hours
+                                operation
+                                  .actual_hours
                               )
                             }
 
@@ -1756,7 +1795,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatCurrency(
-                                operation.hourly_rate
+                                operation
+                                  .hourly_rate
                               )
                             }
 
@@ -1769,7 +1809,8 @@ export default function FinishedProductDetailPage() {
 
                               {
                                 formatCurrency(
-                                  operation.operation_cost
+                                  operation
+                                    .operation_cost
                                 )
                               }
 
@@ -1781,13 +1822,18 @@ export default function FinishedProductDetailPage() {
                           <td>
 
                             <span
-                              className={`fp-detail-status ${getStatusClass(
-                                operation.status
-                              )}`}
+                              className={
+                                `fp-detail-status ${
+                                  getStatusClass(
+                                    operation.status
+                                  )
+                                }`
+                              }
                             >
 
                               {
-                                operation.status
+                                operation
+                                  .status
                               }
 
                             </span>
@@ -1810,8 +1856,9 @@ export default function FinishedProductDetailPage() {
 
 
       {/* ======================================================
-          BILLING
+          FINAL BILLING TRACEABILITY
       ====================================================== */}
+
 
       <section className="fp-detail-section">
 
@@ -1834,13 +1881,18 @@ export default function FinishedProductDetailPage() {
 
 
             <p>
-              Original invoice, revisions and
-              Credit Note history.
+              Original Tax Invoice, revisions and
+              Credit Note history for this Finished Product.
             </p>
 
           </div>
 
         </div>
+
+
+        {/* ==================================================
+            EFFECTIVE INVOICE
+        ================================================== */}
 
 
         {
@@ -1956,11 +2008,18 @@ export default function FinishedProductDetailPage() {
             )
             : (
               <div className="fp-detail-empty-card">
+
                 This Finished Product has not yet
                 been linked to an Issued invoice.
+
               </div>
             )
         }
+
+
+        {/* ==================================================
+            INVOICE HISTORY
+        ================================================== */}
 
 
         <h3 className="fp-detail-subheading">
@@ -2020,13 +2079,15 @@ export default function FinishedProductDetailPage() {
                   ...(
                     billing.original_invoice
                       ? [
-                          billing.original_invoice,
+                          billing
+                            .original_invoice,
                         ]
                       : []
                   ),
 
                   ...billing.revisions,
-                ].length === 0
+                ].length
+                === 0
                   ? (
                     <tr>
 
@@ -2044,7 +2105,8 @@ export default function FinishedProductDetailPage() {
                       ...(
                         billing.original_invoice
                           ? [
-                              billing.original_invoice,
+                              billing
+                                .original_invoice,
                             ]
                           : []
                       ),
@@ -2147,13 +2209,18 @@ export default function FinishedProductDetailPage() {
                           <td>
 
                             <span
-                              className={`fp-detail-status ${getStatusClass(
-                                invoice.status
-                              )}`}
+                              className={
+                                `fp-detail-status ${
+                                  getStatusClass(
+                                    invoice.status
+                                  )
+                                }`
+                              }
                             >
 
                               {
-                                invoice.status
+                                invoice
+                                  .status
                               }
 
                             </span>
@@ -2171,6 +2238,11 @@ export default function FinishedProductDetailPage() {
           </table>
 
         </div>
+
+
+        {/* ==================================================
+            CREDIT NOTES
+        ================================================== */}
 
 
         <h3 className="fp-detail-subheading">
@@ -2259,7 +2331,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatDate(
-                                creditNote.invoice_date
+                                creditNote
+                                  .invoice_date
                               )
                             }
 
@@ -2270,7 +2343,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatCurrency(
-                                creditNote.taxable_amount
+                                creditNote
+                                  .taxable_amount
                               )
                             }
 
@@ -2281,7 +2355,8 @@ export default function FinishedProductDetailPage() {
 
                             {
                               formatCurrency(
-                                creditNote.tax_amount
+                                creditNote
+                                  .tax_amount
                               )
                             }
 
@@ -2294,7 +2369,8 @@ export default function FinishedProductDetailPage() {
 
                               {
                                 formatCurrency(
-                                  creditNote.grand_total
+                                  creditNote
+                                    .grand_total
                                 )
                               }
 
@@ -2306,13 +2382,18 @@ export default function FinishedProductDetailPage() {
                           <td>
 
                             <span
-                              className={`fp-detail-status ${getStatusClass(
-                                creditNote.status
-                              )}`}
+                              className={
+                                `fp-detail-status ${
+                                  getStatusClass(
+                                    creditNote.status
+                                  )
+                                }`
+                              }
                             >
 
                               {
-                                creditNote.status
+                                creditNote
+                                  .status
                               }
 
                             </span>

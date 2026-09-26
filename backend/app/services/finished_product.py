@@ -101,7 +101,26 @@ class FinishedProductService:
         )
 
     # ============================================================
-    # CREATE
+    # MONEY
+    # ============================================================
+
+    @staticmethod
+    def money(
+        value,
+    ) -> Decimal:
+
+        return Decimal(
+            str(
+                value
+                if value is not None
+                else 0
+            )
+        ).quantize(
+            Decimal("0.01")
+        )
+
+    # ============================================================
+    # CREATE FINISHED PRODUCT
     # ============================================================
 
     def create_from_receipt(
@@ -116,7 +135,6 @@ class FinishedProductService:
             or ""
         ).strip().lower()
 
-
         if (
             production_status
             != "completed"
@@ -126,7 +144,6 @@ class FinishedProductService:
                 "A Finished Product can only be created "
                 "from a Completed Production Order."
             )
-
 
         if (
             finished_goods_receipt.production_order_id
@@ -138,7 +155,6 @@ class FinishedProductService:
                 "to this Production Order."
             )
 
-
         if (
             finished_goods_receipt.product_id
             != production_order.product_id
@@ -148,7 +164,6 @@ class FinishedProductService:
                 "Finished Goods Receipt legacy Product reference "
                 "does not match the Production Order."
             )
-
 
         # ========================================================
         # IDEMPOTENT PROTECTION
@@ -161,14 +176,12 @@ class FinishedProductService:
             )
         )
 
-
         if (
             existing_by_production
             is not None
         ):
 
             return existing_by_production
-
 
         existing_by_receipt = (
             self.repository
@@ -177,14 +190,12 @@ class FinishedProductService:
             )
         )
 
-
         if (
             existing_by_receipt
             is not None
         ):
 
             return existing_by_receipt
-
 
         # ========================================================
         # MANUFACTURED PRODUCT
@@ -195,7 +206,6 @@ class FinishedProductService:
             or ""
         ).strip()
 
-
         if not product_name:
 
             raise ValueError(
@@ -203,16 +213,14 @@ class FinishedProductService:
                 "from the Production Order."
             )
 
-
         unit = (
             production_order.unit
             or "Nos"
         ).strip()
 
-
         if not unit:
-            unit = "Nos"
 
+            unit = "Nos"
 
         finished_product_number = (
             self._generate_finished_product_number(
@@ -220,40 +228,36 @@ class FinishedProductService:
             )
         )
 
+        finished_product = FinishedProduct(
+            finished_product_number=(
+                finished_product_number
+            ),
 
-        finished_product = (
-            FinishedProduct(
-                finished_product_number=(
-                    finished_product_number
-                ),
+            product_name=(
+                product_name
+            ),
 
-                product_name=(
-                    product_name
-                ),
+            unit=(
+                unit
+            ),
 
-                unit=(
-                    unit
-                ),
+            # Legacy purchased Product reference only.
+            product_master_id=(
+                production_order.product_id
+            ),
 
-                # Legacy only.
-                product_master_id=(
-                    production_order.product_id
-                ),
+            production_order_id=(
+                production_order.id
+            ),
 
-                production_order_id=(
-                    production_order.id
-                ),
+            finished_goods_receipt_id=(
+                finished_goods_receipt.id
+            ),
 
-                finished_goods_receipt_id=(
-                    finished_goods_receipt.id
-                ),
-
-                created_by=(
-                    created_by
-                ),
-            )
+            created_by=(
+                created_by
+            ),
         )
-
 
         return (
             self.repository.create(
@@ -277,7 +281,6 @@ class FinishedProductService:
             )
         )
 
-
     def get_finished_product_by_number(
         self,
         finished_product_number: str,
@@ -289,7 +292,6 @@ class FinishedProductService:
                 finished_product_number
             )
         )
-
 
     def get_by_production_order(
         self,
@@ -303,7 +305,6 @@ class FinishedProductService:
             )
         )
 
-
     def get_by_finished_goods_receipt(
         self,
         finished_goods_receipt_id: int,
@@ -315,7 +316,6 @@ class FinishedProductService:
                 finished_goods_receipt_id
             )
         )
-
 
     def get_by_product_master(
         self,
@@ -330,7 +330,6 @@ class FinishedProductService:
                 product_master_id
             )
         )
-
 
     def get_all_finished_products(
         self,
@@ -362,7 +361,6 @@ class FinishedProductService:
             )
         )
 
-
         if (
             finished_product
             is None
@@ -370,13 +368,11 @@ class FinishedProductService:
 
             return None
 
-
         return (
             self._build_traceability(
                 finished_product
             )
         )
-
 
     def get_traceability_by_number(
         self,
@@ -393,14 +389,12 @@ class FinishedProductService:
             )
         )
 
-
         if (
             finished_product
             is None
         ):
 
             return None
-
 
         return (
             self._build_traceability(
@@ -417,9 +411,9 @@ class FinishedProductService:
         finished_product: FinishedProduct,
     ) -> FinishedProductTraceabilityResponse:
 
-        # --------------------------------------------------------
+        # ========================================================
         # PRODUCTION ORDER
-        # --------------------------------------------------------
+        # ========================================================
 
         production_order = (
             self.production_order_repository
@@ -428,7 +422,6 @@ class FinishedProductService:
                 .production_order_id
             )
         )
-
 
         if (
             production_order
@@ -440,26 +433,16 @@ class FinishedProductService:
                 "could not be found."
             )
 
-
-        # --------------------------------------------------------
-        # PRODUCT MASTER
-        # --------------------------------------------------------
-        #
-        # Optional.
-        #
-        # Legacy Finished Products may have one.
-        # New manufactured products normally do not.
-        # --------------------------------------------------------
+        # ========================================================
+        # LEGACY PRODUCT MASTER
+        # ========================================================
 
         product_master = (
-            finished_product
-            .product_master
+            finished_product.product_master
         )
 
-
         if (
-            finished_product
-            .product_master_id
+            finished_product.product_master_id
             is not None
             and
             product_master
@@ -469,7 +452,6 @@ class FinishedProductService:
             raise ValueError(
                 "Legacy Product Master could not be found."
             )
-
 
         if (
             production_order.product_id
@@ -481,10 +463,9 @@ class FinishedProductService:
                 "does not match its Production Order."
             )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # FINISHED GOODS RECEIPT
-        # --------------------------------------------------------
+        # ========================================================
 
         finished_goods_receipt = (
             self.finished_goods_receipt_repository
@@ -493,7 +474,6 @@ class FinishedProductService:
                 .finished_goods_receipt_id
             )
         )
-
 
         if (
             finished_goods_receipt
@@ -504,7 +484,6 @@ class FinishedProductService:
                 "Finished Goods Receipt could not be found "
                 "for this Finished Product."
             )
-
 
         if (
             finished_goods_receipt
@@ -517,7 +496,6 @@ class FinishedProductService:
                 "the Finished Product Production Order."
             )
 
-
         if (
             finished_goods_receipt.product_id
             != finished_product.product_master_id
@@ -528,19 +506,16 @@ class FinishedProductService:
                 "does not match the Finished Product."
             )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # PROFORMA
-        # --------------------------------------------------------
+        # ========================================================
 
         proforma = (
             self.proforma_repository
             .get_by_id(
-                production_order
-                .proforma_id
+                production_order.proforma_id
             )
         )
-
 
         if (
             proforma
@@ -552,10 +527,9 @@ class FinishedProductService:
                 "for this Finished Product."
             )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # ENQUIRY
-        # --------------------------------------------------------
+        # ========================================================
 
         enquiry = (
             EnquiryRepository
@@ -564,7 +538,6 @@ class FinishedProductService:
                 proforma.enquiry_id,
             )
         )
-
 
         if (
             enquiry
@@ -576,13 +549,12 @@ class FinishedProductService:
                 "for this Finished Product."
             )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # CUSTOMER
-        # --------------------------------------------------------
         #
-        # Enquiry is now the source of truth for Customer linkage.
-        # --------------------------------------------------------
+        # Enquiry remains the source of truth for Customer
+        # linkage.
+        # ========================================================
 
         customer = (
             CustomerRepository
@@ -591,7 +563,6 @@ class FinishedProductService:
                 enquiry.customer_id,
             )
         )
-
 
         if (
             customer
@@ -603,10 +574,9 @@ class FinishedProductService:
                 "for this Finished Product."
             )
 
-
-        # --------------------------------------------------------
-        # MATERIALS
-        # --------------------------------------------------------
+        # ========================================================
+        # PRODUCTION MATERIALS
+        # ========================================================
 
         production_materials = (
             self.production_material_repository
@@ -615,10 +585,9 @@ class FinishedProductService:
             )
         )
 
-
-        # --------------------------------------------------------
-        # SHOP FLOOR ISSUES
-        # --------------------------------------------------------
+        # ========================================================
+        # ACTUAL SHOP FLOOR ISSUES
+        # ========================================================
 
         shop_floor_issues = (
             self.shop_floor_issue_repository
@@ -627,10 +596,9 @@ class FinishedProductService:
             )
         )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # OPERATIONS
-        # --------------------------------------------------------
+        # ========================================================
 
         production_operations = (
             self.production_operation_repository
@@ -639,138 +607,33 @@ class FinishedProductService:
             )
         )
 
-
-        # --------------------------------------------------------
-        # MATERIAL COST
-        # --------------------------------------------------------
-
-        actual_material_cost = Decimal(
-            "0.00"
-        )
-
-
-        for issue in shop_floor_issues:
-
-            actual_material_cost += Decimal(
-                str(
-                    issue.total_cost
-                    or Decimal("0.00")
-                )
-            )
-
-
-        actual_material_cost = (
-            actual_material_cost.quantize(
-                Decimal("0.01")
-            )
-        )
-
-
-        # --------------------------------------------------------
-        # OPERATION COST
-        # --------------------------------------------------------
-
-        actual_operation_cost = Decimal(
-            "0.00"
-        )
-
-
-        for operation in (
-            production_operations
-        ):
-
-            actual_operation_cost += Decimal(
-                str(
-                    operation.operation_cost
-                    or Decimal("0.00")
-                )
-            )
-
-
-        actual_operation_cost = (
-            actual_operation_cost.quantize(
-                Decimal("0.01")
-            )
-        )
-
-
-        # --------------------------------------------------------
-        # TOTAL PRODUCTION COST
-        # --------------------------------------------------------
-
-        actual_production_cost = (
-            actual_material_cost
-            +
-            actual_operation_cost
-        ).quantize(
-            Decimal("0.01")
-        )
-
-
-        # --------------------------------------------------------
-        # QUANTITY
-        # --------------------------------------------------------
-
-        finished_quantity = Decimal(
-            str(
-                finished_goods_receipt
-                .quantity_received
-            )
-        )
-
-
-        # --------------------------------------------------------
-        # COST PER UNIT
-        # --------------------------------------------------------
-
-        if (
-            finished_quantity
-            > Decimal("0.00")
-        ):
-
-            cost_per_unit = (
-                actual_production_cost
-                /
-                finished_quantity
-            ).quantize(
-                Decimal("0.01")
-            )
-
-        else:
-
-            cost_per_unit = Decimal(
-                "0.00"
-            )
-
+        # ========================================================
+        # COST SUMMARY
+        # ========================================================
 
         cost_summary = (
-            FinishedProductCostSummaryResponse(
-                actual_material_cost=(
-                    actual_material_cost
+            self._build_cost_summary(
+                finished_product=(
+                    finished_product
                 ),
 
-                actual_operation_cost=(
-                    actual_operation_cost
+                finished_goods_receipt=(
+                    finished_goods_receipt
                 ),
 
-                actual_production_cost=(
-                    actual_production_cost
+                shop_floor_issues=(
+                    shop_floor_issues
                 ),
 
-                finished_quantity=(
-                    finished_quantity
-                ),
-
-                cost_per_unit=(
-                    cost_per_unit
+                production_operations=(
+                    production_operations
                 ),
             )
         )
 
-
-        # --------------------------------------------------------
-        # BILLING
-        # --------------------------------------------------------
+        # ========================================================
+        # BILLING TRACEABILITY
+        # ========================================================
 
         billing = (
             self._build_billing_traceability(
@@ -790,10 +653,9 @@ class FinishedProductService:
             )
         )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # RESPONSE
-        # --------------------------------------------------------
+        # ========================================================
 
         return (
             FinishedProductTraceabilityResponse(
@@ -848,6 +710,261 @@ class FinishedProductService:
         )
 
     # ============================================================
+    # COST SUMMARY
+    # ============================================================
+
+    def _build_cost_summary(
+        self,
+        finished_product: FinishedProduct,
+        finished_goods_receipt: FinishedGoodsReceipt,
+        shop_floor_issues,
+        production_operations,
+    ) -> FinishedProductCostSummaryResponse:
+
+        finished_quantity = (
+            self.money(
+                finished_goods_receipt
+                .quantity_received
+            )
+        )
+
+        # ========================================================
+        # FROZEN COST SNAPSHOT
+        #
+        # New Finished Products use this path.
+        #
+        # This is the historical source of truth.
+        #
+        # Salary, rent, direct expenses and operation costs may
+        # later change elsewhere in the ERP, but this Finished
+        # Product's saved cost does not change.
+        # ========================================================
+
+        if (
+            finished_product
+            .cost_snapshot_at
+            is not None
+        ):
+
+            actual_material_cost = (
+                self.money(
+                    finished_product
+                    .material_cost
+                )
+            )
+
+            actual_operation_cost = (
+                self.money(
+                    finished_product
+                    .operation_cost
+                )
+            )
+
+            direct_expense_cost = (
+                self.money(
+                    finished_product
+                    .direct_expense_cost
+                )
+            )
+
+            allocated_staff_cost = (
+                self.money(
+                    finished_product
+                    .allocated_staff_cost
+                )
+            )
+
+            allocated_overhead_cost = (
+                self.money(
+                    finished_product
+                    .allocated_overhead_cost
+                )
+            )
+
+            actual_production_cost = (
+                self.money(
+                    finished_product
+                    .total_production_cost
+                )
+            )
+
+            cost_per_unit = (
+                self.money(
+                    finished_product
+                    .unit_cost
+                )
+            )
+
+            return (
+                FinishedProductCostSummaryResponse(
+                    actual_material_cost=(
+                        actual_material_cost
+                    ),
+
+                    actual_operation_cost=(
+                        actual_operation_cost
+                    ),
+
+                    direct_expense_cost=(
+                        direct_expense_cost
+                    ),
+
+                    allocated_staff_cost=(
+                        allocated_staff_cost
+                    ),
+
+                    allocated_overhead_cost=(
+                        allocated_overhead_cost
+                    ),
+
+                    actual_production_cost=(
+                        actual_production_cost
+                    ),
+
+                    finished_quantity=(
+                        finished_quantity
+                    ),
+
+                    cost_per_unit=(
+                        cost_per_unit
+                    ),
+
+                    cost_snapshot_at=(
+                        finished_product
+                        .cost_snapshot_at
+                    ),
+                )
+            )
+
+        # ========================================================
+        # LEGACY FALLBACK
+        #
+        # Finished Products created before the cost-snapshot
+        # feature have cost_snapshot_at = NULL.
+        #
+        # Keep the old behavior for those records:
+        #
+        # Actual Material Cost
+        # + Actual Operation Cost
+        #
+        # Direct / salary / overhead remain zero until we perform
+        # a controlled historical backfill later.
+        # ========================================================
+
+        actual_material_cost = Decimal(
+            "0.00"
+        )
+
+        for issue in shop_floor_issues:
+
+            actual_material_cost += (
+                self.money(
+                    issue.total_cost
+                )
+            )
+
+        actual_material_cost = (
+            self.money(
+                actual_material_cost
+            )
+        )
+
+        actual_operation_cost = Decimal(
+            "0.00"
+        )
+
+        for operation in production_operations:
+
+            actual_operation_cost += (
+                self.money(
+                    operation.operation_cost
+                )
+            )
+
+        actual_operation_cost = (
+            self.money(
+                actual_operation_cost
+            )
+        )
+
+        direct_expense_cost = Decimal(
+            "0.00"
+        )
+
+        allocated_staff_cost = Decimal(
+            "0.00"
+        )
+
+        allocated_overhead_cost = Decimal(
+            "0.00"
+        )
+
+        actual_production_cost = (
+            self.money(
+                actual_material_cost
+                +
+                actual_operation_cost
+            )
+        )
+
+        if (
+            finished_quantity
+            > Decimal("0.00")
+        ):
+
+            cost_per_unit = (
+                self.money(
+                    actual_production_cost
+                    /
+                    finished_quantity
+                )
+            )
+
+        else:
+
+            cost_per_unit = Decimal(
+                "0.00"
+            )
+
+        return (
+            FinishedProductCostSummaryResponse(
+                actual_material_cost=(
+                    actual_material_cost
+                ),
+
+                actual_operation_cost=(
+                    actual_operation_cost
+                ),
+
+                direct_expense_cost=(
+                    direct_expense_cost
+                ),
+
+                allocated_staff_cost=(
+                    allocated_staff_cost
+                ),
+
+                allocated_overhead_cost=(
+                    allocated_overhead_cost
+                ),
+
+                actual_production_cost=(
+                    actual_production_cost
+                ),
+
+                finished_quantity=(
+                    finished_quantity
+                ),
+
+                cost_per_unit=(
+                    cost_per_unit
+                ),
+
+                cost_snapshot_at=None,
+            )
+        )
+
+    # ============================================================
     # BILLING TRACEABILITY
     # ============================================================
 
@@ -877,15 +994,12 @@ class FinishedProductService:
             .all()
         )
 
-
         normalized_product_name = (
             product_name
             or ""
         ).strip().lower()
 
-
         relevant_documents = []
-
 
         for bill in documents:
 
@@ -907,7 +1021,9 @@ class FinishedProductService:
                     (
                         item.description
                         or ""
-                    ).strip().lower()
+                    )
+                    .strip()
+                    .lower()
                     ==
                     normalized_product_name
 
@@ -915,13 +1031,11 @@ class FinishedProductService:
                     in bill.items
                 )
 
-
             if contains_product:
 
                 relevant_documents.append(
                     bill
                 )
-
 
         if (
             not relevant_documents
@@ -931,10 +1045,9 @@ class FinishedProductService:
                 FinishedProductBillingResponse()
             )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # ORIGINAL TAX INVOICE
-        # --------------------------------------------------------
+        # ========================================================
 
         original_candidates = [
             bill
@@ -956,7 +1069,6 @@ class FinishedProductService:
             )
         ]
 
-
         original_invoice = (
             min(
                 original_candidates,
@@ -969,7 +1081,6 @@ class FinishedProductService:
             else None
         )
 
-
         if (
             original_invoice
             is None
@@ -979,10 +1090,9 @@ class FinishedProductService:
                 FinishedProductBillingResponse()
             )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # REVISIONS
-        # --------------------------------------------------------
+        # ========================================================
 
         revisions = [
             bill
@@ -1004,7 +1114,6 @@ class FinishedProductService:
             )
         ]
 
-
         revisions.sort(
             key=lambda bill: (
                 bill.revision_number,
@@ -1012,12 +1121,10 @@ class FinishedProductService:
             )
         )
 
-
         invoice_chain = [
             original_invoice,
             *revisions,
         ]
-
 
         invoice_chain_ids = {
             bill.id
@@ -1026,10 +1133,9 @@ class FinishedProductService:
             in invoice_chain
         }
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # CREDIT NOTES
-        # --------------------------------------------------------
+        # ========================================================
 
         credit_notes = [
             bill
@@ -1051,7 +1157,6 @@ class FinishedProductService:
             )
         ]
 
-
         credit_notes.sort(
             key=lambda bill: (
                 bill.invoice_date,
@@ -1059,10 +1164,9 @@ class FinishedProductService:
             )
         )
 
-
-        # --------------------------------------------------------
+        # ========================================================
         # EFFECTIVE ISSUED INVOICE
-        # --------------------------------------------------------
+        # ========================================================
 
         issued_versions = [
             bill
@@ -1079,7 +1183,6 @@ class FinishedProductService:
             )
         ]
 
-
         effective_invoice = (
             max(
                 issued_versions,
@@ -1094,7 +1197,6 @@ class FinishedProductService:
 
             else None
         )
-
 
         return (
             FinishedProductBillingResponse(
@@ -1117,7 +1219,7 @@ class FinishedProductService:
         )
 
     # ============================================================
-    # NUMBER
+    # FINISHED PRODUCT NUMBER
     # ============================================================
 
     def _generate_finished_product_number(

@@ -24,6 +24,31 @@ export interface FinishedProduct {
 
   finished_goods_receipt_id: number;
 
+  /* =========================================================
+     FROZEN PRODUCTION COST SNAPSHOT
+  ========================================================= */
+
+  material_cost: string;
+
+  operation_cost: string;
+
+  direct_expense_cost: string;
+
+  allocated_staff_cost: string;
+
+  allocated_overhead_cost: string;
+
+  total_production_cost: string;
+
+  unit_cost: string;
+
+  cost_snapshot_at:
+    string | null;
+
+  /* =========================================================
+     AUDIT
+  ========================================================= */
+
   created_by: number;
 
   created_at: string;
@@ -196,48 +221,80 @@ export interface FinishedProductGoodsReceipt {
 }
 
 
+/* =========================================================
+   FINISHED PRODUCT COST SUMMARY
+========================================================= */
+
 export interface FinishedProductCostSummary {
   actual_material_cost: string;
 
   actual_operation_cost: string;
+
+  direct_expense_cost: string;
+
+  allocated_staff_cost: string;
+
+  allocated_overhead_cost: string;
 
   actual_production_cost: string;
 
   finished_quantity: string;
 
   cost_per_unit: string;
+
+  cost_snapshot_at:
+    string | null;
 }
 
+
+/* =========================================================
+   BILLING
+========================================================= */
 
 export interface FinishedProductBilling {
-  original_invoice: FinalBill | null;
+  original_invoice:
+    FinalBill | null;
 
-  effective_invoice: FinalBill | null;
+  effective_invoice:
+    FinalBill | null;
 
-  revisions: FinalBill[];
+  revisions:
+    FinalBill[];
 
-  credit_notes: FinalBill[];
+  credit_notes:
+    FinalBill[];
 }
 
 
+/* =========================================================
+   COMPLETE TRACEABILITY
+========================================================= */
+
 export interface FinishedProductTraceability {
-  finished_product: FinishedProduct;
+  finished_product:
+    FinishedProduct;
 
   /*
    * Legacy only.
    * New custom-manufactured products normally have null here.
    */
-  product_master: FinishedProductMaster | null;
+  product_master:
+    FinishedProductMaster | null;
 
-  customer: FinishedProductCustomer;
+  customer:
+    FinishedProductCustomer;
 
-  enquiry: FinishedProductEnquiry;
+  enquiry:
+    FinishedProductEnquiry;
 
-  proforma: FinishedProductProforma;
+  proforma:
+    FinishedProductProforma;
 
-  production_order: ProductionOrder;
+  production_order:
+    ProductionOrder;
 
-  production_materials: ProductionMaterial[];
+  production_materials:
+    ProductionMaterial[];
 
   shop_floor_issues:
     FinishedProductShopFloorIssue[];
