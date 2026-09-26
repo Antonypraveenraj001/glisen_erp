@@ -57,6 +57,9 @@ from app.api.v1.purchase_bills import (
 from app.api.v1.shop_floor_issues import (
     router as shop_floor_issues_router,
 )
+from app.api.v1.staff import (
+    router as staff_router,
+)
 from app.api.v1.stock_report import (
     router as stock_report_router,
 )
@@ -171,6 +174,19 @@ api_router.include_router(
 
 
 # ================================================================
+# STAFF / COMPANY COSTS
+# ================================================================
+
+api_router.include_router(
+    staff_router
+)
+
+api_router.include_router(
+    expenses_router
+)
+
+
+# ================================================================
 # BILLING / REPORTING
 # ================================================================
 
@@ -180,10 +196,6 @@ api_router.include_router(
 
 api_router.include_router(
     gst_report_router
-)
-
-api_router.include_router(
-    expenses_router
 )
 
 api_router.include_router(

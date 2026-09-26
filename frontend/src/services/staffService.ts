@@ -1,12 +1,12 @@
 import axios from "axios";
 
 import type {
-  Expense,
-  ExpenseCreatePayload,
-  ExpenseFilters,
-  ExpenseListResponse,
-  ExpenseUpdatePayload,
-} from "../types/expense";
+  Staff,
+  StaffCreatePayload,
+  StaffFilters,
+  StaffListResponse,
+  StaffUpdatePayload,
+} from "../types/staff";
 
 
 const API_BASE_URL =
@@ -33,40 +33,24 @@ function getAuthHeaders() {
 
 
 /* =========================================================
-   GET EXPENSES
+   GET STAFF
 ========================================================= */
 
-export async function getExpenses(
-  filters: ExpenseFilters = {}
-): Promise<ExpenseListResponse> {
+export async function getStaff(
+  filters: StaffFilters = {}
+): Promise<StaffListResponse> {
 
   const response =
-    await axios.get<ExpenseListResponse>(
-      `${API_BASE_URL}/expenses`,
+    await axios.get<StaffListResponse>(
+      `${API_BASE_URL}/staff`,
       {
         headers:
           getAuthHeaders(),
 
         params: {
-          start_date:
-            filters.start_date
-            || undefined,
-
-          end_date:
-            filters.end_date
-            || undefined,
-
-          expense_type:
-            filters.expense_type
-            || undefined,
-
-          category:
-            filters.category
-            || undefined,
-
-          production_order_id:
-            filters.production_order_id
-            ?? undefined,
+          active_only:
+            filters.active_only
+            ?? false,
 
           search:
             filters.search
@@ -81,16 +65,16 @@ export async function getExpenses(
 
 
 /* =========================================================
-   GET EXPENSE BY ID
+   GET STAFF MEMBER
 ========================================================= */
 
-export async function getExpenseById(
-  expenseId: number
-): Promise<Expense> {
+export async function getStaffById(
+  staffId: number
+): Promise<Staff> {
 
   const response =
-    await axios.get<Expense>(
-      `${API_BASE_URL}/expenses/${expenseId}`,
+    await axios.get<Staff>(
+      `${API_BASE_URL}/staff/${staffId}`,
       {
         headers:
           getAuthHeaders(),
@@ -102,17 +86,17 @@ export async function getExpenseById(
 
 
 /* =========================================================
-   CREATE EXPENSE
+   CREATE STAFF
 ========================================================= */
 
-export async function createExpense(
+export async function createStaff(
   payload:
-    ExpenseCreatePayload
-): Promise<Expense> {
+    StaffCreatePayload
+): Promise<Staff> {
 
   const response =
-    await axios.post<Expense>(
-      `${API_BASE_URL}/expenses`,
+    await axios.post<Staff>(
+      `${API_BASE_URL}/staff`,
       payload,
       {
         headers:
@@ -125,18 +109,18 @@ export async function createExpense(
 
 
 /* =========================================================
-   UPDATE EXPENSE
+   UPDATE STAFF
 ========================================================= */
 
-export async function updateExpense(
-  expenseId: number,
+export async function updateStaff(
+  staffId: number,
   payload:
-    ExpenseUpdatePayload
-): Promise<Expense> {
+    StaffUpdatePayload
+): Promise<Staff> {
 
   const response =
-    await axios.put<Expense>(
-      `${API_BASE_URL}/expenses/${expenseId}`,
+    await axios.put<Staff>(
+      `${API_BASE_URL}/staff/${staffId}`,
       payload,
       {
         headers:
@@ -149,18 +133,21 @@ export async function updateExpense(
 
 
 /* =========================================================
-   DELETE EXPENSE
+   DEACTIVATE STAFF
 ========================================================= */
 
-export async function deleteExpense(
-  expenseId: number
-): Promise<void> {
+export async function deactivateStaff(
+  staffId: number
+): Promise<Staff> {
 
-  await axios.delete(
-    `${API_BASE_URL}/expenses/${expenseId}`,
-    {
-      headers:
-        getAuthHeaders(),
-    }
-  );
+  const response =
+    await axios.delete<Staff>(
+      `${API_BASE_URL}/staff/${staffId}`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+  return response.data;
 }

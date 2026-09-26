@@ -1,5 +1,3 @@
-from datetime import date
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -16,26 +14,26 @@ from app.dependencies.database import (
     get_db,
 )
 from app.models.user import User
-from app.schemas.expense import (
-    ExpenseCreate,
-    ExpenseListResponse,
-    ExpenseResponse,
-    ExpenseUpdate,
+from app.schemas.staff import (
+    StaffCreate,
+    StaffListResponse,
+    StaffResponse,
+    StaffUpdate,
 )
-from app.services.expense_service import (
-    ExpenseService,
+from app.services.staff_service import (
+    StaffService,
 )
 
 
 router = APIRouter(
-    prefix="/expenses",
+    prefix="/staff",
     tags=[
-        "Expenses"
+        "Staff"
     ],
 )
 
 
-EXPENSE_WRITE_ROLES = (
+STAFF_ROLES = (
     "Boss",
     "Admin",
     "Accounts",
@@ -43,18 +41,18 @@ EXPENSE_WRITE_ROLES = (
 
 
 # ================================================================
-# CREATE
+# CREATE STAFF
 # ================================================================
 
 @router.post(
     "",
-    response_model=ExpenseResponse,
+    response_model=StaffResponse,
     status_code=(
         status.HTTP_201_CREATED
     ),
 )
-def create_expense(
-    data: ExpenseCreate,
+def create_staff(
+    data: StaffCreate,
 
     db: Session = Depends(
         get_db
@@ -62,7 +60,7 @@ def create_expense(
 
     current_user: User = Depends(
         require_role(
-            *EXPENSE_WRITE_ROLES
+            *STAFF_ROLES
         )
     ),
 ):
@@ -70,13 +68,10 @@ def create_expense(
     try:
 
         return (
-            ExpenseService
+            StaffService
             .create(
                 db=db,
                 data=data,
-                created_by=(
-                    current_user.id
-                ),
             )
         )
 
@@ -93,57 +88,26 @@ def create_expense(
 
 
 # ================================================================
-# LIST
+# LIST STAFF
 # ================================================================
 
 @router.get(
     "",
-    response_model=ExpenseListResponse,
+    response_model=StaffListResponse,
 )
-def get_expenses(
-
-    start_date: date | None = Query(
-        None,
+def get_staff(
+    active_only: bool = Query(
+        False,
         description=(
-            "Expense start date"
-        ),
-    ),
-
-    end_date: date | None = Query(
-        None,
-        description=(
-            "Expense end date"
-        ),
-    ),
-
-    category: str | None = Query(
-        None,
-        description=(
-            "Expense category"
-        ),
-    ),
-
-    expense_type: str | None = Query(
-        None,
-        description=(
-            "GENERAL, OVERHEAD or "
-            "DIRECT_PRODUCTION"
-        ),
-    ),
-
-    production_order_id: int | None = Query(
-        None,
-        gt=0,
-        description=(
-            "Filter by Production Order"
+            "Return only active staff."
         ),
     ),
 
     search: str | None = Query(
         None,
         description=(
-            "Search description, vendor, "
-            "reference number or notes"
+            "Search staff name, "
+            "designation or notes."
         ),
     ),
 
@@ -153,72 +117,45 @@ def get_expenses(
 
     current_user: User = Depends(
         require_role(
-            "Boss",
-            "Admin",
-            "Accounts",
+            *STAFF_ROLES
         )
     ),
 ):
 
-    try:
-
-        expenses = (
-            ExpenseService
-            .get_all(
-                db=db,
-                start_date=(
-                    start_date
-                ),
-                end_date=(
-                    end_date
-                ),
-                category=(
-                    category
-                ),
-                expense_type=(
-                    expense_type
-                ),
-                production_order_id=(
-                    production_order_id
-                ),
-                search=(
-                    search
-                ),
-            )
+    staff_members = (
+        StaffService
+        .get_all(
+            db=db,
+            active_only=(
+                active_only
+            ),
+            search=(
+                search
+            ),
         )
+    )
 
-        return {
-            "total":
-                len(
-                    expenses
-                ),
-
-            "items":
-                expenses,
-        }
-
-    except ValueError as exc:
-
-        raise HTTPException(
-            status_code=(
-                status.HTTP_400_BAD_REQUEST
+    return {
+        "total":
+            len(
+                staff_members
             ),
-            detail=str(
-                exc
-            ),
-        ) from exc
+
+        "items":
+            staff_members,
+    }
 
 
 # ================================================================
-# GET ONE
+# GET STAFF
 # ================================================================
 
 @router.get(
-    "/{expense_id}",
-    response_model=ExpenseResponse,
+    "/{staff_id}",
+    response_model=StaffResponse,
 )
-def get_expense(
-    expense_id: int,
+def get_staff_member(
+    staff_id: int,
 
     db: Session = Depends(
         get_db
@@ -226,9 +163,7 @@ def get_expense(
 
     current_user: User = Depends(
         require_role(
-            "Boss",
-            "Admin",
-            "Accounts",
+            *STAFF_ROLES
         )
     ),
 ):
@@ -236,11 +171,11 @@ def get_expense(
     try:
 
         return (
-            ExpenseService
+            StaffService
             .get_by_id(
                 db=db,
-                expense_id=(
-                    expense_id
+                staff_id=(
+                    staff_id
                 ),
             )
         )
@@ -258,16 +193,16 @@ def get_expense(
 
 
 # ================================================================
-# UPDATE
+# UPDATE STAFF
 # ================================================================
 
 @router.put(
-    "/{expense_id}",
-    response_model=ExpenseResponse,
+    "/{staff_id}",
+    response_model=StaffResponse,
 )
-def update_expense(
-    expense_id: int,
-    data: ExpenseUpdate,
+def update_staff(
+    staff_id: int,
+    data: StaffUpdate,
 
     db: Session = Depends(
         get_db
@@ -275,7 +210,7 @@ def update_expense(
 
     current_user: User = Depends(
         require_role(
-            *EXPENSE_WRITE_ROLES
+            *STAFF_ROLES
         )
     ),
 ):
@@ -283,11 +218,11 @@ def update_expense(
     try:
 
         return (
-            ExpenseService
+            StaffService
             .update(
                 db=db,
-                expense_id=(
-                    expense_id
+                staff_id=(
+                    staff_id
                 ),
                 data=data,
             )
@@ -306,17 +241,18 @@ def update_expense(
 
 
 # ================================================================
-# DELETE
+# DEACTIVATE STAFF
+#
+# We do not hard-delete staff because historical production
+# overhead costing must remain traceable.
 # ================================================================
 
 @router.delete(
-    "/{expense_id}",
-    status_code=(
-        status.HTTP_204_NO_CONTENT
-    ),
+    "/{staff_id}",
+    response_model=StaffResponse,
 )
-def delete_expense(
-    expense_id: int,
+def deactivate_staff(
+    staff_id: int,
 
     db: Session = Depends(
         get_db
@@ -324,25 +260,28 @@ def delete_expense(
 
     current_user: User = Depends(
         require_role(
-            *EXPENSE_WRITE_ROLES
+            *STAFF_ROLES
         )
     ),
 ):
 
     try:
 
-        ExpenseService.delete(
-            db=db,
-            expense_id=(
-                expense_id
-            ),
+        return (
+            StaffService
+            .deactivate(
+                db=db,
+                staff_id=(
+                    staff_id
+                ),
+            )
         )
 
     except ValueError as exc:
 
         raise HTTPException(
             status_code=(
-                status.HTTP_400_BAD_REQUEST
+                status.HTTP_404_NOT_FOUND
             ),
             detail=str(
                 exc

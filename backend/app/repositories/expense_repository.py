@@ -8,17 +8,31 @@ from app.models.expense import Expense
 
 class ExpenseRepository:
 
+    # ============================================================
+    # CREATE
+    # ============================================================
+
     @staticmethod
     def create(
         db: Session,
         expense: Expense,
     ) -> Expense:
 
-        db.add(expense)
+        db.add(
+            expense
+        )
+
         db.commit()
-        db.refresh(expense)
+
+        db.refresh(
+            expense
+        )
 
         return expense
+
+    # ============================================================
+    # GET ONE
+    # ============================================================
 
     @staticmethod
     def get_by_id(
@@ -27,10 +41,19 @@ class ExpenseRepository:
     ) -> Expense | None:
 
         return (
-            db.query(Expense)
-            .filter(Expense.id == expense_id)
+            db.query(
+                Expense
+            )
+            .filter(
+                Expense.id
+                == expense_id
+            )
             .first()
         )
+
+    # ============================================================
+    # LIST / FILTER
+    # ============================================================
 
     @staticmethod
     def get_all(
@@ -38,45 +61,109 @@ class ExpenseRepository:
         start_date: date | None = None,
         end_date: date | None = None,
         category: str | None = None,
+        expense_type: str | None = None,
+        production_order_id: int | None = None,
         search: str | None = None,
     ) -> list[Expense]:
 
-        query = db.query(Expense)
+        query = (
+            db.query(
+                Expense
+            )
+        )
 
-        if start_date:
+        if (
+            start_date
+            is not None
+        ):
+
             query = query.filter(
-                Expense.expense_date >= start_date
+                Expense.expense_date
+                >= start_date
             )
 
-        if end_date:
+        if (
+            end_date
+            is not None
+        ):
+
             query = query.filter(
-                Expense.expense_date <= end_date
+                Expense.expense_date
+                <= end_date
             )
 
-        if category:
+        if (
+            category
+            is not None
+        ):
+
             query = query.filter(
-                Expense.category == category
+                Expense.category
+                == category
+            )
+
+        if (
+            expense_type
+            is not None
+        ):
+
+            query = query.filter(
+                Expense.expense_type
+                == expense_type
+            )
+
+        if (
+            production_order_id
+            is not None
+        ):
+
+            query = query.filter(
+                Expense.production_order_id
+                == production_order_id
             )
 
         if search:
-            keyword = f"%{search}%"
+
+            keyword = (
+                f"%{search.strip()}%"
+            )
 
             query = query.filter(
                 or_(
-                    Expense.description.ilike(keyword),
-                    Expense.vendor_name.ilike(keyword),
-                    Expense.reference_number.ilike(keyword),
-                    Expense.notes.ilike(keyword),
+                    Expense.description
+                    .ilike(
+                        keyword
+                    ),
+
+                    Expense.vendor_name
+                    .ilike(
+                        keyword
+                    ),
+
+                    Expense.reference_number
+                    .ilike(
+                        keyword
+                    ),
+
+                    Expense.notes
+                    .ilike(
+                        keyword
+                    ),
                 )
             )
 
         return (
-            query.order_by(
+            query
+            .order_by(
                 Expense.expense_date.desc(),
                 Expense.id.desc(),
             )
             .all()
         )
+
+    # ============================================================
+    # UPDATE
+    # ============================================================
 
     @staticmethod
     def update(
@@ -85,9 +172,16 @@ class ExpenseRepository:
     ) -> Expense:
 
         db.commit()
-        db.refresh(expense)
+
+        db.refresh(
+            expense
+        )
 
         return expense
+
+    # ============================================================
+    # DELETE
+    # ============================================================
 
     @staticmethod
     def delete(
@@ -95,5 +189,8 @@ class ExpenseRepository:
         expense: Expense,
     ) -> None:
 
-        db.delete(expense)
+        db.delete(
+            expense
+        )
+
         db.commit()
