@@ -1,6 +1,11 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    field_validator,
+)
 
 
 class CompanySettingsBase(BaseModel):
@@ -9,9 +14,19 @@ class CompanySettingsBase(BaseModel):
     state_name: str
     state_code: str
 
+    pan_number: str | None = None
+
     address: str | None = None
     phone: str | None = None
     email: EmailStr | None = None
+    website: str | None = None
+
+    bank_account_name: str | None = None
+    bank_name: str | None = None
+    bank_account_number: str | None = None
+    bank_ifsc_code: str | None = None
+    bank_branch: str | None = None
+    upi_id: str | None = None
 
     @field_validator(
         "company_name",
@@ -21,8 +36,14 @@ class CompanySettingsBase(BaseModel):
         mode="before",
     )
     @classmethod
-    def strip_required_fields(cls, value):
-        if isinstance(value, str):
+    def strip_required_fields(
+        cls,
+        value,
+    ):
+        if isinstance(
+            value,
+            str,
+        ):
             value = value.strip()
 
         if not value:
@@ -41,7 +62,15 @@ class CompanySettingsBase(BaseModel):
         value: str,
     ) -> str:
 
-        value = value.upper()
+        value = (
+            value
+            .strip()
+            .upper()
+            .replace(
+                " ",
+                "",
+            )
+        )
 
         if len(value) != 15:
             raise ValueError(
@@ -51,6 +80,11 @@ class CompanySettingsBase(BaseModel):
         if not value[:2].isdigit():
             raise ValueError(
                 "GST number must begin with a valid 2-digit state code."
+            )
+
+        if not value.isalnum():
+            raise ValueError(
+                "GST number must contain only letters and numbers."
             )
 
         return value
@@ -64,11 +98,16 @@ class CompanySettingsBase(BaseModel):
         value: str,
     ) -> str:
 
-        value = value.zfill(2)
+        value = (
+            value
+            .strip()
+            .zfill(2)
+        )
 
         if (
             len(value) != 2
-            or not value.isdigit()
+            or
+            not value.isdigit()
         ):
             raise ValueError(
                 "State code must be a 2-digit number."
@@ -77,8 +116,84 @@ class CompanySettingsBase(BaseModel):
         return value
 
     @field_validator(
+        "pan_number",
+        mode="before",
+    )
+    @classmethod
+    def normalize_pan_number(
+        cls,
+        value,
+    ):
+
+        if value is None:
+            return None
+
+        value = (
+            str(value)
+            .strip()
+            .upper()
+            .replace(
+                " ",
+                "",
+            )
+        )
+
+        if not value:
+            return None
+
+        if len(value) != 10:
+            raise ValueError(
+                "PAN number must contain exactly 10 characters."
+            )
+
+        if not (
+            value[:5].isalpha()
+            and
+            value[5:9].isdigit()
+            and
+            value[9:].isalpha()
+        ):
+            raise ValueError(
+                "PAN number format is invalid."
+            )
+
+        return value
+
+    @field_validator(
+        "bank_ifsc_code",
+        mode="before",
+    )
+    @classmethod
+    def normalize_ifsc(
+        cls,
+        value,
+    ):
+
+        if value is None:
+            return None
+
+        value = (
+            str(value)
+            .strip()
+            .upper()
+            .replace(
+                " ",
+                "",
+            )
+        )
+
+        return value or None
+
+    @field_validator(
         "address",
         "phone",
+        "email",
+        "website",
+        "bank_account_name",
+        "bank_name",
+        "bank_account_number",
+        "bank_branch",
+        "upi_id",
         mode="before",
     )
     @classmethod
@@ -86,7 +201,11 @@ class CompanySettingsBase(BaseModel):
         cls,
         value,
     ):
-        if isinstance(value, str):
+
+        if isinstance(
+            value,
+            str,
+        ):
             value = value.strip()
 
         return value or None
@@ -108,6 +227,9 @@ class CompanySettingsResponse(
     CompanySettingsBase
 ):
     id: int
+
+    logo_path: str | None = None
+
     created_at: datetime
     updated_at: datetime
 

@@ -38,6 +38,8 @@ import GSTReportPage from "../pages/gst/GSTReportPage";
 import ExpensePage from "../pages/expenses/ExpensePage";
 import FinancialAnalyzerPage from "../pages/financial/FinancialAnalyzerPage";
 
+import SettingsPage from "../pages/settings/SettingsPage";
+
 
 export default function AppRouter() {
   return (
@@ -268,6 +270,16 @@ export default function AppRouter() {
             path="/financial"
             element={
               <FinancialAnalyzerPage />
+            }
+          />
+
+
+          {/* SETTINGS */}
+
+          <Route
+            path="/settings"
+            element={
+              <SettingsPage />
             }
           />
 

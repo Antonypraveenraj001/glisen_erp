@@ -3,6 +3,9 @@ from fastapi import APIRouter
 from app.api.v1.auth import (
     router as auth_router,
 )
+from app.api.v1.business_settings import (
+    router as business_settings_router,
+)
 from app.api.v1.company_settings import (
     router as company_settings_router,
 )
@@ -14,6 +17,9 @@ from app.api.v1.dashboard import (
 )
 from app.api.v1.direct_stock_issues import (
     router as direct_stock_issues_router,
+)
+from app.api.v1.document_settings import (
+    router as document_settings_router,
 )
 from app.api.v1.enquiries import (
     router as enquiries_router,
@@ -53,6 +59,9 @@ from app.api.v1.purchase_bill_ai import (
 )
 from app.api.v1.purchase_bills import (
     router as purchase_bills_router,
+)
+from app.api.v1.security import (
+    router as security_router,
 )
 from app.api.v1.shop_floor_issues import (
     router as shop_floor_issues_router,
@@ -97,7 +106,24 @@ api_router.include_router(
 )
 
 api_router.include_router(
+    security_router
+)
+
+
+# ================================================================
+# SETTINGS
+# ================================================================
+
+api_router.include_router(
     company_settings_router
+)
+
+api_router.include_router(
+    document_settings_router
+)
+
+api_router.include_router(
+    business_settings_router
 )
 
 

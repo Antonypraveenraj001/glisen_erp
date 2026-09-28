@@ -76,3 +76,5 @@ Thumbs.db
 # IDE
 # ==========================
 .idea/
+# Local runtime uploads
+backend/uploads_temp/
