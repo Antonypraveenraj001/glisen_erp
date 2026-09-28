@@ -29,28 +29,35 @@ interface Enquiry {
   id: number;
 
   enquiry_number: string;
+
   enquiry_date: string;
 
   /*
    * Internal database relationship only.
-   * Never displayed or entered by the user.
+   * Never displayed or entered manually.
    */
   customer_id: number;
 
   company_name: string;
 
   contact_person?: string | null;
+
   phone?: string | null;
+
   email?: string | null;
 
   gst_number?: string | null;
 
   address?: string | null;
+
   city?: string | null;
+
   state?: string | null;
+
   pincode?: string | null;
 
   machine_name?: string | null;
+
   machine_model?: string | null;
 
   application?: string | null;
@@ -58,11 +65,13 @@ interface Enquiry {
   quantity?: number | null;
 
   requirements?: string | null;
+
   remarks?: string | null;
 
   status: string;
 
   created_at: string;
+
   updated_at?: string | null;
 }
 
@@ -75,14 +84,19 @@ interface Customer {
   company_name: string;
 
   contact_person?: string | null;
+
   email?: string | null;
+
   phone?: string | null;
 
   gst_number?: string | null;
 
   address?: string | null;
+
   city?: string | null;
+
   state?: string | null;
+
   pincode?: string | null;
 }
 
@@ -93,17 +107,23 @@ interface EnquiryForm {
   company_name: string;
 
   contact_person: string;
+
   phone: string;
+
   email: string;
 
   gst_number: string;
 
   address: string;
+
   city: string;
+
   state: string;
+
   pincode: string;
 
   machine_name: string;
+
   machine_model: string;
 
   application: string;
@@ -111,14 +131,23 @@ interface EnquiryForm {
   quantity: string;
 
   requirements: string;
+
   remarks: string;
 
   status: string;
 }
 
 
+/* ================================================================
+   CONSTANTS
+================================================================ */
+
 const API_BASE_URL =
   "http://127.0.0.1:8000/api/v1";
+
+
+const ROWS_PER_PAGE =
+  10;
 
 
 const STATUS_OPTIONS = [
@@ -136,42 +165,74 @@ const STATUS_OPTIONS = [
 ];
 
 
+const ACTIVE_ENQUIRY_STATUSES = [
+  "New",
+  "Contacted",
+  "Quotation",
+];
+
+
 /* ================================================================
    EMPTY FORM
 ================================================================ */
 
 function createEmptyForm(): EnquiryForm {
+
   return {
     enquiry_date:
       new Date()
         .toISOString()
         .split("T")[0],
 
-    company_name: "",
+    company_name:
+      "",
 
-    contact_person: "",
-    phone: "",
-    email: "",
+    contact_person:
+      "",
 
-    gst_number: "",
+    phone:
+      "",
 
-    address: "",
-    city: "",
-    state: "",
-    pincode: "",
+    email:
+      "",
 
-    machine_name: "",
-    machine_model: "",
+    gst_number:
+      "",
 
-    application: "",
+    address:
+      "",
 
-    quantity: "",
+    city:
+      "",
 
-    requirements: "",
-    remarks: "",
+    state:
+      "",
 
-    status: "New",
+    pincode:
+      "",
+
+    machine_name:
+      "",
+
+    machine_model:
+      "",
+
+    application:
+      "",
+
+    quantity:
+      "",
+
+    requirements:
+      "",
+
+    remarks:
+      "",
+
+    status:
+      "New",
   };
+
 }
 
 
@@ -180,15 +241,18 @@ function createEmptyForm(): EnquiryForm {
 ================================================================ */
 
 function getAuthHeaders() {
+
   const token =
     localStorage.getItem(
       "access_token"
     );
 
+
   return {
     Authorization:
       `Bearer ${token}`,
   };
+
 }
 
 
@@ -202,12 +266,17 @@ function formatDate(
     | null
     | undefined
 ) {
+
   if (!value) {
     return "—";
   }
 
+
   const date =
-    new Date(value);
+    new Date(
+      `${value}T00:00:00`
+    );
+
 
   if (
     Number.isNaN(
@@ -217,20 +286,28 @@ function formatDate(
     return value;
   }
 
+
   return date.toLocaleDateString(
     "en-IN",
     {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+      day:
+        "2-digit",
+
+      month:
+        "short",
+
+      year:
+        "numeric",
     }
   );
+
 }
 
 
 function getStatusClass(
   status: string
 ) {
+
   return status
     .toLowerCase()
     .replace(
@@ -241,18 +318,21 @@ function getStatusClass(
       /[^a-z0-9-]/g,
       ""
     );
+
 }
 
 
 function normalizeGST(
   value: string
 ) {
+
   return value
     .replace(
       /\s+/g,
       ""
     )
     .toUpperCase();
+
 }
 
 
@@ -262,7 +342,10 @@ function valueOrEmpty(
     | null
     | undefined
 ) {
-  return value || "";
+
+  return value
+  || "";
+
 }
 
 
@@ -276,7 +359,9 @@ export default function EnquiryList() {
     enquiries,
     setEnquiries,
   ] =
-    useState<Enquiry[]>(
+    useState<
+      Enquiry[]
+    >(
       []
     );
 
@@ -370,8 +455,41 @@ export default function EnquiryList() {
     form,
     setForm,
   ] =
-    useState<EnquiryForm>(
+    useState<
+      EnquiryForm
+    >(
       createEmptyForm()
+    );
+
+
+  /* ==============================================================
+     INDEPENDENT PAGINATION
+  ============================================================== */
+
+  const [
+    activePage,
+    setActivePage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    confirmedPage,
+    setConfirmedPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    cancelledPage,
+    setCancelledPage,
+  ] =
+    useState(
+      1
     );
 
 
@@ -386,6 +504,7 @@ export default function EnquiryList() {
       setLoading(
         true
       );
+
 
       setError(
         ""
@@ -403,16 +522,20 @@ export default function EnquiryList() {
       if (
         search.trim()
       ) {
+
         params.search =
           search.trim();
+
       }
 
 
       if (
         statusFilter
       ) {
+
         params.status =
           statusFilter;
+
       }
 
 
@@ -448,8 +571,10 @@ export default function EnquiryList() {
         axios.isAxiosError(
           err
         )
-        && err.response?.status
-        === 401
+        &&
+        err.response?.status
+        ===
+        401
       ) {
 
         setError(
@@ -460,9 +585,11 @@ export default function EnquiryList() {
         axios.isAxiosError(
           err
         )
-        && typeof
+        &&
+        typeof
           err.response?.data?.detail
-        === "string"
+        ===
+        "string"
       ) {
 
         setError(
@@ -501,6 +628,33 @@ export default function EnquiryList() {
 
 
   /* ==============================================================
+     RESET PAGES WHEN SEARCH / FILTER CHANGES
+  ============================================================== */
+
+  useEffect(
+    () => {
+
+      setActivePage(
+        1
+      );
+
+      setConfirmedPage(
+        1
+      );
+
+      setCancelledPage(
+        1
+      );
+
+    },
+    [
+      search,
+      statusFilter,
+    ]
+  );
+
+
+  /* ==============================================================
      AFTER PRINT
   ============================================================== */
 
@@ -508,9 +662,11 @@ export default function EnquiryList() {
     () => {
 
       function handleAfterPrint() {
+
         setPrintEnquiry(
           null
         );
+
       }
 
 
@@ -535,7 +691,7 @@ export default function EnquiryList() {
 
 
   /* ==============================================================
-     CLIENT SEARCH
+     SEARCH
   ============================================================== */
 
   const filteredEnquiries =
@@ -548,24 +704,45 @@ export default function EnquiryList() {
             .toLowerCase();
 
 
-        if (!query) {
+        if (
+          !query
+        ) {
+
           return enquiries;
+
         }
 
 
         return enquiries.filter(
           enquiry =>
             [
-              enquiry.enquiry_number,
-              enquiry.company_name,
-              enquiry.contact_person,
-              enquiry.phone,
-              enquiry.email,
-              enquiry.gst_number,
-              enquiry.machine_name,
-              enquiry.machine_model,
+              enquiry
+                .enquiry_number,
+
+              enquiry
+                .company_name,
+
+              enquiry
+                .contact_person,
+
+              enquiry
+                .phone,
+
+              enquiry
+                .email,
+
+              enquiry
+                .gst_number,
+
+              enquiry
+                .machine_name,
+
+              enquiry
+                .machine_model,
             ]
-              .filter(Boolean)
+              .filter(
+                Boolean
+              )
               .some(
                 value =>
                   String(
@@ -587,6 +764,247 @@ export default function EnquiryList() {
 
 
   /* ==============================================================
+     GROUPED ENQUIRIES
+  ============================================================== */
+
+  const activeEnquiries =
+    useMemo(
+      () =>
+        filteredEnquiries.filter(
+          enquiry =>
+            ACTIVE_ENQUIRY_STATUSES
+              .includes(
+                enquiry.status
+              )
+        ),
+      [
+        filteredEnquiries,
+      ]
+    );
+
+
+  const confirmedEnquiries =
+    useMemo(
+      () =>
+        filteredEnquiries.filter(
+          enquiry =>
+            !ACTIVE_ENQUIRY_STATUSES
+              .includes(
+                enquiry.status
+              )
+            &&
+            enquiry.status
+            !==
+            "Cancelled"
+        ),
+      [
+        filteredEnquiries,
+      ]
+    );
+
+
+  const cancelledEnquiries =
+    useMemo(
+      () =>
+        filteredEnquiries.filter(
+          enquiry =>
+            enquiry.status
+            ===
+            "Cancelled"
+        ),
+      [
+        filteredEnquiries,
+      ]
+    );
+
+
+  /* ==============================================================
+     PAGE COUNTS
+  ============================================================== */
+
+  const activeTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        activeEnquiries.length
+        /
+        ROWS_PER_PAGE
+      )
+    );
+
+
+  const confirmedTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        confirmedEnquiries.length
+        /
+        ROWS_PER_PAGE
+      )
+    );
+
+
+  const cancelledTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        cancelledEnquiries.length
+        /
+        ROWS_PER_PAGE
+      )
+    );
+
+
+  /* ==============================================================
+     KEEP PAGE NUMBERS VALID AFTER EDIT / FILTER
+  ============================================================== */
+
+  useEffect(
+    () => {
+
+      setActivePage(
+        current =>
+          Math.min(
+            current,
+            activeTotalPages
+          )
+      );
+
+    },
+    [
+      activeTotalPages,
+    ]
+  );
+
+
+  useEffect(
+    () => {
+
+      setConfirmedPage(
+        current =>
+          Math.min(
+            current,
+            confirmedTotalPages
+          )
+      );
+
+    },
+    [
+      confirmedTotalPages,
+    ]
+  );
+
+
+  useEffect(
+    () => {
+
+      setCancelledPage(
+        current =>
+          Math.min(
+            current,
+            cancelledTotalPages
+          )
+      );
+
+    },
+    [
+      cancelledTotalPages,
+    ]
+  );
+
+
+  /* ==============================================================
+     PAGINATED RECORDS
+  ============================================================== */
+
+  const paginatedActiveEnquiries =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            activePage
+            -
+            1
+          )
+          *
+          ROWS_PER_PAGE;
+
+
+        return activeEnquiries.slice(
+          start,
+          start
+          +
+          ROWS_PER_PAGE
+        );
+
+      },
+      [
+        activeEnquiries,
+        activePage,
+      ]
+    );
+
+
+  const paginatedConfirmedEnquiries =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            confirmedPage
+            -
+            1
+          )
+          *
+          ROWS_PER_PAGE;
+
+
+        return confirmedEnquiries.slice(
+          start,
+          start
+          +
+          ROWS_PER_PAGE
+        );
+
+      },
+      [
+        confirmedEnquiries,
+        confirmedPage,
+      ]
+    );
+
+
+  const paginatedCancelledEnquiries =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            cancelledPage
+            -
+            1
+          )
+          *
+          ROWS_PER_PAGE;
+
+
+        return cancelledEnquiries.slice(
+          start,
+          start
+          +
+          ROWS_PER_PAGE
+        );
+
+      },
+      [
+        cancelledEnquiries,
+        cancelledPage,
+      ]
+    );
+
+
+  /* ==============================================================
      CREATE MODAL
   ============================================================== */
 
@@ -596,13 +1014,16 @@ export default function EnquiryList() {
       null
     );
 
+
     setForm(
       createEmptyForm()
     );
 
+
     setFormError(
       ""
     );
+
 
     setShowModal(
       true
@@ -616,60 +1037,67 @@ export default function EnquiryList() {
   ============================================================== */
 
   async function openEditModal(
-    enquiry: Enquiry
+    enquiry:
+      Enquiry
   ) {
 
     setEditingEnquiry(
       enquiry
     );
 
+
     setFormError(
       ""
     );
 
 
-    /*
-     * Start using the Enquiry snapshot.
-     */
     let companyName =
       valueOrEmpty(
         enquiry.company_name
       );
+
 
     let contactPerson =
       valueOrEmpty(
         enquiry.contact_person
       );
 
+
     let phone =
       valueOrEmpty(
         enquiry.phone
       );
+
 
     let email =
       valueOrEmpty(
         enquiry.email
       );
 
+
     let gstNumber =
       valueOrEmpty(
         enquiry.gst_number
       );
+
 
     let address =
       valueOrEmpty(
         enquiry.address
       );
 
+
     let city =
       valueOrEmpty(
         enquiry.city
       );
 
+
     let state =
       valueOrEmpty(
         enquiry.state
       );
+
 
     let pincode =
       valueOrEmpty(
@@ -678,20 +1106,22 @@ export default function EnquiryList() {
 
 
     /*
-     * Older enquiries were created before GST/address
-     * details were stored on Enquiry.
-     *
-     * Recover those values silently from the internally
-     * linked Customer. The Customer ID is never shown.
+     * Older enquiries may not contain all customer
+     * snapshot information.
      */
     if (
       enquiry.customer_id
-      && (
+      &&
+      (
         !gstNumber
-        || !address
-        || !city
-        || !state
-        || !pincode
+        ||
+        !address
+        ||
+        !city
+        ||
+        !state
+        ||
+        !pincode
       )
     ) {
 
@@ -715,55 +1145,72 @@ export default function EnquiryList() {
 
         companyName =
           companyName
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.company_name
           );
 
+
         contactPerson =
           contactPerson
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.contact_person
           );
 
+
         phone =
           phone
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.phone
           );
 
+
         email =
           email
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.email
           );
 
+
         gstNumber =
           gstNumber
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.gst_number
           );
 
+
         address =
           address
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.address
           );
 
+
         city =
           city
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.city
           );
 
+
         state =
           state
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.state
           );
 
+
         pincode =
           pincode
-          || valueOrEmpty(
+          ||
+          valueOrEmpty(
             customer.pincode
           );
 
@@ -781,71 +1228,78 @@ export default function EnquiryList() {
     }
 
 
-    setForm({
-      enquiry_date:
-        enquiry.enquiry_date
-        || "",
+    setForm(
+      {
+        enquiry_date:
+          enquiry.enquiry_date
+          ||
+          "",
 
-      company_name:
-        companyName,
+        company_name:
+          companyName,
 
-      contact_person:
-        contactPerson,
+        contact_person:
+          contactPerson,
 
-      phone,
+        phone,
 
-      email,
+        email,
 
-      gst_number:
-        gstNumber,
+        gst_number:
+          gstNumber,
 
-      address,
+        address,
 
-      city,
+        city,
 
-      state,
+        state,
 
-      pincode,
+        pincode,
 
-      machine_name:
-        valueOrEmpty(
-          enquiry.machine_name
-        ),
+        machine_name:
+          valueOrEmpty(
+            enquiry.machine_name
+          ),
 
-      machine_model:
-        valueOrEmpty(
-          enquiry.machine_model
-        ),
+        machine_model:
+          valueOrEmpty(
+            enquiry.machine_model
+          ),
 
-      application:
-        valueOrEmpty(
-          enquiry.application
-        ),
+        application:
+          valueOrEmpty(
+            enquiry.application
+          ),
 
-      quantity:
-        enquiry.quantity
-          !== null
-        && enquiry.quantity
-          !== undefined
-          ? String(
-              enquiry.quantity
-            )
-          : "",
+        quantity:
+          enquiry.quantity
+          !==
+          null
+          &&
+          enquiry.quantity
+          !==
+          undefined
+            ? String(
+                enquiry.quantity
+              )
+            : "",
 
-      requirements:
-        valueOrEmpty(
-          enquiry.requirements
-        ),
+        requirements:
+          valueOrEmpty(
+            enquiry.requirements
+          ),
 
-      remarks:
-        valueOrEmpty(
-          enquiry.remarks
-        ),
+        remarks:
+          valueOrEmpty(
+            enquiry.remarks
+          ),
 
-      status:
-        enquiry.status
-        || "New",
-    });
+        status:
+          enquiry.status
+          ||
+          "New",
+      }
+    );
 
 
     setShowModal(
@@ -864,7 +1318,9 @@ export default function EnquiryList() {
     if (
       saving
     ) {
+
       return;
+
     }
 
 
@@ -872,9 +1328,11 @@ export default function EnquiryList() {
       false
     );
 
+
     setEditingEnquiry(
       null
     );
+
 
     setFormError(
       ""
@@ -900,7 +1358,8 @@ export default function EnquiryList() {
         ...current,
 
         [field]:
-          field ===
+          field
+          ===
           "gst_number"
             ? normalizeGST(
                 value
@@ -938,6 +1397,7 @@ export default function EnquiryList() {
       );
 
       return;
+
     }
 
 
@@ -950,6 +1410,7 @@ export default function EnquiryList() {
       );
 
       return;
+
     }
 
 
@@ -968,6 +1429,7 @@ export default function EnquiryList() {
       );
 
       return;
+
     }
 
 
@@ -990,8 +1452,10 @@ export default function EnquiryList() {
         !Number.isInteger(
           quantity
         )
-        || quantity
-        <= 0
+        ||
+        quantity
+        <=
+        0
       ) {
 
         setFormError(
@@ -999,78 +1463,96 @@ export default function EnquiryList() {
         );
 
         return;
+
       }
 
     }
 
 
-    /*
-     * Notice:
-     *
-     * customer_id is NOT sent.
-     *
-     * Backend resolves the customer automatically
-     * using GSTIN.
-     */
     const payload = {
       enquiry_date:
         form.enquiry_date,
 
       company_name:
-        form.company_name.trim(),
+        form.company_name
+          .trim(),
 
       contact_person:
-        form.contact_person.trim()
-        || null,
+        form.contact_person
+          .trim()
+        ||
+        null,
 
       phone:
-        form.phone.trim()
-        || null,
+        form.phone
+          .trim()
+        ||
+        null,
 
       email:
-        form.email.trim()
-        || null,
+        form.email
+          .trim()
+        ||
+        null,
 
       gst_number:
         gstNumber,
 
       address:
-        form.address.trim()
-        || null,
+        form.address
+          .trim()
+        ||
+        null,
 
       city:
-        form.city.trim()
-        || null,
+        form.city
+          .trim()
+        ||
+        null,
 
       state:
-        form.state.trim()
-        || null,
+        form.state
+          .trim()
+        ||
+        null,
 
       pincode:
-        form.pincode.trim()
-        || null,
+        form.pincode
+          .trim()
+        ||
+        null,
 
       machine_name:
-        form.machine_name.trim()
-        || null,
+        form.machine_name
+          .trim()
+        ||
+        null,
 
       machine_model:
-        form.machine_model.trim()
-        || null,
+        form.machine_model
+          .trim()
+        ||
+        null,
 
       application:
-        form.application.trim()
-        || null,
+        form.application
+          .trim()
+        ||
+        null,
 
       quantity,
 
       requirements:
-        form.requirements.trim()
-        || null,
+        form.requirements
+          .trim()
+        ||
+        null,
 
       remarks:
-        form.remarks.trim()
-        || null,
+        form.remarks
+          .trim()
+        ||
+        null,
 
       status:
         form.status,
@@ -1115,6 +1597,7 @@ export default function EnquiryList() {
         false
       );
 
+
       setEditingEnquiry(
         null
       );
@@ -1136,9 +1619,11 @@ export default function EnquiryList() {
         axios.isAxiosError(
           err
         )
-        && typeof
+        &&
+        typeof
           err.response?.data?.detail
-        === "string"
+        ===
+        "string"
       ) {
 
         setFormError(
@@ -1182,7 +1667,9 @@ export default function EnquiryList() {
 
     window.setTimeout(
       () => {
+
         window.print();
+
       },
       150
     );
@@ -1191,31 +1678,618 @@ export default function EnquiryList() {
 
 
   /* ==============================================================
-     KPI
+     COUNTS
   ============================================================== */
 
   const totalEnquiries =
-    enquiries.length;
+    filteredEnquiries.length;
 
 
-  const newEnquiries =
-    enquiries.filter(
-      enquiry =>
-        enquiry.status
-        === "New"
-    ).length;
+  const activeCount =
+    activeEnquiries.length;
 
 
-  const activeEnquiries =
-    enquiries.filter(
-      enquiry =>
-        ![
-          "Completed",
-          "Cancelled",
-        ].includes(
-          enquiry.status
+  const confirmedCount =
+    confirmedEnquiries.length;
+
+
+  const cancelledCount =
+    cancelledEnquiries.length;
+
+
+  /* ==============================================================
+     ENQUIRY TABLE
+  ============================================================== */
+
+  function renderEnquiryTable(
+    rows:
+      Enquiry[],
+
+    emptyMessage:
+      string
+  ) {
+
+    if (
+      loading
+    ) {
+
+      return (
+        <div className="table-state">
+
+          <div className="loader" />
+
+          <p>
+            Loading enquiries...
+          </p>
+
+        </div>
+      );
+
+    }
+
+
+    if (
+      rows.length
+      ===
+      0
+    ) {
+
+      return (
+        <div className="table-state">
+
+          <FileText
+            size={28}
+          />
+
+          <h3>
+            {emptyMessage}
+          </h3>
+
+        </div>
+      );
+
+    }
+
+
+    return (
+      <div className="table-wrapper">
+
+        <table className="enquiry-table">
+
+          <thead>
+
+            <tr>
+
+              <th>
+                Enquiry
+              </th>
+
+              <th>
+                Date
+              </th>
+
+              <th>
+                Company
+              </th>
+
+              <th>
+                Contact
+              </th>
+
+              <th>
+                Machine
+              </th>
+
+              <th>
+                Qty
+              </th>
+
+              <th>
+                Status
+              </th>
+
+              <th>
+                Action
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            {
+              rows.map(
+                enquiry => (
+
+                  <tr
+                    key={
+                      enquiry.id
+                    }
+                  >
+
+                    <td>
+
+                      <div className="enquiry-number">
+
+                        {
+                          enquiry
+                            .enquiry_number
+                        }
+
+                      </div>
+
+                    </td>
+
+
+                    <td>
+
+                      {
+                        formatDate(
+                          enquiry
+                            .enquiry_date
+                        )
+                      }
+
+                    </td>
+
+
+                    <td>
+
+                      <div className="company-name">
+
+                        {
+                          enquiry
+                            .company_name
+                        }
+
+                      </div>
+
+
+                      {
+                        enquiry
+                          .gst_number
+                        && (
+                          <div className="contact-phone">
+
+                            {
+                              enquiry
+                                .gst_number
+                            }
+
+                          </div>
+                        )
+                      }
+
+                    </td>
+
+
+                    <td>
+
+                      <div className="contact-name">
+
+                        {
+                          enquiry
+                            .contact_person
+                          ||
+                          "—"
+                        }
+
+                      </div>
+
+
+                      <div className="contact-phone">
+
+                        {
+                          enquiry.phone
+                          ||
+                          enquiry.email
+                          ||
+                          "—"
+                        }
+
+                      </div>
+
+                    </td>
+
+
+                    <td>
+
+                      <div className="machine-name">
+
+                        {
+                          enquiry
+                            .machine_name
+                          ||
+                          "—"
+                        }
+
+                      </div>
+
+
+                      {
+                        enquiry
+                          .machine_model
+                        && (
+                          <div className="machine-model">
+
+                            {
+                              enquiry
+                                .machine_model
+                            }
+
+                          </div>
+                        )
+                      }
+
+                    </td>
+
+
+                    <td>
+
+                      {
+                        enquiry.quantity
+                        ??
+                        "—"
+                      }
+
+                    </td>
+
+
+                    <td>
+
+                      <span
+                        className={
+                          `status-badge status-${getStatusClass(
+                            enquiry.status
+                          )}`
+                        }
+                      >
+
+                        {
+                          enquiry.status
+                        }
+
+                      </span>
+
+                    </td>
+
+
+                    <td>
+
+                      <div className="enquiry-row-actions">
+
+                        <button
+                          type="button"
+                          className="icon-action-button"
+                          title="Print enquiry"
+                          onClick={() =>
+                            handlePrint(
+                              enquiry
+                            )
+                          }
+                        >
+
+                          <Printer
+                            size={16}
+                          />
+
+                        </button>
+
+
+                        <button
+                          type="button"
+                          className="icon-action-button"
+                          title="Edit enquiry"
+                          onClick={() =>
+                            void openEditModal(
+                              enquiry
+                            )
+                          }
+                        >
+
+                          <Pencil
+                            size={16}
+                          />
+
+                        </button>
+
+                      </div>
+
+                    </td>
+
+                  </tr>
+
+                )
+              )
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+    );
+
+  }
+
+
+  /* ==============================================================
+     PAGINATION
+  ============================================================== */
+
+  function renderPagination(
+    totalRecords:
+      number,
+
+    currentPage:
+      number,
+
+    totalPages:
+      number,
+
+    setPage:
+      (
+        page:
+          number
+        |
+        (
+          (
+            current:
+              number
+          ) =>
+            number
         )
-    ).length;
+      ) =>
+        void
+  ) {
+
+    if (
+      totalRecords
+      ===
+      0
+    ) {
+
+      return null;
+
+    }
+
+
+    const startRecord =
+      (
+        (
+          currentPage
+          -
+          1
+        )
+        *
+        ROWS_PER_PAGE
+      )
+      +
+      1;
+
+
+    const endRecord =
+      Math.min(
+        currentPage
+        *
+        ROWS_PER_PAGE,
+
+        totalRecords
+      );
+
+
+    return (
+      <div
+        style={{
+          minHeight:
+            "58px",
+
+          display:
+            "flex",
+
+          alignItems:
+            "center",
+
+          justifyContent:
+            "space-between",
+
+          gap:
+            "16px",
+
+          padding:
+            "11px 18px",
+
+          borderTop:
+            "1px solid #e8eef6",
+
+          background:
+            "#fbfcff",
+
+          flexWrap:
+            "wrap",
+        }}
+      >
+
+        <div
+          style={{
+            color:
+              "#8090a8",
+
+            fontSize:
+              "10px",
+
+            fontWeight:
+              650,
+          }}
+        >
+
+          Showing{" "}
+
+          <strong
+            style={{
+              color:
+                "#425a7d",
+            }}
+          >
+
+            {
+              startRecord
+            }
+
+            –
+
+            {
+              endRecord
+            }
+
+          </strong>
+
+          {" of "}
+
+          <strong
+            style={{
+              color:
+                "#425a7d",
+            }}
+          >
+
+            {
+              totalRecords
+            }
+
+          </strong>
+
+          {" records"}
+
+        </div>
+
+
+        <div
+          style={{
+            display:
+              "flex",
+
+            alignItems:
+              "center",
+
+            gap:
+              "8px",
+          }}
+        >
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={
+              currentPage
+              <=
+              1
+            }
+            onClick={() =>
+              setPage(
+                current =>
+                  Math.max(
+                    1,
+                    current
+                    -
+                    1
+                  )
+              )
+            }
+            style={{
+              minHeight:
+                "34px",
+
+              padding:
+                "0 12px",
+
+              fontSize:
+                "10px",
+            }}
+          >
+
+            Previous
+
+          </button>
+
+
+          <div
+            style={{
+              minWidth:
+                "92px",
+
+              textAlign:
+                "center",
+
+              color:
+                "#506789",
+
+              fontSize:
+                "10px",
+
+              fontWeight:
+                750,
+            }}
+          >
+
+            Page{" "}
+
+            {
+              currentPage
+            }
+
+            {" of "}
+
+            {
+              totalPages
+            }
+
+          </div>
+
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={
+              currentPage
+              >=
+              totalPages
+            }
+            onClick={() =>
+              setPage(
+                current =>
+                  Math.min(
+                    totalPages,
+                    current
+                    +
+                    1
+                  )
+              )
+            }
+            style={{
+              minHeight:
+                "34px",
+
+              padding:
+                "0 12px",
+
+              fontSize:
+                "10px",
+            }}
+          >
+
+            Next
+
+          </button>
+
+        </div>
+
+      </div>
+    );
+
+  }
 
 
   /* ==============================================================
@@ -1225,11 +2299,17 @@ export default function EnquiryList() {
   return (
     <div className="enquiry-page">
 
+
       {/* ========================================================
           NORMAL SCREEN
-      ========================================================= */}
+      ======================================================== */}
 
       <div className="enquiry-screen-content">
+
+
+        {/* ======================================================
+            HEADER
+        ====================================================== */}
 
         <section className="enquiry-header">
 
@@ -1257,9 +2337,10 @@ export default function EnquiryList() {
 
 
               <p>
-                Customer details are captured here once
-                and automatically connected through the
-                complete sales workflow.
+                Active enquiries stay in the sales pipeline.
+                Confirmed orders are separated from enquiries
+                still awaiting confirmation, while cancelled
+                enquiries remain available for history.
               </p>
 
             </div>
@@ -1317,7 +2398,7 @@ export default function EnquiryList() {
 
         {/* ======================================================
             KPI
-        ======================================================= */}
+        ====================================================== */}
 
         <section className="enquiry-kpi-grid">
 
@@ -1327,12 +2408,14 @@ export default function EnquiryList() {
               Total Enquiries
             </div>
 
+
             <div className="kpi-value">
               {totalEnquiries}
             </div>
 
+
             <div className="kpi-helper">
-              All recorded enquiries
+              Matching current search/filter
             </div>
 
           </div>
@@ -1341,15 +2424,17 @@ export default function EnquiryList() {
           <div className="kpi-card">
 
             <div className="kpi-label">
-              New Enquiries
+              Active Enquiries
             </div>
+
 
             <div className="kpi-value">
-              {newEnquiries}
+              {activeCount}
             </div>
 
+
             <div className="kpi-helper">
-              Awaiting follow-up
+              New, Contacted or Quotation
             </div>
 
           </div>
@@ -1358,15 +2443,17 @@ export default function EnquiryList() {
           <div className="kpi-card">
 
             <div className="kpi-label">
-              Active Pipeline
+              Confirmed / Converted
             </div>
+
 
             <div className="kpi-value">
-              {activeEnquiries}
+              {confirmedCount}
             </div>
 
+
             <div className="kpi-helper">
-              Open customer opportunities
+              Orders moved beyond enquiry stage
             </div>
 
           </div>
@@ -1375,17 +2462,17 @@ export default function EnquiryList() {
           <div className="kpi-card kpi-card-accent">
 
             <div className="kpi-label">
-              Current View
+              Cancelled
             </div>
+
 
             <div className="kpi-value">
-              {
-                filteredEnquiries.length
-              }
+              {cancelledCount}
             </div>
 
+
             <div className="kpi-helper">
-              Matching your filters
+              Closed without confirmation
             </div>
 
           </div>
@@ -1395,7 +2482,7 @@ export default function EnquiryList() {
 
         {/* ======================================================
             FILTER
-        ======================================================= */}
+        ====================================================== */}
 
         <section className="filter-card">
 
@@ -1414,7 +2501,9 @@ export default function EnquiryList() {
               onChange={
                 event =>
                   setSearch(
-                    event.target.value
+                    event
+                      .target
+                      .value
                   )
               }
               placeholder="Search enquiry number, company, GSTIN, contact, phone or machine..."
@@ -1428,7 +2517,9 @@ export default function EnquiryList() {
                   type="button"
                   className="clear-search"
                   onClick={() =>
-                    setSearch("")
+                    setSearch(
+                      ""
+                    )
                   }
                 >
 
@@ -1451,7 +2542,9 @@ export default function EnquiryList() {
             onChange={
               event =>
                 setStatusFilter(
-                  event.target.value
+                  event
+                    .target
+                    .value
                 )
             }
           >
@@ -1464,6 +2557,7 @@ export default function EnquiryList() {
             {
               STATUS_OPTIONS.map(
                 status => (
+
                   <option
                     key={
                       status
@@ -1472,8 +2566,11 @@ export default function EnquiryList() {
                       status
                     }
                   >
+
                     {status}
+
                   </option>
+
                 )
               )
             }
@@ -1491,7 +2588,9 @@ export default function EnquiryList() {
               loading
             }
           >
+
             Apply
+
           </button>
 
         </section>
@@ -1499,7 +2598,7 @@ export default function EnquiryList() {
 
         {/* ======================================================
             ERROR
-        ======================================================= */}
+        ====================================================== */}
 
         {
           error
@@ -1512,8 +2611,8 @@ export default function EnquiryList() {
 
 
         {/* ======================================================
-            TABLE
-        ======================================================= */}
+            ACTIVE ENQUIRIES
+        ====================================================== */}
 
         <section className="table-card">
 
@@ -1522,22 +2621,45 @@ export default function EnquiryList() {
             <div>
 
               <h2>
-                Enquiry Records
+                Active Enquiries
               </h2>
 
+
               <p>
-                {
-                  filteredEnquiries.length
-                }{" "}
-                record
-                {
-                  filteredEnquiries.length
-                  === 1
-                    ? ""
-                    : "s"
-                }{" "}
-                shown
+                New, Contacted and Quotation enquiries
+                still waiting for customer confirmation.
               </p>
+
+            </div>
+
+
+            <div
+              style={{
+                padding:
+                  "5px 10px",
+
+                borderRadius:
+                  "999px",
+
+                background:
+                  "#eaf2ff",
+
+                color:
+                  "#3973df",
+
+                fontSize:
+                  "9px",
+
+                fontWeight:
+                  800,
+              }}
+            >
+
+              {
+                activeEnquiries.length
+              }
+
+              {" active"}
 
             </div>
 
@@ -1545,266 +2667,172 @@ export default function EnquiryList() {
 
 
           {
-            loading
-              ? (
-                <div className="table-state">
+            renderEnquiryTable(
+              paginatedActiveEnquiries,
+              "No active enquiries"
+            )
+          }
 
-                  <div className="loader" />
 
-                  <p>
-                    Loading enquiries...
-                  </p>
+          {
+            renderPagination(
+              activeEnquiries.length,
+              activePage,
+              activeTotalPages,
+              setActivePage
+            )
+          }
 
-                </div>
-              )
-              : filteredEnquiries.length
-                === 0
-                ? (
-                  <div className="table-state">
+        </section>
 
-                    <FileText
-                      size={28}
-                    />
 
-                    <h3>
-                      No enquiries found
-                    </h3>
+        {/* ======================================================
+            CONFIRMED / CONVERTED
+        ====================================================== */}
 
-                  </div>
-                )
-                : (
-                  <div className="table-wrapper">
+        <section className="table-card">
 
-                    <table className="enquiry-table">
+          <div className="table-card-header">
 
-                      <thead>
+            <div>
 
-                        <tr>
+              <h2>
+                Confirmed / Converted Enquiries
+              </h2>
 
-                          <th>
-                            Enquiry
-                          </th>
 
-                          <th>
-                            Date
-                          </th>
+              <p>
+                Enquiries converted into confirmed orders
+                and moved into Production, Billing or
+                later workflow stages.
+              </p>
 
-                          <th>
-                            Company
-                          </th>
+            </div>
 
-                          <th>
-                            Contact
-                          </th>
 
-                          <th>
-                            Machine
-                          </th>
+            <div
+              style={{
+                padding:
+                  "5px 10px",
 
-                          <th>
-                            Qty
-                          </th>
+                borderRadius:
+                  "999px",
 
-                          <th>
-                            Status
-                          </th>
+                background:
+                  "#eaf8f1",
 
-                          <th>
-                            Action
-                          </th>
+                color:
+                  "#287657",
 
-                        </tr>
+                fontSize:
+                  "9px",
 
-                      </thead>
+                fontWeight:
+                  800,
+              }}
+            >
 
+              {
+                confirmedEnquiries.length
+              }
 
-                      <tbody>
+              {" confirmed"}
 
-                        {
-                          filteredEnquiries.map(
-                            enquiry => (
-                              <tr
-                                key={
-                                  enquiry.id
-                                }
-                              >
+            </div>
 
-                                <td>
+          </div>
 
-                                  <div className="enquiry-number">
-                                    {
-                                      enquiry.enquiry_number
-                                    }
-                                  </div>
 
-                                </td>
+          {
+            renderEnquiryTable(
+              paginatedConfirmedEnquiries,
+              "No confirmed enquiries"
+            )
+          }
 
 
-                                <td>
+          {
+            renderPagination(
+              confirmedEnquiries.length,
+              confirmedPage,
+              confirmedTotalPages,
+              setConfirmedPage
+            )
+          }
 
-                                  {
-                                    formatDate(
-                                      enquiry.enquiry_date
-                                    )
-                                  }
+        </section>
 
-                                </td>
 
+        {/* ======================================================
+            CANCELLED
+        ====================================================== */}
 
-                                <td>
+        <section className="table-card">
 
-                                  <div className="company-name">
-                                    {
-                                      enquiry.company_name
-                                    }
-                                  </div>
+          <div className="table-card-header">
 
-                                  {
-                                    enquiry.gst_number
-                                    && (
-                                      <div className="contact-phone">
-                                        {
-                                          enquiry.gst_number
-                                        }
-                                      </div>
-                                    )
-                                  }
+            <div>
 
-                                </td>
+              <h2>
+                Cancelled Enquiries
+              </h2>
 
 
-                                <td>
+              <p>
+                Enquiries closed without order confirmation.
+              </p>
 
-                                  <div className="contact-name">
+            </div>
 
-                                    {
-                                      enquiry.contact_person
-                                      || "—"
-                                    }
 
-                                  </div>
+            <div
+              style={{
+                padding:
+                  "5px 10px",
 
-                                  <div className="contact-phone">
+                borderRadius:
+                  "999px",
 
-                                    {
-                                      enquiry.phone
-                                      || enquiry.email
-                                      || "—"
-                                    }
+                background:
+                  "#fff0f0",
 
-                                  </div>
+                color:
+                  "#b54747",
 
-                                </td>
+                fontSize:
+                  "9px",
 
+                fontWeight:
+                  800,
+              }}
+            >
 
-                                <td>
+              {
+                cancelledEnquiries.length
+              }
 
-                                  <div className="machine-name">
+              {" cancelled"}
 
-                                    {
-                                      enquiry.machine_name
-                                      || "—"
-                                    }
+            </div>
 
-                                  </div>
+          </div>
 
-                                  {
-                                    enquiry.machine_model
-                                    && (
-                                      <div className="machine-model">
 
-                                        {
-                                          enquiry.machine_model
-                                        }
+          {
+            renderEnquiryTable(
+              paginatedCancelledEnquiries,
+              "No cancelled enquiries"
+            )
+          }
 
-                                      </div>
-                                    )
-                                  }
 
-                                </td>
-
-
-                                <td>
-
-                                  {
-                                    enquiry.quantity
-                                    ?? "—"
-                                  }
-
-                                </td>
-
-
-                                <td>
-
-                                  <span
-                                    className={`status-badge status-${getStatusClass(
-                                      enquiry.status
-                                    )}`}
-                                  >
-
-                                    {
-                                      enquiry.status
-                                    }
-
-                                  </span>
-
-                                </td>
-
-
-                                <td>
-
-                                  <div className="enquiry-row-actions">
-
-                                    <button
-                                      type="button"
-                                      className="icon-action-button"
-                                      title="Print enquiry"
-                                      onClick={() =>
-                                        handlePrint(
-                                          enquiry
-                                        )
-                                      }
-                                    >
-
-                                      <Printer
-                                        size={16}
-                                      />
-
-                                    </button>
-
-
-                                    <button
-                                      type="button"
-                                      className="icon-action-button"
-                                      title="Edit enquiry"
-                                      onClick={() =>
-                                        void openEditModal(
-                                          enquiry
-                                        )
-                                      }
-                                    >
-
-                                      <Pencil
-                                        size={16}
-                                      />
-
-                                    </button>
-
-                                  </div>
-
-                                </td>
-
-                              </tr>
-                            )
-                          )
-                        }
-
-                      </tbody>
-
-                    </table>
-
-                  </div>
-                )
+          {
+            renderPagination(
+              cancelledEnquiries.length,
+              cancelledPage,
+              cancelledTotalPages,
+              setCancelledPage
+            )
           }
 
         </section>
@@ -1812,7 +2840,7 @@ export default function EnquiryList() {
 
         {/* ======================================================
             CREATE / EDIT MODAL
-        ======================================================= */}
+        ====================================================== */}
 
         {
           showModal
@@ -1824,9 +2852,12 @@ export default function EnquiryList() {
 
                   if (
                     event.target
-                    === event.currentTarget
+                    ===
+                    event.currentTarget
                   ) {
+
                     closeModal();
+
                   }
 
                 }
@@ -1863,8 +2894,8 @@ export default function EnquiryList() {
 
                     <p>
                       Enter the customer details once.
-                      The ERP will automatically create
-                      or reuse the Customer using GSTIN.
+                      The ERP automatically creates or reuses
+                      the Customer using GSTIN.
                     </p>
 
                   </div>
@@ -1894,9 +2925,7 @@ export default function EnquiryList() {
                   formError
                   && (
                     <div className="alert alert-error modal-alert">
-
                       {formError}
-
                     </div>
                   )
                 }
@@ -1909,9 +2938,10 @@ export default function EnquiryList() {
                   }
                 >
 
+
                   {/* ==================================================
-                      CUSTOMER
-                  =================================================== */}
+                      CUSTOMER INFORMATION
+                  ================================================== */}
 
                   <div className="form-section">
 
@@ -1936,7 +2966,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "enquiry_date",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -1959,7 +2991,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "company_name",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                           placeholder="Customer company name"
@@ -1983,7 +3017,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "gst_number",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                           placeholder="GSTIN"
@@ -2006,7 +3042,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "contact_person",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2028,7 +3066,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "phone",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2050,7 +3090,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "email",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2064,7 +3106,7 @@ export default function EnquiryList() {
 
                   {/* ==================================================
                       ADDRESS
-                  =================================================== */}
+                  ================================================== */}
 
                   <div className="form-section">
 
@@ -2081,6 +3123,7 @@ export default function EnquiryList() {
                           Address
                         </span>
 
+
                         <textarea
                           rows={3}
                           maxLength={500}
@@ -2091,7 +3134,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "address",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                           placeholder="Billing / company address"
@@ -2114,7 +3159,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "city",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2136,7 +3183,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "state",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2158,7 +3207,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "pincode",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2171,8 +3222,8 @@ export default function EnquiryList() {
 
 
                   {/* ==================================================
-                      REQUIREMENT
-                  =================================================== */}
+                      MACHINE / REQUIREMENT
+                  ================================================== */}
 
                   <div className="form-section">
 
@@ -2197,7 +3248,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "machine_name",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                           placeholder="What the customer requires"
@@ -2220,7 +3273,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "machine_model",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2243,7 +3298,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "quantity",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2257,6 +3314,7 @@ export default function EnquiryList() {
                           Application
                         </span>
 
+
                         <input
                           type="text"
                           maxLength={300}
@@ -2267,7 +3325,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "application",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2281,6 +3341,7 @@ export default function EnquiryList() {
                           Requirements
                         </span>
 
+
                         <textarea
                           rows={4}
                           value={
@@ -2290,7 +3351,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "requirements",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                           placeholder="Customer requirement, specification or enquiry details"
@@ -2305,7 +3368,7 @@ export default function EnquiryList() {
 
                   {/* ==================================================
                       WORKFLOW
-                  =================================================== */}
+                  ================================================== */}
 
                   <div className="form-section">
 
@@ -2328,7 +3391,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "status",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         >
@@ -2336,6 +3401,7 @@ export default function EnquiryList() {
                           {
                             STATUS_OPTIONS.map(
                               status => (
+
                                 <option
                                   key={
                                     status
@@ -2344,8 +3410,11 @@ export default function EnquiryList() {
                                     status
                                   }
                                 >
+
                                   {status}
+
                                 </option>
+
                               )
                             )
                           }
@@ -2368,7 +3437,9 @@ export default function EnquiryList() {
                             event =>
                               updateForm(
                                 "remarks",
-                                event.target.value
+                                event
+                                  .target
+                                  .value
                               )
                           }
                         />
@@ -2382,7 +3453,7 @@ export default function EnquiryList() {
 
                   {/* ==================================================
                       FOOTER
-                  =================================================== */}
+                  ================================================== */}
 
                   <div className="modal-footer">
 
@@ -2412,6 +3483,7 @@ export default function EnquiryList() {
                         size={17}
                       />
 
+
                       {
                         saving
                           ? "Saving..."
@@ -2437,7 +3509,7 @@ export default function EnquiryList() {
 
       {/* ========================================================
           PRINT DOCUMENT
-      ========================================================= */}
+      ======================================================== */}
 
       {
         printEnquiry
@@ -2455,10 +3527,14 @@ export default function EnquiryList() {
                   CUSTOMER ENQUIRY
                 </div>
 
+
                 <h1>
+
                   {
-                    printEnquiry.enquiry_number
+                    printEnquiry
+                      .enquiry_number
                   }
+
                 </h1>
 
               </div>
@@ -2470,7 +3546,8 @@ export default function EnquiryList() {
                   label="Enquiry Date"
                   value={
                     formatDate(
-                      printEnquiry.enquiry_date
+                      printEnquiry
+                        .enquiry_date
                     )
                   }
                 />
@@ -2479,7 +3556,8 @@ export default function EnquiryList() {
                 <PrintField
                   label="Status"
                   value={
-                    printEnquiry.status
+                    printEnquiry
+                      .status
                   }
                 />
 
@@ -2489,8 +3567,8 @@ export default function EnquiryList() {
 
 
             {/* ==================================================
-                CUSTOMER PRINT
-            =================================================== */}
+                CUSTOMER INFORMATION
+            ================================================== */}
 
             <PrintSection
               title="Customer Information"
@@ -2501,7 +3579,8 @@ export default function EnquiryList() {
                 <PrintField
                   label="Company Name"
                   value={
-                    printEnquiry.company_name
+                    printEnquiry
+                      .company_name
                   }
                 />
 
@@ -2509,8 +3588,10 @@ export default function EnquiryList() {
                 <PrintField
                   label="GSTIN"
                   value={
-                    printEnquiry.gst_number
-                    || "—"
+                    printEnquiry
+                      .gst_number
+                    ||
+                    "—"
                   }
                 />
 
@@ -2518,8 +3599,10 @@ export default function EnquiryList() {
                 <PrintField
                   label="Contact Person"
                   value={
-                    printEnquiry.contact_person
-                    || "—"
+                    printEnquiry
+                      .contact_person
+                    ||
+                    "—"
                   }
                 />
 
@@ -2527,8 +3610,10 @@ export default function EnquiryList() {
                 <PrintField
                   label="Phone"
                   value={
-                    printEnquiry.phone
-                    || "—"
+                    printEnquiry
+                      .phone
+                    ||
+                    "—"
                   }
                 />
 
@@ -2536,8 +3621,10 @@ export default function EnquiryList() {
                 <PrintField
                   label="Email"
                   value={
-                    printEnquiry.email
-                    || "—"
+                    printEnquiry
+                      .email
+                    ||
+                    "—"
                   }
                 />
 
@@ -2546,13 +3633,23 @@ export default function EnquiryList() {
                   label="Location"
                   value={
                     [
-                      printEnquiry.city,
-                      printEnquiry.state,
-                      printEnquiry.pincode,
+                      printEnquiry
+                        .city,
+
+                      printEnquiry
+                        .state,
+
+                      printEnquiry
+                        .pincode,
                     ]
-                      .filter(Boolean)
-                      .join(", ")
-                    || "—"
+                      .filter(
+                        Boolean
+                      )
+                      .join(
+                        ", "
+                      )
+                    ||
+                    "—"
                   }
                 />
 
@@ -2560,7 +3657,8 @@ export default function EnquiryList() {
 
 
               {
-                printEnquiry.address
+                printEnquiry
+                  .address
                 && (
                   <div
                     className="print-long-text"
@@ -2569,9 +3667,12 @@ export default function EnquiryList() {
                         "4mm",
                     }}
                   >
+
                     {
-                      printEnquiry.address
+                      printEnquiry
+                        .address
                     }
+
                   </div>
                 )
               }
@@ -2580,8 +3681,8 @@ export default function EnquiryList() {
 
 
             {/* ==================================================
-                REQUIREMENT PRINT
-            =================================================== */}
+                MACHINE REQUIREMENT
+            ================================================== */}
 
             <PrintSection
               title="Product / Machine Requirement"
@@ -2592,8 +3693,10 @@ export default function EnquiryList() {
                 <PrintField
                   label="Machine / Product"
                   value={
-                    printEnquiry.machine_name
-                    || "—"
+                    printEnquiry
+                      .machine_name
+                    ||
+                    "—"
                   }
                 />
 
@@ -2601,8 +3704,10 @@ export default function EnquiryList() {
                 <PrintField
                   label="Model / Reference"
                   value={
-                    printEnquiry.machine_model
-                    || "—"
+                    printEnquiry
+                      .machine_model
+                    ||
+                    "—"
                   }
                 />
 
@@ -2611,9 +3716,12 @@ export default function EnquiryList() {
                   label="Quantity"
                   value={
                     printEnquiry.quantity
-                    !== null
-                    && printEnquiry.quantity
-                    !== undefined
+                    !==
+                    null
+                    &&
+                    printEnquiry.quantity
+                    !==
+                    undefined
                       ? String(
                           printEnquiry.quantity
                         )
@@ -2625,8 +3733,10 @@ export default function EnquiryList() {
                 <PrintField
                   label="Application"
                   value={
-                    printEnquiry.application
-                    || "—"
+                    printEnquiry
+                      .application
+                    ||
+                    "—"
                   }
                 />
 
@@ -2642,8 +3752,10 @@ export default function EnquiryList() {
               <div className="print-long-text">
 
                 {
-                  printEnquiry.requirements
-                  || "—"
+                  printEnquiry
+                    .requirements
+                  ||
+                  "—"
                 }
 
               </div>
@@ -2652,7 +3764,8 @@ export default function EnquiryList() {
 
 
             {
-              printEnquiry.remarks
+              printEnquiry
+                .remarks
               && (
                 <PrintSection
                   title="Remarks"
@@ -2661,7 +3774,8 @@ export default function EnquiryList() {
                   <div className="print-long-text">
 
                     {
-                      printEnquiry.remarks
+                      printEnquiry
+                        .remarks
                     }
 
                   </div>
@@ -2690,6 +3804,7 @@ export default function EnquiryList() {
 
     </div>
   );
+
 }
 
 
@@ -2701,7 +3816,8 @@ function FormField({
   label,
   children,
 }: {
-  label: string;
+  label:
+    string;
 
   children:
     ReactNode;
@@ -2714,10 +3830,12 @@ function FormField({
         {label}
       </span>
 
+
       {children}
 
     </label>
   );
+
 }
 
 
@@ -2729,8 +3847,11 @@ function PrintField({
   label,
   value,
 }: {
-  label: string;
-  value: string;
+  label:
+    string;
+
+  value:
+    string;
 }) {
 
   return (
@@ -2740,12 +3861,14 @@ function PrintField({
         {label}
       </span>
 
+
       <strong>
         {value}
       </strong>
 
     </div>
   );
+
 }
 
 
@@ -2757,7 +3880,8 @@ function PrintSection({
   title,
   children,
 }: {
-  title: string;
+  title:
+    string;
 
   children:
     ReactNode;
@@ -2770,8 +3894,10 @@ function PrintSection({
         {title}
       </h2>
 
+
       {children}
 
     </section>
   );
+
 }
