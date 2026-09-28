@@ -21,12 +21,69 @@ class FinancialAnalyzerExcelService:
     def decimal(
         value,
     ) -> Decimal:
+
         return Decimal(
             str(
                 value
                 if value is not None
                 else 0
             )
+        )
+
+    # ========================================================
+    # WRITE MONEY
+    # ========================================================
+
+    @staticmethod
+    def write_money(
+        sheet,
+        row: int,
+        column: int,
+        value,
+        *,
+        bold: bool = False,
+    ) -> None:
+
+        cell = sheet.cell(
+            row=row,
+            column=column,
+            value=float(
+                FinancialAnalyzerExcelService
+                .decimal(
+                    value
+                )
+            ),
+        )
+
+        cell.number_format = (
+            "₹#,##0.00;[Red]-₹#,##0.00"
+        )
+
+        if bold:
+            cell.font = Font(
+                bold=True
+            )
+
+    # ========================================================
+    # SECTION HEADING
+    # ========================================================
+
+    @staticmethod
+    def section_heading(
+        sheet,
+        row: int,
+        title: str,
+    ) -> None:
+
+        cell = sheet.cell(
+            row=row,
+            column=1,
+            value=title,
+        )
+
+        cell.font = Font(
+            bold=True,
+            size=12,
         )
 
     # ========================================================
@@ -50,13 +107,13 @@ class FinancialAnalyzerExcelService:
 
         production_sheet = (
             workbook.create_sheet(
-                "Production Cost"
+                "Finished Product Cost"
             )
         )
 
         expense_sheet = (
             workbook.create_sheet(
-                "Expense Breakdown"
+                "Period Expenses"
             )
         )
 
@@ -106,16 +163,13 @@ class FinancialAnalyzerExcelService:
         )
 
         # ====================================================
-        # RECORD COUNTS
+        # RECORD SUMMARY
         # ====================================================
 
-        summary_sheet["A6"] = (
-            "Record Summary"
-        )
-
-        summary_sheet["A6"].font = Font(
-            bold=True,
-            size=12,
+        FinancialAnalyzerExcelService.section_heading(
+            summary_sheet,
+            6,
+            "Record Summary",
         )
 
         record_rows = [
@@ -138,16 +192,31 @@ class FinancialAnalyzerExcelService:
                 ],
             ),
             (
-                "Expense Records",
+                "Frozen Cost Snapshots",
                 analysis[
-                    "expense_count"
+                    "snapshot_finished_product_count"
+                ],
+            ),
+            (
+                "Legacy Finished Products",
+                analysis[
+                    "legacy_finished_product_count"
+                ],
+            ),
+            (
+                "General Expense Records",
+                analysis[
+                    "general_expense_count"
                 ],
             ),
         ]
 
         row_number = 7
 
-        for label, value in record_rows:
+        for (
+            label,
+            value,
+        ) in record_rows:
 
             summary_sheet.cell(
                 row=row_number,
@@ -169,13 +238,10 @@ class FinancialAnalyzerExcelService:
 
         row_number += 1
 
-        summary_sheet.cell(
-            row=row_number,
-            column=1,
-            value="Sales Revenue",
-        ).font = Font(
-            bold=True,
-            size=12,
+        FinancialAnalyzerExcelService.section_heading(
+            summary_sheet,
+            row_number,
+            "Sales Revenue",
         )
 
         row_number += 1
@@ -186,25 +252,34 @@ class FinancialAnalyzerExcelService:
                 analysis[
                     "gross_sales"
                 ],
+                False,
             ),
             (
                 "Less: Credit Notes",
-                -FinancialAnalyzerExcelService
-                .decimal(
-                    analysis[
-                        "credit_notes"
-                    ]
+                (
+                    -FinancialAnalyzerExcelService
+                    .decimal(
+                        analysis[
+                            "credit_notes"
+                        ]
+                    )
                 ),
+                False,
             ),
             (
                 "Net Sales Revenue",
                 analysis[
                     "net_sales"
                 ],
+                True,
             ),
         ]
 
-        for label, amount in sales_rows:
+        for (
+            label,
+            amount,
+            bold,
+        ) in sales_rows:
 
             summary_sheet.cell(
                 row=row_number,
@@ -212,28 +287,7 @@ class FinancialAnalyzerExcelService:
                 value=label,
             )
 
-            summary_sheet.cell(
-                row=row_number,
-                column=2,
-                value=float(
-                    FinancialAnalyzerExcelService
-                    .decimal(
-                        amount
-                    )
-                ),
-            )
-
-            summary_sheet.cell(
-                row=row_number,
-                column=2,
-            ).number_format = (
-                "#,##0.00;[Red]-#,##0.00"
-            )
-
-            if (
-                label
-                == "Net Sales Revenue"
-            ):
+            if bold:
                 summary_sheet.cell(
                     row=row_number,
                     column=1,
@@ -241,54 +295,94 @@ class FinancialAnalyzerExcelService:
                     bold=True
                 )
 
-                summary_sheet.cell(
-                    row=row_number,
-                    column=2,
-                ).font = Font(
-                    bold=True
-                )
+            FinancialAnalyzerExcelService.write_money(
+                summary_sheet,
+                row_number,
+                2,
+                amount,
+                bold=bold,
+            )
 
             row_number += 1
 
         # ====================================================
-        # PRODUCTION COST
+        # FINISHED PRODUCT COST
         # ====================================================
 
         row_number += 1
 
-        summary_sheet.cell(
-            row=row_number,
-            column=1,
-            value="Production Cost",
-        ).font = Font(
-            bold=True,
-            size=12,
+        FinancialAnalyzerExcelService.section_heading(
+            summary_sheet,
+            row_number,
+            "Finished Product Cost",
         )
 
         row_number += 1
 
-        production_rows = [
+        finished_product_rows = [
             (
-                "Actual Material Cost",
+                "Material Cost",
                 analysis[
                     "actual_material_cost"
                 ],
+                False,
             ),
             (
-                "Actual Operation Cost",
+                "Operation Cost",
                 analysis[
                     "actual_operation_cost"
                 ],
+                False,
             ),
             (
-                "Total Production Cost",
+                "Direct Production Expense",
+                analysis[
+                    "direct_production_cost"
+                ],
+                False,
+            ),
+            (
+                "Production Direct Cost",
+                analysis[
+                    "production_direct_cost"
+                ],
+                True,
+            ),
+            (
+                "Allocated Staff Cost",
+                analysis[
+                    "allocated_staff_cost"
+                ],
+                False,
+            ),
+            (
+                "Allocated Overhead Cost",
+                analysis[
+                    "allocated_overhead_cost"
+                ],
+                False,
+            ),
+            (
+                "Allocated Indirect Cost",
+                analysis[
+                    "allocated_indirect_cost"
+                ],
+                False,
+            ),
+            (
+                "Total Finished Product Cost",
                 analysis[
                     "total_production_cost"
                 ],
+                True,
             ),
         ]
 
-        for label, amount in production_rows:
+        for (
+            label,
+            amount,
+            bold,
+        ) in finished_product_rows:
 
             summary_sheet.cell(
                 row=row_number,
@@ -296,28 +390,7 @@ class FinancialAnalyzerExcelService:
                 value=label,
             )
 
-            summary_sheet.cell(
-                row=row_number,
-                column=2,
-                value=float(
-                    FinancialAnalyzerExcelService
-                    .decimal(
-                        amount
-                    )
-                ),
-            )
-
-            summary_sheet.cell(
-                row=row_number,
-                column=2,
-            ).number_format = (
-                "#,##0.00"
-            )
-
-            if (
-                label
-                == "Total Production Cost"
-            ):
+            if bold:
                 summary_sheet.cell(
                     row=row_number,
                     column=1,
@@ -325,54 +398,158 @@ class FinancialAnalyzerExcelService:
                     bold=True
                 )
 
-                summary_sheet.cell(
-                    row=row_number,
-                    column=2,
-                ).font = Font(
-                    bold=True
-                )
+            FinancialAnalyzerExcelService.write_money(
+                summary_sheet,
+                row_number,
+                2,
+                amount,
+                bold=bold,
+            )
 
             row_number += 1
 
         # ====================================================
-        # BUSINESS COST
+        # PERIOD COMPANY EXPENSES
         # ====================================================
 
         row_number += 1
 
-        summary_sheet.cell(
-            row=row_number,
-            column=1,
-            value="Business Cost & Profit",
-        ).font = Font(
-            bold=True,
-            size=12,
+        FinancialAnalyzerExcelService.section_heading(
+            summary_sheet,
+            row_number,
+            "Period Company Expenses",
+        )
+
+        row_number += 1
+
+        period_expense_rows = [
+            (
+                "Staff Salary",
+                analysis[
+                    "staff_salary_cost"
+                ],
+                False,
+            ),
+            (
+                "Company Overhead",
+                analysis[
+                    "company_overhead_cost"
+                ],
+                False,
+            ),
+            (
+                "General Expenses",
+                analysis[
+                    "total_general_expenses"
+                ],
+                False,
+            ),
+            (
+                "Total Period Company Expenses",
+                analysis[
+                    "total_expenses"
+                ],
+                True,
+            ),
+        ]
+
+        for (
+            label,
+            amount,
+            bold,
+        ) in period_expense_rows:
+
+            summary_sheet.cell(
+                row=row_number,
+                column=1,
+                value=label,
+            )
+
+            if bold:
+                summary_sheet.cell(
+                    row=row_number,
+                    column=1,
+                ).font = Font(
+                    bold=True
+                )
+
+            FinancialAnalyzerExcelService.write_money(
+                summary_sheet,
+                row_number,
+                2,
+                amount,
+                bold=bold,
+            )
+
+            row_number += 1
+
+        # ====================================================
+        # BUSINESS COST / PROFIT
+        # ====================================================
+
+        row_number += 1
+
+        FinancialAnalyzerExcelService.section_heading(
+            summary_sheet,
+            row_number,
+            "Business Cost & Profit",
         )
 
         row_number += 1
 
         business_rows = [
             (
-                "Company Expenses",
+                "Net Sales Revenue",
                 analysis[
-                    "total_expenses"
+                    "net_sales"
                 ],
+                False,
+            ),
+            (
+                "Less: Production Direct Cost",
+                (
+                    -FinancialAnalyzerExcelService
+                    .decimal(
+                        analysis[
+                            "production_direct_cost"
+                        ]
+                    )
+                ),
+                False,
+            ),
+            (
+                "Less: Period Company Expenses",
+                (
+                    -FinancialAnalyzerExcelService
+                    .decimal(
+                        analysis[
+                            "total_expenses"
+                        ]
+                    )
+                ),
+                False,
             ),
             (
                 "Total Business Cost",
                 analysis[
                     "total_business_cost"
                 ],
+                True,
             ),
             (
                 "Net Profit / Loss",
                 analysis[
                     "net_profit"
                 ],
+                True,
             ),
         ]
 
-        for label, amount in business_rows:
+        for (
+            label,
+            amount,
+            bold,
+        ) in business_rows:
 
             summary_sheet.cell(
                 row=row_number,
@@ -380,28 +557,7 @@ class FinancialAnalyzerExcelService:
                 value=label,
             )
 
-            summary_sheet.cell(
-                row=row_number,
-                column=2,
-                value=float(
-                    FinancialAnalyzerExcelService
-                    .decimal(
-                        amount
-                    )
-                ),
-            )
-
-            summary_sheet.cell(
-                row=row_number,
-                column=2,
-            ).number_format = (
-                "#,##0.00;[Red]-#,##0.00"
-            )
-
-            if label in {
-                "Total Business Cost",
-                "Net Profit / Loss",
-            }:
+            if bold:
                 summary_sheet.cell(
                     row=row_number,
                     column=1,
@@ -409,62 +565,104 @@ class FinancialAnalyzerExcelService:
                     bold=True
                 )
 
-                summary_sheet.cell(
-                    row=row_number,
-                    column=2,
-                ).font = Font(
-                    bold=True
-                )
+            FinancialAnalyzerExcelService.write_money(
+                summary_sheet,
+                row_number,
+                2,
+                amount,
+                bold=bold,
+            )
 
             row_number += 1
 
         # ====================================================
-        # ACCOUNTING NOTE
+        # ACCOUNTING BASIS
         # ====================================================
 
         row_number += 1
 
-        summary_sheet.cell(
-            row=row_number,
-            column=1,
-            value="Revenue Basis",
-        ).font = Font(
-            bold=True
-        )
-
-        summary_sheet.cell(
-            row=row_number,
-            column=2,
-            value=(
-                "Sales revenue excludes GST."
-            ),
+        FinancialAnalyzerExcelService.section_heading(
+            summary_sheet,
+            row_number,
+            "Accounting Basis",
         )
 
         row_number += 1
 
-        summary_sheet.cell(
-            row=row_number,
-            column=1,
-            value="Production Cost Basis",
-        ).font = Font(
-            bold=True
-        )
-
-        summary_sheet.cell(
-            row=row_number,
-            column=2,
-            value=(
-                "Actual Shop Floor Issues "
-                "+ Production Operations"
+        accounting_notes = [
+            (
+                "Revenue Basis",
+                (
+                    "Sales revenue excludes GST and "
+                    "uses effective Issued invoice values."
+                ),
             ),
-        )
+            (
+                "Finished Product Cost",
+                (
+                    "Material + Operation + Direct Production "
+                    "+ Allocated Staff + Allocated Overhead."
+                ),
+            ),
+            (
+                "P&L Production Cost",
+                (
+                    "Material + Operation + Direct Production. "
+                    "Allocated Staff and Overhead are not "
+                    "charged again."
+                ),
+            ),
+            (
+                "Period Company Expenses",
+                (
+                    "Actual Staff Salary + Recurring Overhead "
+                    "+ General Expenses for the reporting period."
+                ),
+            ),
+            (
+                "Total Business Cost",
+                (
+                    "Production Direct Cost "
+                    "+ Period Company Expenses."
+                ),
+            ),
+        ]
+
+        for (
+            label,
+            note,
+        ) in accounting_notes:
+
+            summary_sheet.cell(
+                row=row_number,
+                column=1,
+                value=label,
+            ).font = Font(
+                bold=True
+            )
+
+            summary_sheet.cell(
+                row=row_number,
+                column=2,
+                value=note,
+            )
+
+            summary_sheet.cell(
+                row=row_number,
+                column=2,
+            ).alignment = Alignment(
+                wrap_text=True,
+                vertical="top",
+            )
+
+            row_number += 1
 
         # ====================================================
-        # PRODUCTION COST SHEET
+        # FINISHED PRODUCT COST SHEET
         # ====================================================
 
         production_sheet["A1"] = (
-            "Production Cost Summary"
+            "Finished Product Cost Structure"
         )
 
         production_sheet["A1"].font = Font(
@@ -476,21 +674,32 @@ class FinancialAnalyzerExcelService:
             "A1:C1"
         )
 
-        production_headers = [
-            "Production Metric",
-            "Amount",
-            "Notes",
-        ]
-
-        production_sheet.append(
-            []
+        production_sheet["A2"] = (
+            "Product manufacturing valuation. "
+            "Allocated staff and overhead are shown here "
+            "for product costing."
         )
+
+        production_sheet.merge_cells(
+            "A2:C2"
+        )
+
+        production_sheet["A2"].alignment = Alignment(
+            wrap_text=True
+        )
+
+        production_headers = [
+            "Cost Component",
+            "Amount",
+            "Cost Basis",
+        ]
 
         production_sheet.append(
             production_headers
         )
 
         for cell in production_sheet[3]:
+
             cell.font = Font(
                 bold=True
             )
@@ -506,39 +715,116 @@ class FinancialAnalyzerExcelService:
                     "finished_product_count"
                 ],
                 (
-                    "Finished products received "
-                    "during the selected period"
+                    "Finished Products received "
+                    "during the reporting period"
                 ),
+                False,
             ),
             (
-                "Actual Material Cost",
+                "Frozen Cost Snapshots",
+                analysis[
+                    "snapshot_finished_product_count"
+                ],
+                (
+                    "Finished Products with immutable "
+                    "cost snapshots"
+                ),
+                False,
+            ),
+            (
+                "Legacy Finished Products",
+                analysis[
+                    "legacy_finished_product_count"
+                ],
+                (
+                    "Historical records created before "
+                    "cost snapshots"
+                ),
+                False,
+            ),
+            (
+                "Material Cost",
                 analysis[
                     "actual_material_cost"
                 ],
                 (
-                    "Sum of Shop Floor Issue "
-                    "actual costs"
+                    "Store / Shop Floor material cost"
                 ),
+                True,
             ),
             (
-                "Actual Operation Cost",
+                "Operation Cost",
                 analysis[
                     "actual_operation_cost"
                 ],
                 (
-                    "Sum of Production Operation "
-                    "actual costs"
+                    "Production operation cost"
                 ),
+                True,
             ),
             (
-                "Total Production Cost",
+                "Direct Production Expense",
+                analysis[
+                    "direct_production_cost"
+                ],
+                (
+                    "Expense linked directly to "
+                    "Production Orders"
+                ),
+                True,
+            ),
+            (
+                "Production Direct Cost",
+                analysis[
+                    "production_direct_cost"
+                ],
+                (
+                    "Material + Operation + Direct"
+                ),
+                True,
+            ),
+            (
+                "Allocated Staff Cost",
+                analysis[
+                    "allocated_staff_cost"
+                ],
+                (
+                    "Staff share frozen into "
+                    "Finished Product cost"
+                ),
+                True,
+            ),
+            (
+                "Allocated Overhead Cost",
+                analysis[
+                    "allocated_overhead_cost"
+                ],
+                (
+                    "Overhead share frozen into "
+                    "Finished Product cost"
+                ),
+                True,
+            ),
+            (
+                "Allocated Indirect Cost",
+                analysis[
+                    "allocated_indirect_cost"
+                ],
+                (
+                    "Allocated Staff "
+                    "+ Allocated Overhead"
+                ),
+                True,
+            ),
+            (
+                "Total Finished Product Cost",
                 analysis[
                     "total_production_cost"
                 ],
                 (
-                    "Material Cost "
-                    "+ Operation Cost"
+                    "Complete manufacturing valuation"
                 ),
+                True,
             ),
         ]
 
@@ -546,65 +832,67 @@ class FinancialAnalyzerExcelService:
             metric,
             amount,
             notes,
+            is_money,
         ) in production_data:
-
-            if (
-                metric
-                == "Finished Products"
-            ):
-                amount_value = int(
-                    amount
-                )
-            else:
-                amount_value = float(
-                    FinancialAnalyzerExcelService
-                    .decimal(
-                        amount
-                    )
-                )
 
             production_sheet.append(
                 [
                     metric,
-                    amount_value,
+                    (
+                        float(
+                            FinancialAnalyzerExcelService
+                            .decimal(
+                                amount
+                            )
+                        )
+                        if is_money
+                        else int(
+                            amount
+                        )
+                    ),
                     notes,
                 ]
             )
 
-        for row in production_sheet.iter_rows(
-            min_row=4,
-            min_col=2,
-            max_col=2,
-        ):
-            for cell in row:
+            current_row = (
+                production_sheet
+                .max_row
+            )
 
-                if (
-                    cell.row != 4
-                ):
-                    cell.number_format = (
-                        "#,##0.00"
-                    )
+            if is_money:
+
+                production_sheet.cell(
+                    row=current_row,
+                    column=2,
+                ).number_format = (
+                    "₹#,##0.00;[Red]-₹#,##0.00"
+                )
+
+        total_production_row = (
+            production_sheet
+            .max_row
+        )
 
         production_sheet.cell(
-            row=7,
+            row=total_production_row,
             column=1,
         ).font = Font(
             bold=True
         )
 
         production_sheet.cell(
-            row=7,
+            row=total_production_row,
             column=2,
         ).font = Font(
             bold=True
         )
 
         # ====================================================
-        # EXPENSE BREAKDOWN
+        # PERIOD EXPENSE SHEET
         # ====================================================
 
         expense_sheet["A1"] = (
-            "Company Expense Breakdown"
+            "Period Company Expenses"
         )
 
         expense_sheet["A1"].font = Font(
@@ -616,21 +904,44 @@ class FinancialAnalyzerExcelService:
             "A1:C1"
         )
 
-        expense_sheet.append(
-            []
+        expense_sheet["A2"] = (
+            "Recurring cost period"
         )
 
-        expense_headers = [
-            "Category",
-            "Expense Count",
-            "Amount",
-        ]
-
-        expense_sheet.append(
-            expense_headers
+        expense_sheet["B2"] = (
+            (
+                f"{analysis['recurring_cost_start_date']}"
+                f" to "
+                f"{analysis['recurring_cost_end_date']}"
+            )
+            if (
+                analysis[
+                    "recurring_cost_start_date"
+                ]
+                is not None
+                and
+                analysis[
+                    "recurring_cost_end_date"
+                ]
+                is not None
+            )
+            else "No recurring cost period"
         )
 
-        for cell in expense_sheet[3]:
+        expense_sheet["A4"] = (
+            "Expense Component"
+        )
+
+        expense_sheet["B4"] = (
+            "Amount"
+        )
+
+        expense_sheet["C4"] = (
+            "ERP Source"
+        )
+
+        for cell in expense_sheet[4]:
+
             cell.font = Font(
                 bold=True
             )
@@ -639,80 +950,224 @@ class FinancialAnalyzerExcelService:
                 horizontal="center"
             )
 
+        expense_summary_rows = [
+            (
+                "Staff Salary",
+                analysis[
+                    "staff_salary_cost"
+                ],
+                "Staff Salary Rate History",
+            ),
+            (
+                "Company Overhead",
+                analysis[
+                    "company_overhead_cost"
+                ],
+                "Recurring Overhead Rate History",
+            ),
+            (
+                "General Expenses",
+                analysis[
+                    "total_general_expenses"
+                ],
+                "Expense Register",
+            ),
+            (
+                "Total Period Company Expenses",
+                analysis[
+                    "total_expenses"
+                ],
+                (
+                    "Salary + Overhead + General"
+                ),
+            ),
+        ]
+
+        expense_row = 5
+
+        for (
+            label,
+            amount,
+            source,
+        ) in expense_summary_rows:
+
+            expense_sheet.cell(
+                row=expense_row,
+                column=1,
+                value=label,
+            )
+
+            FinancialAnalyzerExcelService.write_money(
+                expense_sheet,
+                expense_row,
+                2,
+                amount,
+                bold=(
+                    label
+                    ==
+                    "Total Period Company Expenses"
+                ),
+            )
+
+            expense_sheet.cell(
+                row=expense_row,
+                column=3,
+                value=source,
+            )
+
+            if (
+                label
+                ==
+                "Total Period Company Expenses"
+            ):
+
+                expense_sheet.cell(
+                    row=expense_row,
+                    column=1,
+                ).font = Font(
+                    bold=True
+                )
+
+            expense_row += 1
+
+        # ====================================================
+        # GENERAL EXPENSE BREAKDOWN
+        # ====================================================
+
+        expense_row += 2
+
+        expense_sheet.cell(
+            row=expense_row,
+            column=1,
+            value="General Expense Breakdown",
+        ).font = Font(
+            bold=True,
+            size=12,
+        )
+
+        expense_row += 1
+
+        breakdown_header_row = (
+            expense_row
+        )
+
+        expense_sheet.cell(
+            row=expense_row,
+            column=1,
+            value="Category",
+        )
+
+        expense_sheet.cell(
+            row=expense_row,
+            column=2,
+            value="Record Count",
+        )
+
+        expense_sheet.cell(
+            row=expense_row,
+            column=3,
+            value="Amount",
+        )
+
+        for cell in expense_sheet[
+            breakdown_header_row
+        ]:
+
+            cell.font = Font(
+                bold=True
+            )
+
+            cell.alignment = Alignment(
+                horizontal="center"
+            )
+
+        expense_row += 1
+
         for item in analysis[
             "expense_breakdown"
         ]:
 
-            expense_sheet.append(
-                [
-                    item[
-                        "category"
-                    ],
-                    item[
-                        "count"
-                    ],
-                    float(
-                        FinancialAnalyzerExcelService
-                        .decimal(
-                            item[
-                                "amount"
-                            ]
-                        )
-                    ),
-                ]
+            expense_sheet.cell(
+                row=expense_row,
+                column=1,
+                value=item[
+                    "category"
+                ],
             )
 
-        if analysis[
-            "expense_breakdown"
-        ]:
+            expense_sheet.cell(
+                row=expense_row,
+                column=2,
+                value=item[
+                    "count"
+                ],
+            )
 
-            for row in expense_sheet.iter_rows(
-                min_row=4,
-                min_col=3,
-                max_col=3,
-            ):
-                for cell in row:
-                    cell.number_format = (
-                        "#,##0.00"
-                    )
+            FinancialAnalyzerExcelService.write_money(
+                expense_sheet,
+                expense_row,
+                3,
+                item[
+                    "amount"
+                ],
+            )
+
+            expense_row += 1
+
+        if (
+            not analysis[
+                "expense_breakdown"
+            ]
+        ):
+
+            expense_sheet.cell(
+                row=expense_row,
+                column=1,
+                value=(
+                    "No General Expenses "
+                    "for this period."
+                ),
+            )
 
         # ====================================================
-        # TOTAL EXPENSES
+        # P&L NOTE
         # ====================================================
 
-        total_expense_row = (
-            expense_sheet.max_row
-            + 2
-        )
+        expense_row += 2
 
         expense_sheet.cell(
-            row=total_expense_row,
+            row=expense_row,
             column=1,
-            value="Total Company Expenses",
+            value="P&L Treatment",
         ).font = Font(
             bold=True
         )
 
         expense_sheet.cell(
-            row=total_expense_row,
-            column=3,
-            value=float(
-                FinancialAnalyzerExcelService
-                .decimal(
-                    analysis[
-                        "total_expenses"
-                    ]
-                )
+            row=expense_row,
+            column=2,
+            value=(
+                "Allocated Finished Product staff and "
+                "overhead costs are not added again. "
+                "The Financial Analyzer recognizes the "
+                "actual period salary and recurring "
+                "overhead once."
             ),
-        ).font = Font(
-            bold=True
+        )
+
+        expense_sheet.merge_cells(
+            start_row=expense_row,
+            start_column=2,
+            end_row=expense_row,
+            end_column=3,
         )
 
         expense_sheet.cell(
-            row=total_expense_row,
-            column=3,
-        ).number_format = (
-            "#,##0.00"
+            row=expense_row,
+            column=2,
+        ).alignment = Alignment(
+            wrap_text=True,
+            vertical="top",
         )
 
         # ====================================================
@@ -725,7 +1180,9 @@ class FinancialAnalyzerExcelService:
             expense_sheet,
         ):
 
-            for column_cells in sheet.columns:
+            for column_cells in (
+                sheet.columns
+            ):
 
                 max_length = 0
 
@@ -741,8 +1198,7 @@ class FinancialAnalyzerExcelService:
 
                     value = (
                         ""
-                        if cell.value
-                        is None
+                        if cell.value is None
                         else str(
                             cell.value
                         )
@@ -758,9 +1214,8 @@ class FinancialAnalyzerExcelService:
                 sheet.column_dimensions[
                     column_letter
                 ].width = min(
-                    max_length
-                    + 3,
-                    55,
+                    max_length + 3,
+                    60,
                 )
 
         # ====================================================
@@ -772,7 +1227,7 @@ class FinancialAnalyzerExcelService:
         )
 
         expense_sheet.freeze_panes = (
-            "A4"
+            "A5"
         )
 
         # ====================================================
