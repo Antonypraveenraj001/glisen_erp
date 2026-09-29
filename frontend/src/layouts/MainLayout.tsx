@@ -130,14 +130,14 @@ export default function MainLayout() {
 
   /* ==============================================================
      SIDEBAR MENU
-     
-     IMPORTANT:
-     
-     At this enforcement pilot stage, only Enquiries is connected
-     to the new permission system.
-     
-     The remaining modules stay exactly as before until Enquiries
-     is fully tested.
+
+     Modules connected to permission enforcement so far:
+
+     Enquiries -> enquiries.view
+     Proformas -> proformas.view
+
+     Remaining modules stay unchanged until their own
+     enforcement stage is completed and tested.
   ============================================================== */
 
   const menuItems:
@@ -181,6 +181,9 @@ export default function MainLayout() {
 
         path:
           "/proformas",
+
+        permission:
+          "proformas.view",
 
         icon:
           <FileText
@@ -361,13 +364,6 @@ export default function MainLayout() {
 
   /* ==============================================================
      FILTER MENU BY PERMISSIONS
-     
-     Items with no permission assigned remain visible.
-     
-     During this pilot:
-     
-     Enquiries → requires enquiries.view
-     Everything else → unchanged
   ============================================================== */
 
   const visibleMenuItems =
@@ -439,10 +435,6 @@ export default function MainLayout() {
 
       <aside className="erp-sidebar">
 
-        {/* =======================================================
-            BRAND
-        ======================================================== */}
-
         <div className="erp-brand">
 
           <div className="erp-brand-mark">
@@ -465,10 +457,6 @@ export default function MainLayout() {
 
         </div>
 
-
-        {/* =======================================================
-            WORKSPACE NAVIGATION
-        ======================================================== */}
 
         <div className="erp-sidebar-section">
 
@@ -528,10 +516,6 @@ export default function MainLayout() {
         </div>
 
 
-        {/* =======================================================
-            LOGOUT
-        ======================================================== */}
-
         <div className="erp-sidebar-bottom">
 
           <button
@@ -561,10 +545,6 @@ export default function MainLayout() {
 
       <div className="erp-content-shell">
 
-        {/* =======================================================
-            TOP BAR
-        ======================================================== */}
-
         <header className="erp-topbar">
 
           <div>
@@ -580,10 +560,6 @@ export default function MainLayout() {
 
           </div>
 
-
-          {/* =====================================================
-              USER
-          ====================================================== */}
 
           <div className="erp-user-area">
 
@@ -609,10 +585,6 @@ export default function MainLayout() {
 
         </header>
 
-
-        {/* =======================================================
-            ROUTED PAGE
-        ======================================================== */}
 
         <main className="erp-main-content">
 

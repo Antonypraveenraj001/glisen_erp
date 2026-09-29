@@ -136,11 +136,6 @@ export default function AppRouter() {
 
           {/* =================================================
               ENQUIRIES
-
-              Permission enforcement pilot:
-              - Sidebar uses enquiries.view
-              - Direct URL uses enquiries.view
-              - Backend GET uses enquiries.view
           ================================================== */}
 
           <Route
@@ -164,9 +159,15 @@ export default function AppRouter() {
           <Route
             path="/proformas"
             element={
-              <ProformaPage
-                key="proforma-list"
-              />
+              <PermissionRoute
+                permission="proformas.view"
+              >
+
+                <ProformaPage
+                  key="proforma-list"
+                />
+
+              </PermissionRoute>
             }
           />
 
@@ -174,7 +175,13 @@ export default function AppRouter() {
           <Route
             path="/proformas/new"
             element={
-              <ProformaCreatePage />
+              <PermissionRoute
+                permission="proformas.create"
+              >
+
+                <ProformaCreatePage />
+
+              </PermissionRoute>
             }
           />
 
@@ -182,9 +189,15 @@ export default function AppRouter() {
           <Route
             path="/proformas/:id"
             element={
-              <ProformaPage
-                key="proforma-details"
-              />
+              <PermissionRoute
+                permission="proformas.view"
+              >
+
+                <ProformaPage
+                  key="proforma-details"
+                />
+
+              </PermissionRoute>
             }
           />
 
