@@ -60,6 +60,9 @@ from app.api.v1.purchase_bill_ai import (
 from app.api.v1.purchase_bills import (
     router as purchase_bills_router,
 )
+from app.api.v1.role_permissions import (
+    router as role_permissions_router,
+)
 from app.api.v1.security import (
     router as security_router,
 )
@@ -111,7 +114,7 @@ api_router.include_router(
 
 
 # ================================================================
-# SETTINGS
+# SETTINGS / ACCESS CONTROL
 # ================================================================
 
 api_router.include_router(
@@ -124,6 +127,10 @@ api_router.include_router(
 
 api_router.include_router(
     business_settings_router
+)
+
+api_router.include_router(
+    role_permissions_router
 )
 
 

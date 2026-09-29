@@ -7,6 +7,9 @@ import {
   type FormEvent,
 } from "react";
 
+import RolePermissionMatrix
+  from "./RolePermissionMatrix";
+
 import {
   CheckCircle2,
   Edit3,
@@ -1895,6 +1898,18 @@ export default function UsersAccessSettings() {
         </div>
 
       </section>
+
+      {/* =========================================================
+          ROLE PERMISSION MATRIX
+      ========================================================== */}
+
+      {
+        isBoss
+        &&
+        (
+          <RolePermissionMatrix />
+        )
+      }
 
 
       {/* =========================================================
