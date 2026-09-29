@@ -18,6 +18,10 @@ import {
   X,
 } from "lucide-react";
 
+import {
+  usePermissions,
+} from "../../hooks/usePermissions";
+
 import "./EnquiryList.css";
 
 
@@ -355,6 +359,38 @@ function valueOrEmpty(
 
 export default function EnquiryList() {
 
+  /* ==============================================================
+     PERMISSIONS
+  ============================================================== */
+
+  const {
+    hasPermission,
+  } =
+    usePermissions();
+
+
+  const canCreateEnquiry =
+    hasPermission(
+      "enquiries.create"
+    );
+
+
+  const canEditEnquiry =
+    hasPermission(
+      "enquiries.edit"
+    );
+
+
+  const canCancelEnquiry =
+    hasPermission(
+      "enquiries.cancel"
+    );
+
+
+  /* ==============================================================
+     STATE
+  ============================================================== */
+
   const [
     enquiries,
     setEnquiries,
@@ -459,6 +495,35 @@ export default function EnquiryList() {
       EnquiryForm
     >(
       createEmptyForm()
+    );
+
+
+  /* ==============================================================
+     WORKFLOW STATUS PERMISSIONS
+
+     A user without enquiries.cancel cannot newly select Cancelled.
+
+     If the record is already Cancelled, we keep Cancelled visible
+     while editing so the existing status is not silently changed.
+  ============================================================== */
+
+  const editableStatusOptions =
+    useMemo(
+      () =>
+        STATUS_OPTIONS.filter(
+          status =>
+            status
+            !== "Cancelled"
+            ||
+            canCancelEnquiry
+            ||
+            form.status
+            === "Cancelled"
+        ),
+      [
+        canCancelEnquiry,
+        form.status,
+      ]
     );
 
 
@@ -579,6 +644,25 @@ export default function EnquiryList() {
 
         setError(
           "Your session has expired. Please login again."
+        );
+
+      } else if (
+        axios.isAxiosError(
+          err
+        )
+        &&
+        err.response?.status
+        ===
+        403
+      ) {
+
+        setError(
+          typeof
+            err.response?.data?.detail
+          ===
+          "string"
+            ? err.response.data.detail
+            : "You do not have permission to view Enquiries."
         );
 
       } else if (
@@ -1010,6 +1094,15 @@ export default function EnquiryList() {
 
   function openCreateModal() {
 
+    if (
+      !canCreateEnquiry
+    ) {
+
+      return;
+
+    }
+
+
     setEditingEnquiry(
       null
     );
@@ -1040,6 +1133,15 @@ export default function EnquiryList() {
     enquiry:
       Enquiry
   ) {
+
+    if (
+      !canEditEnquiry
+    ) {
+
+      return;
+
+    }
+
 
     setEditingEnquiry(
       enquiry
@@ -1386,6 +1488,56 @@ export default function EnquiryList() {
     setFormError(
       ""
     );
+
+
+    if (
+      editingEnquiry
+      &&
+      !canEditEnquiry
+    ) {
+
+      setFormError(
+        "You do not have permission to edit Enquiries."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !editingEnquiry
+      &&
+      !canCreateEnquiry
+    ) {
+
+      setFormError(
+        "You do not have permission to create Enquiries."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      form.status
+      === "Cancelled"
+      &&
+      editingEnquiry
+      ?.status
+      !== "Cancelled"
+      &&
+      !canCancelEnquiry
+    ) {
+
+      setFormError(
+        "You do not have permission to cancel Enquiries."
+      );
+
+      return;
+
+    }
 
 
     if (
@@ -1978,22 +2130,28 @@ export default function EnquiryList() {
                         </button>
 
 
-                        <button
-                          type="button"
-                          className="icon-action-button"
-                          title="Edit enquiry"
-                          onClick={() =>
-                            void openEditModal(
-                              enquiry
-                            )
-                          }
-                        >
+                        {
+                          canEditEnquiry
+                          &&
+                          (
+                            <button
+                              type="button"
+                              className="icon-action-button"
+                              title="Edit enquiry"
+                              onClick={() =>
+                                void openEditModal(
+                                  enquiry
+                                )
+                              }
+                            >
 
-                          <Pencil
-                            size={16}
-                          />
+                              <Pencil
+                                size={16}
+                              />
 
-                        </button>
+                            </button>
+                          )
+                        }
 
                       </div>
 
@@ -2375,21 +2533,27 @@ export default function EnquiryList() {
             </button>
 
 
-            <button
-              type="button"
-              className="primary-button"
-              onClick={
-                openCreateModal
-              }
-            >
+            {
+              canCreateEnquiry
+              &&
+              (
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={
+                    openCreateModal
+                  }
+                >
 
-              <Plus
-                size={18}
-              />
+                  <Plus
+                    size={18}
+                  />
 
-              New Enquiry
+                  New Enquiry
 
-            </button>
+                </button>
+              )
+            }
 
           </div>
 
@@ -3399,7 +3563,7 @@ export default function EnquiryList() {
                         >
 
                           {
-                            STATUS_OPTIONS.map(
+                            editableStatusOptions.map(
                               status => (
 
                                 <option

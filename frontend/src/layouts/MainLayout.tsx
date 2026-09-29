@@ -1,3 +1,7 @@
+import type {
+  ReactNode,
+} from "react";
+
 import {
   NavLink,
   Outlet,
@@ -25,48 +29,91 @@ import {
   useAuth,
 } from "../context/AuthContext";
 
+import {
+  usePermissions,
+} from "../hooks/usePermissions";
+
 
 interface MenuItem {
   label: string;
+
   path: string;
-  icon: React.ReactNode;
+
+  icon: ReactNode;
+
+  permission?: string;
 }
 
+
+/* ================================================================
+   USER INITIALS
+================================================================ */
 
 function getInitials(
   fullName?: string,
   username?: string
 ) {
+
   const source =
-    fullName?.trim() ||
-    username?.trim() ||
+    fullName?.trim()
+    ||
+    username?.trim()
+    ||
     "User";
+
 
   const parts =
     source
-      .split(/\s+/)
-      .filter(Boolean);
+      .split(
+        /\s+/
+      )
+      .filter(
+        Boolean
+      );
+
 
   if (
-    parts.length === 1
+    parts.length
+    === 1
   ) {
-    return parts[0]
-      .slice(0, 2)
-      .toUpperCase();
+
+    return (
+      parts[0]
+        .slice(
+          0,
+          2
+        )
+        .toUpperCase()
+    );
+
   }
 
+
   return (
-    parts[0][0] +
-    parts[
-      parts.length - 1
-    ][0]
-  ).toUpperCase();
+    (
+      parts[0][0]
+      +
+      parts[
+        parts.length
+        -
+        1
+      ][0]
+    )
+      .toUpperCase()
+  );
+
 }
 
 
+/* ================================================================
+   LAYOUT
+================================================================ */
+
 export default function MainLayout() {
+
   const navigate =
     useNavigate();
+
 
   const {
     user,
@@ -75,225 +122,302 @@ export default function MainLayout() {
     useAuth();
 
 
+  const {
+    hasPermission,
+  } =
+    usePermissions();
+
+
+  /* ==============================================================
+     SIDEBAR MENU
+     
+     IMPORTANT:
+     
+     At this enforcement pilot stage, only Enquiries is connected
+     to the new permission system.
+     
+     The remaining modules stay exactly as before until Enquiries
+     is fully tested.
+  ============================================================== */
+
   const menuItems:
-  MenuItem[] = [
-    {
-      label:
-        "Dashboard",
+    MenuItem[] =
+    [
 
-      path:
-        "/dashboard",
+      {
+        label:
+          "Dashboard",
 
-      icon:
-        <Gauge
-          size={17}
-        />,
-    },
+        path:
+          "/dashboard",
 
-    {
-      label:
-        "Enquiries",
-
-      path:
-        "/enquiries",
-
-      icon:
-        <ClipboardList
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Proformas",
-
-      path:
-        "/proformas",
-
-      icon:
-        <FileText
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Purchase Bills",
-
-      path:
-        "/purchase-bills",
-
-      icon:
-        <ReceiptText
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Products",
-
-      path:
-        "/products",
-
-      icon:
-        <Package
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Suppliers",
-
-      path:
-        "/suppliers",
-
-      icon:
-        <ShoppingCart
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Customers",
-
-      path:
-        "/customers",
-
-      icon:
-        <Users
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Stock",
-
-      path:
-        "/stock",
-
-      icon:
-        <Boxes
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Production",
-
-      path:
-        "/production",
-
-      icon:
-        <BarChart3
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Finished Products",
-
-      path:
-        "/finished-products",
-
-      icon:
-        <PackageCheck
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Final Billing",
-
-      path:
-        "/final-billing",
-
-      icon:
-        <ReceiptText
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "GST",
-
-      path:
-        "/gst",
-
-      icon:
-        <FileBarChart
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Expenses",
-
-      path:
-        "/expenses",
-
-      icon:
-        <WalletCards
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Financial",
-
-      path:
-        "/financial",
-
-      icon:
-        <WalletCards
-          size={17}
-        />,
-    },
-
-    {
-      label:
-        "Settings",
-
-      path:
-        "/settings",
-
-      icon:
-        <Settings
-          size={17}
-        />,
-    },
-  ];
+        icon:
+          <Gauge
+            size={17}
+          />,
+      },
 
 
-  const handleLogout = () => {
+      {
+        label:
+          "Enquiries",
+
+        path:
+          "/enquiries",
+
+        permission:
+          "enquiries.view",
+
+        icon:
+          <ClipboardList
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Proformas",
+
+        path:
+          "/proformas",
+
+        icon:
+          <FileText
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Purchase Bills",
+
+        path:
+          "/purchase-bills",
+
+        icon:
+          <ReceiptText
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Products",
+
+        path:
+          "/products",
+
+        icon:
+          <Package
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Suppliers",
+
+        path:
+          "/suppliers",
+
+        icon:
+          <ShoppingCart
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Customers",
+
+        path:
+          "/customers",
+
+        icon:
+          <Users
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Stock",
+
+        path:
+          "/stock",
+
+        icon:
+          <Boxes
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Production",
+
+        path:
+          "/production",
+
+        icon:
+          <BarChart3
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Finished Products",
+
+        path:
+          "/finished-products",
+
+        icon:
+          <PackageCheck
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Final Billing",
+
+        path:
+          "/final-billing",
+
+        icon:
+          <ReceiptText
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "GST",
+
+        path:
+          "/gst",
+
+        icon:
+          <FileBarChart
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Expenses",
+
+        path:
+          "/expenses",
+
+        icon:
+          <WalletCards
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Financial",
+
+        path:
+          "/financial",
+
+        icon:
+          <WalletCards
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Settings",
+
+        path:
+          "/settings",
+
+        icon:
+          <Settings
+            size={17}
+          />,
+      },
+
+    ];
+
+
+  /* ==============================================================
+     FILTER MENU BY PERMISSIONS
+     
+     Items with no permission assigned remain visible.
+     
+     During this pilot:
+     
+     Enquiries → requires enquiries.view
+     Everything else → unchanged
+  ============================================================== */
+
+  const visibleMenuItems =
+    menuItems.filter(
+      item =>
+        !item.permission
+        ||
+        hasPermission(
+          item.permission
+        )
+    );
+
+
+  /* ==============================================================
+     LOGOUT
+  ============================================================== */
+
+  function handleLogout() {
+
     logout();
+
 
     navigate(
       "/login",
       {
-        replace: true,
+        replace:
+          true,
       }
     );
-  };
 
+  }
+
+
+  /* ==============================================================
+     USER DISPLAY
+  ============================================================== */
 
   const displayName =
-    user?.full_name?.trim() ||
-    user?.username ||
+    user?.full_name?.trim()
+    ||
+    user?.username
+    ||
     "ERP User";
 
+
   const displayRole =
-    user?.role ||
+    user?.role
+    ||
     "Authenticated User";
+
 
   const initials =
     getInitials(
@@ -302,14 +426,22 @@ export default function MainLayout() {
     );
 
 
+  /* ==============================================================
+     PAGE
+  ============================================================== */
+
   return (
     <div className="erp-shell">
 
-      {/* =========================
+      {/* =========================================================
           SIDEBAR
-      ========================== */}
+      ========================================================== */}
 
       <aside className="erp-sidebar">
+
+        {/* =======================================================
+            BRAND
+        ======================================================== */}
 
         <div className="erp-brand">
 
@@ -317,11 +449,13 @@ export default function MainLayout() {
             G
           </div>
 
+
           <div>
 
             <div className="erp-brand-name">
               Glisen
             </div>
+
 
             <div className="erp-brand-subtitle">
               ERP SYSTEM
@@ -332,6 +466,10 @@ export default function MainLayout() {
         </div>
 
 
+        {/* =======================================================
+            WORKSPACE NAVIGATION
+        ======================================================== */}
+
         <div className="erp-sidebar-section">
 
           <div className="erp-sidebar-label">
@@ -341,48 +479,58 @@ export default function MainLayout() {
 
           <nav className="erp-navigation">
 
-            {menuItems.map(
-              (
-                item
-              ) => (
-                <NavLink
-                  key={
-                    item.path
-                  }
-                  to={
-                    item.path
-                  }
-                  className={({
-                    isActive,
-                  }) =>
-                    `erp-nav-link ${
-                      isActive
-                        ? "active"
-                        : ""
-                    }`
-                  }
-                >
+            {
+              visibleMenuItems.map(
+                item => (
 
-                  <span className="erp-nav-icon">
-                    {
-                      item.icon
+                  <NavLink
+                    key={
+                      item.path
                     }
-                  </span>
-
-                  <span>
-                    {
-                      item.label
+                    to={
+                      item.path
                     }
-                  </span>
+                    className={
+                      ({
+                        isActive,
+                      }) =>
+                        `erp-nav-link ${
+                          isActive
+                            ? "active"
+                            : ""
+                        }`
+                    }
+                  >
 
-                </NavLink>
+                    <span className="erp-nav-icon">
+
+                      {
+                        item.icon
+                      }
+
+                    </span>
+
+
+                    <span>
+                      {
+                        item.label
+                      }
+                    </span>
+
+                  </NavLink>
+
+                )
               )
-            )}
+            }
 
           </nav>
 
         </div>
 
+
+        {/* =======================================================
+            LOGOUT
+        ======================================================== */}
 
         <div className="erp-sidebar-bottom">
 
@@ -407,11 +555,15 @@ export default function MainLayout() {
       </aside>
 
 
-      {/* =========================
-          CONTENT
-      ========================== */}
+      {/* =========================================================
+          MAIN CONTENT
+      ========================================================== */}
 
       <div className="erp-content-shell">
+
+        {/* =======================================================
+            TOP BAR
+        ======================================================== */}
 
         <header className="erp-topbar">
 
@@ -421,12 +573,17 @@ export default function MainLayout() {
               Glisen ERP
             </div>
 
+
             <div className="erp-topbar-subtitle">
               Manufacturing Management System
             </div>
 
           </div>
 
+
+          {/* =====================================================
+              USER
+          ====================================================== */}
 
           <div className="erp-user-area">
 
@@ -441,6 +598,7 @@ export default function MainLayout() {
                 {displayName}
               </div>
 
+
               <div className="erp-user-role">
                 {displayRole}
               </div>
@@ -452,8 +610,14 @@ export default function MainLayout() {
         </header>
 
 
+        {/* =======================================================
+            ROUTED PAGE
+        ======================================================== */}
+
         <main className="erp-main-content">
+
           <Outlet />
+
         </main>
 
       </div>

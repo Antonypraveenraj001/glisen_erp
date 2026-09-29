@@ -259,6 +259,10 @@ class UserResponse(BaseModel):
 
     created_by: int | None = None
 
+    permissions: list[str] = Field(
+        default_factory=list
+    )
+
     @field_validator(
         "role",
         mode="before",

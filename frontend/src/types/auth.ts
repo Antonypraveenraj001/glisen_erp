@@ -3,26 +3,38 @@ export interface LoginRequest {
   password: string;
 }
 
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
 }
 
+
 export interface User {
   id: number;
+
   full_name: string;
   username: string;
   email: string;
+
   role: string;
   role_id: number;
+
   is_active: boolean;
+
+  permissions: string[];
 }
+
 
 export interface AuthContextType {
   user: User | null;
+
   token: string | null;
 
-  login: (token: string, user: User) => void;
+  login: (
+    token: string,
+    user: User
+  ) => void;
 
   logout: () => void;
 
