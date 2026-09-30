@@ -306,8 +306,12 @@ def create_proforma(
 #
 # Shared access:
 #
-# - proformas.view    -> Proforma module
-# - production.start -> Start Production selector
+# - proformas.view          -> Proforma module
+# - production.start       -> Start Production selector
+# - finished_products.view -> Finished Products linked context
+#
+# Finished Products needs the Proforma/customer context without
+# being given access to the Proformas module itself.
 # ================================================================
 
 @router.get(
@@ -350,6 +354,7 @@ def get_proformas(
         require_any_permission(
             "proformas.view",
             "production.start",
+            "finished_products.view",
         )
     ),
 ):

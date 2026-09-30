@@ -121,8 +121,11 @@ def create_production_order(
 # Stock Material Issue:
 #     stock.issue
 #
-# Store users must be able to select an active Production Order
-# without being given access to the Production module itself.
+# Finished Products:
+#     finished_products.view
+#
+# Stock and Finished Products need this shared order lookup without
+# being given access to the Production module itself.
 # ============================================================
 
 @router.get(
@@ -135,6 +138,7 @@ def get_production_orders(
         require_any_permission(
             "production.view",
             "stock.issue",
+            "finished_products.view",
         )
     ),
 ):

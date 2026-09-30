@@ -6,10 +6,12 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
+from app.dependencies.database import (
+    get_db,
 )
-from app.dependencies.database import get_db
+from app.dependencies.permissions import (
+    require_permission,
+)
 from app.models.user import User
 from app.schemas.finished_product import (
     FinishedProductResponse,
@@ -28,8 +30,10 @@ router = APIRouter(
 
 # ============================================================
 # GET ALL FINISHED PRODUCTS
+#
+# Permission:
+#     finished_products.view
 # ============================================================
-
 
 @router.get(
     "",
@@ -38,9 +42,13 @@ router = APIRouter(
     ],
 )
 def get_all_finished_products(
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "finished_products.view"
+        )
     ),
 ):
     service = FinishedProductService(
@@ -54,8 +62,10 @@ def get_all_finished_products(
 
 # ============================================================
 # GET FINISHED PRODUCT BY NUMBER
+#
+# Permission:
+#     finished_products.view
 # ============================================================
-
 
 @router.get(
     "/number/{finished_product_number}",
@@ -63,9 +73,13 @@ def get_all_finished_products(
 )
 def get_finished_product_by_number(
     finished_product_number: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "finished_products.view"
+        )
     ),
 ):
     service = FinishedProductService(
@@ -80,7 +94,9 @@ def get_finished_product_by_number(
 
     if finished_product is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=(
                 "Finished Product not found."
             ),
@@ -91,8 +107,10 @@ def get_finished_product_by_number(
 
 # ============================================================
 # GET FINISHED PRODUCT BY PRODUCTION ORDER
+#
+# Permission:
+#     finished_products.view
 # ============================================================
-
 
 @router.get(
     "/production-orders/{production_order_id}",
@@ -100,9 +118,13 @@ def get_finished_product_by_number(
 )
 def get_finished_product_by_production_order(
     production_order_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "finished_products.view"
+        )
     ),
 ):
     service = FinishedProductService(
@@ -117,7 +139,9 @@ def get_finished_product_by_production_order(
 
     if finished_product is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=(
                 "Finished Product not found "
                 "for this Production Order."
@@ -129,8 +153,10 @@ def get_finished_product_by_production_order(
 
 # ============================================================
 # TRACEABILITY BY NUMBER
+#
+# Permission:
+#     finished_products.view
 # ============================================================
-
 
 @router.get(
     "/number/{finished_product_number}/traceability",
@@ -140,9 +166,13 @@ def get_finished_product_by_production_order(
 )
 def get_finished_product_traceability_by_number(
     finished_product_number: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "finished_products.view"
+        )
     ),
 ):
     service = FinishedProductService(
@@ -176,14 +206,18 @@ def get_finished_product_traceability_by_number(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # TRACEABILITY BY ID
+#
+# Permission:
+#     finished_products.view
 # ============================================================
-
 
 @router.get(
     "/{finished_product_id}/traceability",
@@ -193,9 +227,13 @@ def get_finished_product_traceability_by_number(
 )
 def get_finished_product_traceability(
     finished_product_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "finished_products.view"
+        )
     ),
 ):
     service = FinishedProductService(
@@ -229,14 +267,18 @@ def get_finished_product_traceability(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # GET FINISHED PRODUCT BY ID
+#
+# Permission:
+#     finished_products.view
 # ============================================================
-
 
 @router.get(
     "/{finished_product_id}",
@@ -244,9 +286,13 @@ def get_finished_product_traceability(
 )
 def get_finished_product(
     finished_product_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "finished_products.view"
+        )
     ),
 ):
     service = FinishedProductService(
@@ -261,7 +307,9 @@ def get_finished_product(
 
     if finished_product is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=(
                 "Finished Product not found."
             ),

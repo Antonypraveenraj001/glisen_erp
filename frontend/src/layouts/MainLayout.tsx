@@ -134,15 +134,16 @@ export default function MainLayout() {
 
      Permission enforcement connected so far:
 
-     Dashboard      -> dashboard.view
-     Enquiries      -> enquiries.view
-     Proformas      -> proformas.view
-     Purchase Bills -> purchase_bills.view
-     Products       -> products.view
-     Suppliers      -> suppliers.view
-     Customers      -> customers.view
-     Stock          -> stock.view
-     Production     -> production.view
+     Dashboard         -> dashboard.view
+     Enquiries         -> enquiries.view
+     Proformas         -> proformas.view
+     Purchase Bills    -> purchase_bills.view
+     Products          -> products.view
+     Suppliers         -> suppliers.view
+     Customers         -> customers.view
+     Stock             -> stock.view
+     Production        -> production.view
+     Finished Products -> finished_products.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -310,6 +311,9 @@ export default function MainLayout() {
 
         path:
           "/finished-products",
+
+        permission:
+          "finished_products.view",
 
         icon:
           <PackageCheck

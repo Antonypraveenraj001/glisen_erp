@@ -636,7 +636,13 @@ export default function AppRouter() {
           <Route
             path="/finished-products"
             element={
-              <FinishedProductsPage />
+              <PermissionRoute
+                permission="finished_products.view"
+              >
+
+                <FinishedProductsPage />
+
+              </PermissionRoute>
             }
           />
 
@@ -644,7 +650,13 @@ export default function AppRouter() {
           <Route
             path="/finished-products/:id"
             element={
-              <FinishedProductDetailPage />
+              <PermissionRoute
+                permission="finished_products.view"
+              >
+
+                <FinishedProductDetailPage />
+
+              </PermissionRoute>
             }
           />
 
