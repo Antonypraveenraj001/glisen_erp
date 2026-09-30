@@ -43,6 +43,91 @@ interface Notice {
 }
 
 
+interface ModuleGroup {
+  name: string;
+
+  permissions:
+    PermissionMatrixItem[];
+}
+
+
+/* ================================================================
+   MODULE DISPLAY ORDER
+================================================================ */
+
+const MODULE_ORDER = [
+  "Dashboard",
+  "Enquiries",
+  "Proformas",
+  "Purchase Bills",
+  "Products",
+  "Suppliers",
+  "Customers",
+  "Stock",
+  "Production",
+  "Finished Products",
+  "Final Billing",
+  "GST",
+  "Expenses",
+  "Staff",
+  "Financial",
+  "Settings",
+];
+
+
+const MODULE_DESCRIPTIONS:
+Record<string, string> = {
+
+  Dashboard:
+    "ERP dashboard and business overview.",
+
+  Enquiries:
+    "Customer enquiry records and enquiry workflow.",
+
+  Proformas:
+    "Create and manage Proformas and order confirmation.",
+
+  "Purchase Bills":
+    "Supplier bills, AI scanning and supplier payments.",
+
+  Products:
+    "Purchased products and raw-material master.",
+
+  Suppliers:
+    "Supplier master and supplier information.",
+
+  Customers:
+    "Customer master generated from Enquiries.",
+
+  Stock:
+    "Store inventory, stock movements and material issue.",
+
+  Production:
+    "Production orders, operations and completion.",
+
+  "Finished Products":
+    "Completed manufactured products and receipts.",
+
+  "Final Billing":
+    "Invoices, revisions, credit notes and customer payments.",
+
+  GST:
+    "GST reports and report downloads.",
+
+  Expenses:
+    "Company expense records.",
+
+  Staff:
+    "Staff and salary records.",
+
+  Financial:
+    "Financial Analyzer and financial reports.",
+
+  Settings:
+    "Company settings, document settings and user administration.",
+};
+
+
 /* ================================================================
    HELPERS
 ================================================================ */
@@ -68,7 +153,9 @@ function getApiErrorMessage(
       typeof detail
       === "string"
     ) {
+
       return detail;
+
     }
 
 
@@ -77,7 +164,9 @@ function getApiErrorMessage(
         detail
       )
       &&
-      detail.length > 0
+      detail.length
+      >
+      0
     ) {
 
       const first =
@@ -90,7 +179,9 @@ function getApiErrorMessage(
         typeof first.msg
         === "string"
       ) {
+
         return first.msg;
+
       }
 
     }
@@ -99,15 +190,71 @@ function getApiErrorMessage(
 
 
   if (
-    error instanceof Error
+    error
+    instanceof Error
     &&
     error.message
   ) {
+
     return error.message;
+
   }
 
 
   return fallback;
+}
+
+
+/* ================================================================
+   UI MODULE NAME
+
+   Settings-related permissions are presented as ONE Settings
+   module to the user.
+
+   Internally the backend still keeps granular permissions:
+   - Settings
+   - Users & Access
+   - Numbering
+   - Backup & Recovery
+   - Financial Year
+
+   Boss-only permissions are never granted to another role.
+================================================================ */
+
+function getUiModuleName(
+  backendModule:
+    string
+) {
+
+  if (
+    [
+      "Settings",
+      "Users & Access",
+      "Numbering",
+      "Backup & Recovery",
+      "Financial Year",
+    ].includes(
+      backendModule
+    )
+  ) {
+
+    return "Settings";
+
+  }
+
+
+  if (
+    backendModule
+    ===
+    "Financial Analyzer"
+  ) {
+
+    return "Financial";
+
+  }
+
+
+  return backendModule;
 }
 
 
@@ -125,7 +272,8 @@ export default function RolePermissionMatrix() {
 
   const isBoss =
     user?.role
-    === "Boss";
+    ===
+    "Boss";
 
 
   const [
@@ -166,29 +314,31 @@ export default function RolePermissionMatrix() {
     setSelectedRoleId,
   ] =
     useState<
-      number | null
+      number
+      |
+      null
     >(
       null
     );
 
 
   const [
-    selectedPermissionIds,
-    setSelectedPermissionIds,
+    selectedModules,
+    setSelectedModules,
   ] =
     useState<
-      Set<number>
+      Set<string>
     >(
       new Set()
     );
 
 
   const [
-    originalPermissionIds,
-    setOriginalPermissionIds,
+    originalModules,
+    setOriginalModules,
   ] =
     useState<
-      Set<number>
+      Set<string>
     >(
       new Set()
     );
@@ -217,48 +367,17 @@ export default function RolePermissionMatrix() {
     setNotice,
   ] =
     useState<
-      Notice | null
+      Notice
+      |
+      null
     >(
       null
     );
 
 
   /* ==============================================================
-     LOOKUPS
+     SELECTED ROLE
   ============================================================== */
-
-  const permissionByName =
-    useMemo(
-      () => {
-
-        const map =
-          new Map<
-            string,
-            PermissionMatrixItem
-          >();
-
-
-        for (
-          const permission
-          of permissions
-        ) {
-
-          map.set(
-            permission.name,
-            permission
-          );
-
-        }
-
-
-        return map;
-
-      },
-      [
-        permissions,
-      ]
-    );
-
 
   const selectedRole =
     useMemo(
@@ -266,7 +385,8 @@ export default function RolePermissionMatrix() {
         roles.find(
           role =>
             role.id
-            === selectedRoleId
+            ===
+            selectedRoleId
         )
         ??
         null,
@@ -277,8 +397,17 @@ export default function RolePermissionMatrix() {
     );
 
 
-  const modules =
-    useMemo(
+  /* ==============================================================
+     MODULE GROUPS
+
+     Granular backend permissions are grouped into simple
+     user-facing modules.
+  ============================================================== */
+
+  const moduleGroups =
+    useMemo<
+      ModuleGroup[]
+    >(
       () => {
 
         const grouped =
@@ -293,14 +422,20 @@ export default function RolePermissionMatrix() {
           of permissions
         ) {
 
+          const moduleName =
+            getUiModuleName(
+              permission.module
+            );
+
+
           if (
             !grouped.has(
-              permission.module
+              moduleName
             )
           ) {
 
             grouped.set(
-              permission.module,
+              moduleName,
               []
             );
 
@@ -309,7 +444,7 @@ export default function RolePermissionMatrix() {
 
           grouped
             .get(
-              permission.module
+              moduleName
             )
             ?.push(
               permission
@@ -318,41 +453,149 @@ export default function RolePermissionMatrix() {
         }
 
 
-        return Array.from(
-          grouped.entries()
+        const result =
+          Array.from(
+            grouped.entries()
+          )
+            .map(
+              (
+                [
+                  name,
+                  modulePermissions,
+                ]
+              ) => ({
+                name,
+
+                permissions:
+                  modulePermissions,
+              })
+            )
+            .filter(
+              group => {
+
+                /*
+                 * Boss can see every module.
+                 *
+                 * Other roles only need modules containing at
+                 * least one normal assignable permission.
+                 */
+                if (
+                  selectedRole?.protected
+                ) {
+
+                  return true;
+
+                }
+
+
+                return group.permissions.some(
+                  permission =>
+                    !permission.boss_only
+                );
+
+              }
+            );
+
+
+        result.sort(
+          (
+            first,
+            second
+          ) => {
+
+            const firstIndex =
+              MODULE_ORDER.indexOf(
+                first.name
+              );
+
+
+            const secondIndex =
+              MODULE_ORDER.indexOf(
+                second.name
+              );
+
+
+            const normalizedFirst =
+              firstIndex
+              ===
+              -1
+                ? 999
+                : firstIndex;
+
+
+            const normalizedSecond =
+              secondIndex
+              ===
+              -1
+                ? 999
+                : secondIndex;
+
+
+            if (
+              normalizedFirst
+              !==
+              normalizedSecond
+            ) {
+
+              return (
+                normalizedFirst
+                -
+                normalizedSecond
+              );
+
+            }
+
+
+            return first.name.localeCompare(
+              second.name
+            );
+
+          }
         );
+
+
+        return result;
 
       },
       [
         permissions,
+        selectedRole,
       ]
     );
 
+
+  /* ==============================================================
+     CHANGE DETECTION
+  ============================================================== */
 
   const hasUnsavedChanges =
     useMemo(
       () => {
 
         if (
-          selectedPermissionIds.size
+          selectedModules.size
           !==
-          originalPermissionIds.size
+          originalModules.size
         ) {
+
           return true;
+
         }
 
 
         for (
-          const permissionId
-          of selectedPermissionIds
+          const moduleName
+          of selectedModules
         ) {
 
           if (
-            !originalPermissionIds.has(
-              permissionId
+            !originalModules.has(
+              moduleName
             )
           ) {
+
             return true;
+
           }
 
         }
@@ -362,19 +605,193 @@ export default function RolePermissionMatrix() {
 
       },
       [
-        selectedPermissionIds,
-        originalPermissionIds,
+        selectedModules,
+        originalModules,
       ]
     );
 
 
   /* ==============================================================
-     LOAD
+     ASSIGNMENT -> MODULES
+
+     Existing granular permissions are converted to module access.
+
+     If a role currently has ANY normal permission from a module,
+     that module is treated as enabled.
+
+     When Save is clicked, the module is normalized to full normal
+     access for that module.
+  ============================================================== */
+
+  function getModulesForRole(
+    roleId:
+      number,
+
+    sourceAssignments:
+      RolePermissionAssignment[],
+
+    sourcePermissions:
+      PermissionMatrixItem[],
+
+    sourceRoles:
+      PermissionMatrixRole[]
+  ) {
+
+    const role =
+      sourceRoles.find(
+        item =>
+          item.id
+          ===
+          roleId
+      );
+
+
+    const modules =
+      new Set<string>();
+
+
+    if (
+      role?.protected
+    ) {
+
+      for (
+        const permission
+        of sourcePermissions
+      ) {
+
+        modules.add(
+          getUiModuleName(
+            permission.module
+          )
+        );
+
+      }
+
+
+      return modules;
+
+    }
+
+
+    const assignment =
+      sourceAssignments.find(
+        item =>
+          item.role_id
+          ===
+          roleId
+      );
+
+
+    const assignedIds =
+      new Set(
+        assignment
+          ?.permission_ids
+        ??
+        []
+      );
+
+
+    for (
+      const permission
+      of sourcePermissions
+    ) {
+
+      if (
+        permission.boss_only
+      ) {
+
+        continue;
+
+      }
+
+
+      if (
+        assignedIds.has(
+          permission.id
+        )
+      ) {
+
+        modules.add(
+          getUiModuleName(
+            permission.module
+          )
+        );
+
+      }
+
+    }
+
+
+    return modules;
+  }
+
+
+  /* ==============================================================
+     APPLY ROLE SELECTION
+  ============================================================== */
+
+  function applyRoleSelection(
+    roleId:
+      number,
+
+    sourceAssignments:
+      RolePermissionAssignment[] =
+        assignments,
+
+    sourcePermissions:
+      PermissionMatrixItem[] =
+        permissions,
+
+    sourceRoles:
+      PermissionMatrixRole[] =
+        roles
+  ) {
+
+    const modules =
+      getModulesForRole(
+        roleId,
+        sourceAssignments,
+        sourcePermissions,
+        sourceRoles
+      );
+
+
+    setSelectedRoleId(
+      roleId
+    );
+
+
+    setSelectedModules(
+      new Set(
+        modules
+      )
+    );
+
+
+    setOriginalModules(
+      new Set(
+        modules
+      )
+    );
+
+
+    setNotice(
+      null
+    );
+
+  }
+
+
+  /* ==============================================================
+     LOAD MATRIX
   ============================================================== */
 
   async function loadMatrix(
     preferredRoleId:
-      number | null = null
+      number
+      |
+      null =
+        null
   ) {
 
     if (
@@ -385,7 +802,9 @@ export default function RolePermissionMatrix() {
         false
       );
 
+
       return;
+
     }
 
 
@@ -394,6 +813,7 @@ export default function RolePermissionMatrix() {
       setLoading(
         true
       );
+
 
       setNotice(
         null
@@ -424,7 +844,8 @@ export default function RolePermissionMatrix() {
           ? data.roles.find(
               role =>
                 role.id
-                === preferredRoleId
+                ===
+                preferredRoleId
             )
           : null;
 
@@ -433,7 +854,8 @@ export default function RolePermissionMatrix() {
         data.roles.find(
           role =>
             role.name
-            === "Admin"
+            ===
+            "Admin"
         );
 
 
@@ -464,7 +886,9 @@ export default function RolePermissionMatrix() {
 
         applyRoleSelection(
           nextRole.id,
-          data.assignments
+          data.assignments,
+          data.permissions,
+          data.roles
         );
 
       } else {
@@ -474,12 +898,12 @@ export default function RolePermissionMatrix() {
         );
 
 
-        setSelectedPermissionIds(
+        setSelectedModules(
           new Set()
         );
 
 
-        setOriginalPermissionIds(
+        setOriginalModules(
           new Set()
         );
 
@@ -501,7 +925,7 @@ export default function RolePermissionMatrix() {
         text:
           getApiErrorMessage(
             error,
-            "Unable to load Role Permission Matrix."
+            "Unable to load module access."
           ),
       });
 
@@ -529,61 +953,12 @@ export default function RolePermissionMatrix() {
 
 
   /* ==============================================================
-     ROLE SELECTION
+     ROLE CHANGE
   ============================================================== */
 
-  function applyRoleSelection(
-    roleId: number,
-    sourceAssignments:
-      RolePermissionAssignment[] =
-        assignments
-  ) {
-
-    const assignment =
-      sourceAssignments.find(
-        item =>
-          item.role_id
-          === roleId
-      );
-
-
-    const ids =
-      new Set(
-        assignment
-          ?.permission_ids
-        ??
-        []
-      );
-
-
-    setSelectedRoleId(
-      roleId
-    );
-
-
-    setSelectedPermissionIds(
-      new Set(
-        ids
-      )
-    );
-
-
-    setOriginalPermissionIds(
-      new Set(
-        ids
-      )
-    );
-
-
-    setNotice(
-      null
-    );
-
-  }
-
-
   function handleRoleChange(
-    roleId: number
+    roleId:
+      number
   ) {
 
     if (
@@ -592,14 +967,16 @@ export default function RolePermissionMatrix() {
 
       const confirmed =
         window.confirm(
-          "You have unsaved permission changes. Discard them and change role?"
+          "You have unsaved module access changes. Discard them and change role?"
         );
 
 
       if (
         !confirmed
       ) {
+
         return;
+
       }
 
     }
@@ -613,360 +990,60 @@ export default function RolePermissionMatrix() {
 
 
   /* ==============================================================
-     CHECKBOX RULES
+     MODULE TOGGLE
   ============================================================== */
 
-  function isPermissionSelected(
-    permissionId: number
-  ) {
-
-    return (
-      selectedPermissionIds.has(
-        permissionId
-      )
-    );
-
-  }
-
-
-  function isParentMissing(
-    permission:
-      PermissionMatrixItem
+  function toggleModule(
+    moduleName:
+      string
   ) {
 
     if (
-      !permission.depends_on
+      selectedRole
+        ?.protected
     ) {
-      return false;
+
+      return;
+
     }
 
 
-    const parent =
-      permissionByName.get(
-        permission.depends_on
-      );
+    setSelectedModules(
+      current => {
 
+        const next =
+          new Set(
+            current
+          );
 
-    if (
-      !parent
-    ) {
-      return false;
-    }
-
-
-    return (
-      !selectedPermissionIds.has(
-        parent.id
-      )
-    );
-
-  }
-
-
-  function removePermissionAndChildren(
-    permission:
-      PermissionMatrixItem,
-    source:
-      Set<number>
-  ) {
-
-    const next =
-      new Set(
-        source
-      );
-
-
-    const removedNames =
-      new Set<string>([
-        permission.name,
-      ]);
-
-
-    next.delete(
-      permission.id
-    );
-
-
-    let foundChild =
-      true;
-
-
-    while (
-      foundChild
-    ) {
-
-      foundChild =
-        false;
-
-
-      for (
-        const candidate
-        of permissions
-      ) {
 
         if (
-          candidate.depends_on
-          &&
-          removedNames.has(
-            candidate.depends_on
-          )
-          &&
-          !removedNames.has(
-            candidate.name
+          next.has(
+            moduleName
           )
         ) {
 
-          removedNames.add(
-            candidate.name
-          );
-
-
           next.delete(
-            candidate.id
+            moduleName
           );
 
+        } else {
 
-          foundChild =
-            true;
+          next.add(
+            moduleName
+          );
 
         }
 
-      }
 
-    }
-
-
-    return next;
-
-  }
-
-
-  function addPermissionWithParents(
-    permission:
-      PermissionMatrixItem,
-    source:
-      Set<number>
-  ) {
-
-    const next =
-      new Set(
-        source
-      );
-
-
-    let current:
-      PermissionMatrixItem | undefined =
-        permission;
-
-
-    while (
-      current
-    ) {
-
-      if (
-        !current.boss_only
-      ) {
-
-        next.add(
-          current.id
-        );
+        return next;
 
       }
-
-
-      if (
-        !current.depends_on
-      ) {
-        break;
-      }
-
-
-      current =
-        permissionByName.get(
-          current.depends_on
-        );
-
-    }
-
-
-    return next;
-
-  }
-
-
-  function togglePermission(
-    permission:
-      PermissionMatrixItem
-  ) {
-
-    if (
-      selectedRole?.protected
-      ||
-      permission.boss_only
-    ) {
-      return;
-    }
-
-
-    if (
-      selectedPermissionIds.has(
-        permission.id
-      )
-    ) {
-
-      setSelectedPermissionIds(
-        removePermissionAndChildren(
-          permission,
-          selectedPermissionIds
-        )
-      );
-
-      return;
-    }
-
-
-    setSelectedPermissionIds(
-      addPermissionWithParents(
-        permission,
-        selectedPermissionIds
-      )
     );
 
-  }
 
-
-  /* ==============================================================
-     MODULE SELECT ALL
-  ============================================================== */
-
-  function getEditableModulePermissions(
-    modulePermissions:
-      PermissionMatrixItem[]
-  ) {
-
-    return (
-      modulePermissions.filter(
-        permission =>
-          !permission.boss_only
-      )
-    );
-
-  }
-
-
-  function isModuleFullySelected(
-    modulePermissions:
-      PermissionMatrixItem[]
-  ) {
-
-    const editable =
-      getEditableModulePermissions(
-        modulePermissions
-      );
-
-
-    if (
-      editable.length
-      === 0
-    ) {
-      return false;
-    }
-
-
-    return (
-      editable.every(
-        permission =>
-          selectedPermissionIds.has(
-            permission.id
-          )
-      )
-    );
-
-  }
-
-
-  function toggleModule(
-    modulePermissions:
-      PermissionMatrixItem[]
-  ) {
-
-    if (
-      selectedRole?.protected
-    ) {
-      return;
-    }
-
-
-    const editable =
-      getEditableModulePermissions(
-        modulePermissions
-      );
-
-
-    if (
-      editable.length
-      === 0
-    ) {
-      return;
-    }
-
-
-    if (
-      isModuleFullySelected(
-        editable
-      )
-    ) {
-
-      let next =
-        new Set(
-          selectedPermissionIds
-        );
-
-
-      for (
-        const permission
-        of editable
-      ) {
-
-        next =
-          removePermissionAndChildren(
-            permission,
-            next
-          );
-
-      }
-
-
-      setSelectedPermissionIds(
-        next
-      );
-
-      return;
-    }
-
-
-    let next =
-      new Set(
-        selectedPermissionIds
-      );
-
-
-    for (
-      const permission
-      of editable
-    ) {
-
-      next =
-        addPermissionWithParents(
-          permission,
-          next
-        );
-
-    }
-
-
-    setSelectedPermissionIds(
-      next
+    setNotice(
+      null
     );
 
   }
@@ -978,9 +1055,9 @@ export default function RolePermissionMatrix() {
 
   function resetUnsavedChanges() {
 
-    setSelectedPermissionIds(
+    setSelectedModules(
       new Set(
-        originalPermissionIds
+        originalModules
       )
     );
 
@@ -993,17 +1070,87 @@ export default function RolePermissionMatrix() {
 
 
   /* ==============================================================
+     BUILD BACKEND PERMISSION PAYLOAD
+
+     Selected module:
+         -> grant every normal permission inside that module.
+
+     Boss-only permissions are always excluded from non-Boss roles.
+
+     This lets the backend keep detailed security checks while
+     Settings remains simple for the user.
+  ============================================================== */
+
+  function buildPermissionPayload() {
+
+    const ids =
+      new Set<number>();
+
+
+    for (
+      const permission
+      of permissions
+    ) {
+
+      if (
+        permission.boss_only
+      ) {
+
+        continue;
+
+      }
+
+
+      const moduleName =
+        getUiModuleName(
+          permission.module
+        );
+
+
+      if (
+        selectedModules.has(
+          moduleName
+        )
+      ) {
+
+        ids.add(
+          permission.id
+        );
+
+      }
+
+    }
+
+
+    return Array.from(
+      ids
+    )
+      .sort(
+        (
+          first,
+          second
+        ) =>
+          first
+          -
+          second
+      );
+  }
+
+
+  /* ==============================================================
      SAVE
   ============================================================== */
 
-  async function savePermissions() {
+  async function saveModules() {
 
     if (
       !selectedRole
       ||
       selectedRole.protected
     ) {
+
       return;
+
     }
 
 
@@ -1019,29 +1166,8 @@ export default function RolePermissionMatrix() {
       );
 
 
-      const payloadIds =
-        permissions
-          .filter(
-            permission =>
-              !permission.boss_only
-              &&
-              selectedPermissionIds.has(
-                permission.id
-              )
-          )
-          .map(
-            permission =>
-              permission.id
-          )
-          .sort(
-            (
-              first,
-              second
-            ) =>
-              first
-              -
-              second
-          );
+      const permissionIds =
+        buildPermissionPayload();
 
 
       const response =
@@ -1049,7 +1175,7 @@ export default function RolePermissionMatrix() {
           selectedRole.id,
           {
             permission_ids:
-              payloadIds,
+              permissionIds,
           }
         );
 
@@ -1058,7 +1184,8 @@ export default function RolePermissionMatrix() {
         assignments.map(
           assignment =>
             assignment.role_id
-            === selectedRole.id
+            ===
+            selectedRole.id
               ? {
                   ...assignment,
 
@@ -1069,21 +1196,58 @@ export default function RolePermissionMatrix() {
         );
 
 
+      /*
+       * In case a role did not yet exist in the assignments list,
+       * add it after a successful save.
+       */
+      const assignmentExists =
+        nextAssignments.some(
+          assignment =>
+            assignment.role_id
+            ===
+            selectedRole.id
+        );
+
+
+      if (
+        !assignmentExists
+      ) {
+
+        nextAssignments.push({
+          role_id:
+            selectedRole.id,
+
+          permission_ids:
+            response.permission_ids,
+        });
+
+      }
+
+
       setAssignments(
         nextAssignments
       );
 
 
-      setSelectedPermissionIds(
+      const normalizedModules =
+        getModulesForRole(
+          selectedRole.id,
+          nextAssignments,
+          permissions,
+          roles
+        );
+
+
+      setSelectedModules(
         new Set(
-          response.permission_ids
+          normalizedModules
         )
       );
 
 
-      setOriginalPermissionIds(
+      setOriginalModules(
         new Set(
-          response.permission_ids
+          normalizedModules
         )
       );
 
@@ -1093,7 +1257,7 @@ export default function RolePermissionMatrix() {
           "success",
 
         text:
-          `${response.role_name} permissions saved successfully.`,
+          `${response.role_name} module access saved successfully.`,
       });
 
     } catch (
@@ -1112,7 +1276,7 @@ export default function RolePermissionMatrix() {
         text:
           getApiErrorMessage(
             error,
-            "Unable to save role permissions."
+            "Unable to save module access."
           ),
       });
 
@@ -1129,6 +1293,8 @@ export default function RolePermissionMatrix() {
 
   /* ==============================================================
      NON-BOSS
+
+     Only Boss configures role-module access.
   ============================================================== */
 
   if (
@@ -1158,7 +1324,7 @@ export default function RolePermissionMatrix() {
             className="role-permission-spin"
           />
 
-          Loading permission matrix...
+          Loading module access...
 
         </div>
 
@@ -1174,6 +1340,10 @@ export default function RolePermissionMatrix() {
 
   return (
     <section className="role-permission-card">
+
+      {/* =========================================================
+          HEADER
+      ========================================================== */}
 
       <div className="role-permission-header">
 
@@ -1191,12 +1361,12 @@ export default function RolePermissionMatrix() {
           <div>
 
             <h3>
-              Role Permission Matrix
+              Role Module Access
             </h3>
 
+
             <p>
-              Assign exactly what each ERP role can view
-              and what actions it may perform.
+              Select which ERP modules each role is allowed to use.
             </p>
 
           </div>
@@ -1229,17 +1399,22 @@ export default function RolePermissionMatrix() {
       </div>
 
 
+      {/* =========================================================
+          INFORMATION
+      ========================================================== */}
+
       <div className="role-permission-warning">
 
         <ShieldCheck
           size={15}
         />
 
+
         <span>
-          Permission configuration is being built safely in stages.
-          These selections are stored in MySQL now, but existing ERP
-          modules are still using their current access rules until
-          permission enforcement is connected in the next stage.
+          Selecting a module gives the role normal access to all
+          actions inside that module. Sensitive controls such as
+          Backup & Restore, Financial Year Close, Number Skip,
+          Business Numbering and Role Permissions remain Boss-only.
         </span>
 
       </div>
@@ -1257,7 +1432,8 @@ export default function RolePermissionMatrix() {
 
             {
               notice.type
-              === "success"
+              ===
+              "success"
                 ? (
                     <CheckCircle2
                       size={15}
@@ -1305,7 +1481,9 @@ export default function RolePermissionMatrix() {
                 event =>
                   handleRoleChange(
                     Number(
-                      event.target.value
+                      event
+                        .target
+                        .value
                     )
                   )
               }
@@ -1322,11 +1500,13 @@ export default function RolePermissionMatrix() {
                         role.id
                       }
                     >
+
                       {
                         role.protected
                           ? `${role.name} — Protected`
                           : role.name
                       }
+
                     </option>
                   )
                 )
@@ -1347,17 +1527,21 @@ export default function RolePermissionMatrix() {
         <div className="role-permission-role-summary">
 
           <span>
-            Selected
+            Selected Role
           </span>
 
+
           <strong>
+
             {
               selectedRole
                 ?.name
               ??
               "—"
             }
+
           </strong>
+
 
           {
             selectedRole
@@ -1365,7 +1549,7 @@ export default function RolePermissionMatrix() {
             &&
             (
               <small>
-                Full access · cannot be changed
+                Full ERP access
               </small>
             )
           }
@@ -1376,21 +1560,19 @@ export default function RolePermissionMatrix() {
         <div className="role-permission-role-summary">
 
           <span>
-            Permissions Enabled
+            Modules Enabled
           </span>
+
 
           <strong>
             {
-              selectedPermissionIds.size
+              selectedModules.size
             }
           </strong>
 
+
           <small>
-            {
-              hasUnsavedChanges
-                ? "Unsaved changes"
-                : "Saved"
-            }
+            of {moduleGroups.length} modules
           </small>
 
         </div>
@@ -1399,7 +1581,7 @@ export default function RolePermissionMatrix() {
 
 
       {/* =========================================================
-          BOSS MESSAGE
+          BOSS PROTECTION
       ========================================================== */}
 
       {
@@ -1413,15 +1595,17 @@ export default function RolePermissionMatrix() {
               size={16}
             />
 
+
             <div>
 
               <strong>
-                Boss has permanent full access.
+                Boss access is protected
               </strong>
 
+
               <span>
-                Boss permissions cannot be removed or edited,
-                preventing accidental lockout of the ERP.
+                Boss always has full ERP access and cannot be
+                restricted from this screen.
               </span>
 
             </div>
@@ -1432,37 +1616,28 @@ export default function RolePermissionMatrix() {
 
 
       {/* =========================================================
-          MODULES
+          MODULE CHECKBOXES
       ========================================================== */}
 
       <div className="role-permission-modules">
 
         {
-          modules.map(
-            (
-              [
-                moduleName,
-                modulePermissions,
-              ]
-            ) => {
+          moduleGroups.map(
+            group => {
 
-              const moduleSelected =
-                isModuleFullySelected(
-                  modulePermissions
-                );
-
-
-              const onlyBossPermissions =
-                modulePermissions.every(
-                  permission =>
-                    permission.boss_only
+              const selected =
+                selectedRole
+                  ?.protected
+                ||
+                selectedModules.has(
+                  group.name
                 );
 
 
               return (
                 <div
                   key={
-                    moduleName
+                    group.name
                   }
                   className="role-permission-module"
                 >
@@ -1472,19 +1647,20 @@ export default function RolePermissionMatrix() {
                     <div>
 
                       <strong>
-                        {moduleName}
+                        {group.name}
                       </strong>
 
+
                       <span>
+
                         {
-                          modulePermissions.length
+                          MODULE_DESCRIPTIONS[
+                            group.name
+                          ]
+                          ??
+                          `Access to the ${group.name} module.`
                         }
-                        {
-                          modulePermissions.length
-                          === 1
-                            ? " permission"
-                            : " permissions"
-                        }
+
                       </span>
 
                     </div>
@@ -1495,188 +1671,32 @@ export default function RolePermissionMatrix() {
                       <input
                         type="checkbox"
                         checked={
-                          selectedRole
-                            ?.protected
-                            ? true
-                            : moduleSelected
+                          selected
                         }
                         disabled={
+                          saving
+                          ||
                           Boolean(
                             selectedRole
                               ?.protected
                           )
-                          ||
-                          onlyBossPermissions
-                          ||
-                          saving
                         }
                         onChange={
                           () =>
                             toggleModule(
-                              modulePermissions
+                              group.name
                             )
                         }
                       />
 
-                      <span>
-                        Select Module
-                      </span>
+
+                      {
+                        selected
+                          ? "Allowed"
+                          : "No Access"
+                      }
 
                     </label>
-
-                  </div>
-
-
-                  <div className="role-permission-items">
-
-                    {
-                      modulePermissions.map(
-                        permission => {
-
-                          const checked =
-                            selectedRole
-                              ?.protected
-                              ? true
-                              : isPermissionSelected(
-                                  permission.id
-                                );
-
-
-                          const parentMissing =
-                            isParentMissing(
-                              permission
-                            );
-
-
-                          const disabled =
-                            Boolean(
-                              selectedRole
-                                ?.protected
-                            )
-                            ||
-                            permission.boss_only
-                            ||
-                            parentMissing
-                            ||
-                            saving;
-
-
-                          return (
-                            <label
-                              key={
-                                permission.id
-                              }
-                              className={
-                                [
-                                  "role-permission-item",
-
-                                  checked
-                                    ? "selected"
-                                    : "",
-
-                                  disabled
-                                    ? "disabled"
-                                    : "",
-
-                                  permission.boss_only
-                                    ? "boss-only"
-                                    : "",
-                                ]
-                                  .filter(
-                                    Boolean
-                                  )
-                                  .join(
-                                    " "
-                                  )
-                              }
-                            >
-
-                              <div className="role-permission-checkbox">
-
-                                <input
-                                  type="checkbox"
-                                  checked={
-                                    checked
-                                  }
-                                  disabled={
-                                    disabled
-                                  }
-                                  onChange={
-                                    () =>
-                                      togglePermission(
-                                        permission
-                                      )
-                                  }
-                                />
-
-                              </div>
-
-
-                              <div className="role-permission-item-content">
-
-                                <div className="role-permission-item-title">
-
-                                  <strong>
-                                    {permission.label}
-                                  </strong>
-
-
-                                  {
-                                    permission.boss_only
-                                    &&
-                                    (
-                                      <span className="role-permission-lock-badge">
-
-                                        <LockKeyhole
-                                          size={10}
-                                        />
-
-                                        Boss Only
-
-                                      </span>
-                                    )
-                                  }
-
-                                </div>
-
-
-                                <p>
-                                  {
-                                    permission.description
-                                  }
-                                </p>
-
-
-                                {
-                                  permission.depends_on
-                                  &&
-                                  (
-                                    <small>
-
-                                      Requires:
-                                      {" "}
-                                      {
-                                        permissionByName
-                                          .get(
-                                            permission.depends_on
-                                          )
-                                          ?.label
-                                        ??
-                                        permission.depends_on
-                                      }
-
-                                    </small>
-                                  )
-                                }
-
-                              </div>
-
-                            </label>
-                          );
-
-                        }
-                      )
-                    }
 
                   </div>
 
@@ -1695,9 +1715,8 @@ export default function RolePermissionMatrix() {
       ========================================================== */}
 
       {
-        selectedRole
-        &&
-        !selectedRole.protected
+        !selectedRole
+          ?.protected
         &&
         (
           <div className="role-permission-save-bar">
@@ -1705,19 +1724,18 @@ export default function RolePermissionMatrix() {
             <div>
 
               <strong>
-                {
-                  selectedRole.name
-                }
-                {" "}
-                Permissions
-              </strong>
 
-              <span>
                 {
                   hasUnsavedChanges
-                    ? "You have unsaved permission changes."
-                    : "All changes are saved."
+                    ? "Unsaved module access changes"
+                    : "Module access is up to date"
                 }
+
+              </strong>
+
+
+              <span>
+                Changes apply to all users assigned to this role.
               </span>
 
             </div>
@@ -1729,15 +1747,17 @@ export default function RolePermissionMatrix() {
                 type="button"
                 className="role-permission-reset"
                 disabled={
-                  !hasUnsavedChanges
-                  ||
                   saving
+                  ||
+                  !hasUnsavedChanges
                 }
                 onClick={
                   resetUnsavedChanges
                 }
               >
+
                 Reset
+
               </button>
 
 
@@ -1745,13 +1765,13 @@ export default function RolePermissionMatrix() {
                 type="button"
                 className="role-permission-save"
                 disabled={
-                  !hasUnsavedChanges
-                  ||
                   saving
+                  ||
+                  !hasUnsavedChanges
                 }
                 onClick={
                   () =>
-                    void savePermissions()
+                    void saveModules()
                 }
               >
 
@@ -1759,18 +1779,23 @@ export default function RolePermissionMatrix() {
                   saving
                     ? (
                         <Loader2
-                          size={15}
+                          size={14}
                           className="role-permission-spin"
                         />
                       )
                     : (
                         <Save
-                          size={15}
+                          size={14}
                         />
                       )
                 }
 
-                Save Permissions
+
+                {
+                  saving
+                    ? "Saving..."
+                    : "Save Module Access"
+                }
 
               </button>
 

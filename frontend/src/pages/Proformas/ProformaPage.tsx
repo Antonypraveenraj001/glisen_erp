@@ -47,6 +47,10 @@ import type {
   ProformaItemCreate,
 } from "../../types/proforma";
 
+import {
+  usePermissions,
+} from "../../hooks/usePermissions";
+
 import "./ProformaPage.css";
 
 
@@ -105,19 +109,26 @@ const USER_STATUS_OPTIONS = [
 const EMPTY_ITEM:
 ProformaItemCreate = {
 
-  product_id: null,
+  product_id:
+    null,
 
-  description: "",
+  description:
+    "",
 
-  quantity: 1,
+  quantity:
+    1,
 
-  unit: "Nos",
+  unit:
+    "Nos",
 
-  unit_price: 0,
+  unit_price:
+    0,
 
-  discount_percent: 0,
+  discount_percent:
+    0,
 
-  tax_percent: 18,
+  tax_percent:
+    18,
 };
 
 
@@ -132,13 +143,17 @@ function getAuthHeaders() {
       "access_token"
     );
 
-  if (!token) {
+
+  if (
+    !token
+  ) {
 
     throw new Error(
       "Authentication required."
     );
 
   }
+
 
   return {
     Authorization:
@@ -155,37 +170,55 @@ function money(
 
   const amount =
     Number(
-      value || 0
+      value
+      ||
+      0
     );
+
 
   return amount.toLocaleString(
     "en-IN",
     {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
     }
   );
 }
 
 
 function formatDate(
-  value: string
+  value:
+    string
 ) {
 
-  if (!value) {
+  if (
+    !value
+  ) {
+
     return "-";
+
   }
 
+
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
+
 
   if (
     Number.isNaN(
       date.getTime()
     )
   ) {
+
     return value;
+
   }
+
 
   return date.toLocaleDateString(
     "en-IN",
@@ -204,7 +237,8 @@ function formatDate(
 
 
 function statusClass(
-  status: string
+  status:
+    string
 ) {
 
   return status
@@ -217,7 +251,8 @@ function statusClass(
 
 
 function getApiError(
-  error: unknown
+  error:
+    unknown
 ) {
 
   if (
@@ -231,21 +266,29 @@ function getApiError(
         ?.data
         ?.detail;
 
+
     if (
       typeof detail
-      === "string"
+      ===
+      "string"
     ) {
+
       return detail;
+
     }
 
   }
+
 
   if (
     error
     instanceof Error
   ) {
+
     return error.message;
+
   }
+
 
   return (
     "Something went wrong. "
@@ -263,53 +306,71 @@ function calculateItem(
   const quantity =
     Number(
       item.quantity
-    ) || 0;
+    )
+    ||
+    0;
+
 
   const unitPrice =
     Number(
       item.unit_price
-    ) || 0;
+    )
+    ||
+    0;
+
 
   const discountPercent =
     Number(
       item.discount_percent
-    ) || 0;
+    )
+    ||
+    0;
+
 
   const taxPercent =
     Number(
       item.tax_percent
-    ) || 0;
+    )
+    ||
+    0;
 
 
   const gross =
     quantity
-    * unitPrice;
+    *
+    unitPrice;
 
 
   const discount =
     gross
-    * (
+    *
+    (
       discountPercent
-      / 100
+      /
+      100
     );
 
 
   const taxable =
     gross
-    - discount;
+    -
+    discount;
 
 
   const tax =
     taxable
-    * (
+    *
+    (
       taxPercent
-      / 100
+      /
+      100
     );
 
 
   const total =
     taxable
-    + tax;
+    +
+    tax;
 
 
   return {
@@ -324,12 +385,18 @@ function calculateItem(
 
 function buildAddress(
   enquiry:
-    EnquiryLite | null
+    EnquiryLite
+    | null
 ) {
 
-  if (!enquiry) {
+  if (
+    !enquiry
+  ) {
+
     return "";
+
   }
+
 
   return [
     enquiry.address,
@@ -337,14 +404,20 @@ function buildAddress(
     enquiry.state,
     enquiry.pincode,
   ]
-    .filter(Boolean)
-    .join(", ");
+    .filter(
+      Boolean
+    )
+    .join(
+      ", "
+    );
 }
 
 
 function formFromProforma(
-  proforma: Proforma
-): ProformaCreate {
+  proforma:
+    Proforma
+):
+ProformaCreate {
 
   return {
 
@@ -353,10 +426,10 @@ function formFromProforma(
 
 
     /*
-     * These IDs remain in the internal object only because
-     * the current API type still contains them.
+     * Internal IDs remain in the request object because
+     * the backend schema currently requires them.
      *
-     * They are NEVER displayed or editable.
+     * They are never manually entered by the user.
      */
     enquiry_id:
       proforma.enquiry_id,
@@ -370,24 +443,29 @@ function formFromProforma(
 
     contact_person:
       proforma.contact_person
-      || "",
+      ||
+      "",
 
     phone:
       proforma.phone
-      || "",
+      ||
+      "",
 
     email:
       proforma.email
-      || "",
+      ||
+      "",
 
 
     billing_address:
       proforma.billing_address
-      || "",
+      ||
+      "",
 
     shipping_address:
       proforma.shipping_address
-      || "",
+      ||
+      "",
 
 
     validity_days:
@@ -396,21 +474,25 @@ function formFromProforma(
 
     payment_terms:
       proforma.payment_terms
-      || "",
+      ||
+      "",
 
     delivery_terms:
       proforma.delivery_terms
-      || "",
+      ||
+      "",
 
 
     notes:
       proforma.notes
-      || "",
+      ||
+      "",
 
     terms_and_conditions:
       proforma
         .terms_and_conditions
-      || "",
+      ||
+      "",
 
 
     status:
@@ -422,14 +504,16 @@ function formFromProforma(
         item => ({
 
           /*
-           * Manufactured output does not use purchased
-           * Product Master IDs.
+           * Manufactured output is separate from
+           * purchased Product Master.
            */
-          product_id: null,
+          product_id:
+            null,
 
           description:
             item.description
-            || "",
+            ||
+            "",
 
           quantity:
             Number(
@@ -438,7 +522,8 @@ function formFromProforma(
 
           unit:
             item.unit
-            || "Nos",
+            ||
+            "Nos",
 
           unit_price:
             Number(
@@ -475,7 +560,8 @@ export default function ProformaPage() {
     id,
   } =
     useParams<{
-      id: string;
+      id:
+        string;
     }>();
 
 
@@ -486,9 +572,63 @@ export default function ProformaPage() {
     useSearchParams();
 
 
-  const isDetails =
-    Boolean(id);
+  /* ==============================================================
+     PERMISSIONS
+  ============================================================== */
 
+  const {
+    hasPermission,
+  } =
+    usePermissions();
+
+
+  const canCreateProforma =
+    hasPermission(
+      "proformas.create"
+    );
+
+
+  const canEditProforma =
+    hasPermission(
+      "proformas.edit"
+    );
+
+
+  const canConfirmProforma =
+    hasPermission(
+      "proformas.confirm"
+    );
+
+
+  const canCancelProforma =
+    hasPermission(
+      "proformas.cancel"
+    );
+
+
+  const canDeleteProforma =
+    hasPermission(
+      "proformas.delete"
+    );
+
+
+  const canChangeProformaStatus =
+    canEditProforma
+    ||
+    canConfirmProforma
+    ||
+    canCancelProforma;
+
+
+  const isDetails =
+    Boolean(
+      id
+    );
+
+
+  /* ==============================================================
+     STATE
+  ============================================================== */
 
   const [
     proformas,
@@ -496,7 +636,9 @@ export default function ProformaPage() {
   ] =
     useState<
       Proforma[]
-    >([]);
+    >(
+      []
+    );
 
 
   const [
@@ -504,7 +646,8 @@ export default function ProformaPage() {
     setSelectedProforma,
   ] =
     useState<
-      Proforma | null
+      Proforma
+      | null
     >(
       null
     );
@@ -515,7 +658,8 @@ export default function ProformaPage() {
     setSelectedEnquiry,
   ] =
     useState<
-      EnquiryLite | null
+      EnquiryLite
+      | null
     >(
       null
     );
@@ -526,7 +670,8 @@ export default function ProformaPage() {
     setForm,
   ] =
     useState<
-      ProformaCreate | null
+      ProformaCreate
+      | null
     >(
       null
     );
@@ -536,63 +681,92 @@ export default function ProformaPage() {
     search,
     setSearch,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   const [
     statusFilter,
     setStatusFilter,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   const [
     loading,
     setLoading,
   ] =
-    useState(true);
+    useState(
+      true
+    );
 
 
   const [
     saving,
     setSaving,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
     deleting,
     setDeleting,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
     error,
     setError,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   const [
     formError,
     setFormError,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   const [
     copied,
     setCopied,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
-  const editing =
+  /* ==============================================================
+     EDIT MODE
+
+     Manually entering ?edit=true must not grant edit access.
+  ============================================================== */
+
+  const editingRequested =
     searchParams.get(
       "edit"
     )
-    === "true";
+    ===
+    "true";
+
+
+  const editing =
+    editingRequested
+    &&
+    canEditProforma;
 
 
   /* ==============================================================
@@ -607,6 +781,7 @@ export default function ProformaPage() {
         true
       );
 
+
       setError(
         ""
       );
@@ -616,7 +791,8 @@ export default function ProformaPage() {
         await getProformas({
           status:
             statusFilter
-            || undefined,
+            ||
+            undefined,
         });
 
 
@@ -650,7 +826,8 @@ export default function ProformaPage() {
   ============================================================== */
 
   async function loadDetails(
-    proformaId: number
+    proformaId:
+      number
   ) {
 
     try {
@@ -658,6 +835,7 @@ export default function ProformaPage() {
       setLoading(
         true
       );
+
 
       setError(
         ""
@@ -706,6 +884,10 @@ export default function ProformaPage() {
 
         } catch {
 
+          /*
+           * Proforma access must not fail just because
+           * this role cannot separately open Enquiries.
+           */
           setSelectedEnquiry(
             null
           );
@@ -751,8 +933,11 @@ export default function ProformaPage() {
       ) {
 
         void loadDetails(
-          Number(id)
+          Number(
+            id
+          )
         );
+
 
         return;
 
@@ -784,8 +969,12 @@ export default function ProformaPage() {
             .toLowerCase();
 
 
-        if (!query) {
+        if (
+          !query
+        ) {
+
           return proformas;
+
         }
 
 
@@ -796,7 +985,8 @@ export default function ProformaPage() {
               proforma.items[
                 0
               ]?.description
-              || "";
+              ||
+              "";
 
 
             return [
@@ -815,7 +1005,9 @@ export default function ProformaPage() {
 
               firstItem,
             ]
-              .filter(Boolean)
+              .filter(
+                Boolean
+              )
               .some(
                 value =>
                   String(
@@ -846,28 +1038,44 @@ export default function ProformaPage() {
     useMemo(
       () => {
 
-        if (!form) {
+        if (
+          !form
+        ) {
 
           return {
-            subtotal: 0,
-            discount: 0,
-            taxable: 0,
-            tax: 0,
-            total: 0,
+            subtotal:
+              0,
+
+            discount:
+              0,
+
+            taxable:
+              0,
+
+            tax:
+              0,
+
+            total:
+              0,
           };
 
         }
 
 
-        let subtotal = 0;
+        let subtotal =
+          0;
 
-        let discount = 0;
+        let discount =
+          0;
 
-        let taxable = 0;
+        let taxable =
+          0;
 
-        let tax = 0;
+        let tax =
+          0;
 
-        let total = 0;
+        let total =
+          0;
 
 
         form.items.forEach(
@@ -925,7 +1133,8 @@ export default function ProformaPage() {
           (
             selectedProforma
               ?.status
-            || ""
+            ||
+            ""
           )
             .trim()
             .toLowerCase();
@@ -959,7 +1168,9 @@ export default function ProformaPage() {
     K extends keyof
       ProformaCreate
   >(
-    field: K,
+    field:
+      K,
+
     value:
       ProformaCreate[K]
   ) {
@@ -967,8 +1178,12 @@ export default function ProformaPage() {
     setForm(
       current => {
 
-        if (!current) {
+        if (
+          !current
+        ) {
+
           return current;
+
         }
 
 
@@ -986,20 +1201,30 @@ export default function ProformaPage() {
 
 
   function updateItem(
-    index: number,
+    index:
+      number,
+
     field:
-      keyof ProformaItemCreate,
+      keyof
+        ProformaItemCreate,
+
     value:
       string
-      | number
-      | null
+      |
+      number
+      |
+      null
   ) {
 
     setForm(
       current => {
 
-        if (!current) {
+        if (
+          !current
+        ) {
+
           return current;
+
         }
 
 
@@ -1013,7 +1238,8 @@ export default function ProformaPage() {
                 itemIndex
               ) =>
                 itemIndex
-                === index
+                ===
+                index
                   ? {
                       ...item,
 
@@ -1035,8 +1261,12 @@ export default function ProformaPage() {
     setForm(
       current => {
 
-        if (!current) {
+        if (
+          !current
+        ) {
+
           return current;
+
         }
 
 
@@ -1059,7 +1289,8 @@ export default function ProformaPage() {
 
 
   function removeItem(
-    index: number
+    index:
+      number
   ) {
 
     setForm(
@@ -1069,9 +1300,12 @@ export default function ProformaPage() {
           !current
           ||
           current.items.length
-          === 1
+          ===
+          1
         ) {
+
           return current;
+
         }
 
 
@@ -1085,7 +1319,8 @@ export default function ProformaPage() {
                 itemIndex
               ) =>
                 itemIndex
-                !== index
+                !==
+                index
             ),
         };
 
@@ -1097,7 +1332,9 @@ export default function ProformaPage() {
 
   function validateForm() {
 
-    if (!form) {
+    if (
+      !form
+    ) {
 
       return (
         "Proforma data is not loaded."
@@ -1129,10 +1366,15 @@ export default function ProformaPage() {
 
 
     for (
-      let index = 0;
+      let index =
+        0;
+
       index
-      < form.items.length;
-      index += 1
+      <
+      form.items.length;
+
+      index +=
+        1
     ) {
 
       const item =
@@ -1161,7 +1403,8 @@ export default function ProformaPage() {
         Number(
           item.quantity
         )
-        <= 0
+        <=
+        0
       ) {
 
         return (
@@ -1177,7 +1420,8 @@ export default function ProformaPage() {
         Number(
           item.unit_price
         )
-        < 0
+        <
+        0
       ) {
 
         return (
@@ -1213,7 +1457,23 @@ export default function ProformaPage() {
       ||
       !form
     ) {
+
       return;
+
+    }
+
+
+    if (
+      !canEditProforma
+    ) {
+
+      setFormError(
+        "You do not have permission to edit Proformas."
+      );
+
+
+      return;
+
     }
 
 
@@ -1228,6 +1488,7 @@ export default function ProformaPage() {
         +
         "and can no longer be edited."
       );
+
 
       return;
 
@@ -1246,6 +1507,7 @@ export default function ProformaPage() {
         validation
       );
 
+
       return;
 
     }
@@ -1256,6 +1518,7 @@ export default function ProformaPage() {
       setSaving(
         true
       );
+
 
       setFormError(
         ""
@@ -1270,7 +1533,6 @@ export default function ProformaPage() {
 
         /*
          * Internal identity is preserved automatically.
-         * User cannot modify these values.
          */
         enquiry_id:
           selectedProforma
@@ -1306,7 +1568,8 @@ export default function ProformaPage() {
                * Manufactured product.
                * Never link to purchased Product Master.
                */
-              product_id: null,
+              product_id:
+                null,
 
               description:
                 item.description
@@ -1320,7 +1583,8 @@ export default function ProformaPage() {
               unit:
                 (
                   item.unit
-                  || "Nos"
+                  ||
+                  "Nos"
                 ).trim(),
 
               unit_price:
@@ -1392,13 +1656,106 @@ export default function ProformaPage() {
   ============================================================== */
 
   async function handleStatusChange(
-    newStatus: string
+    newStatus:
+      string
   ) {
 
     if (
       !selectedProforma
     ) {
+
       return;
+
+    }
+
+
+    const normalizedStatus =
+      (
+        newStatus
+        ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    const currentStatus =
+      (
+        selectedProforma
+          .status
+        ||
+        ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      normalizedStatus
+      !==
+      currentStatus
+    ) {
+
+      if (
+        [
+          "confirmed",
+          "order confirmed",
+        ].includes(
+          normalizedStatus
+        )
+        &&
+        !canConfirmProforma
+      ) {
+
+        setError(
+          "You do not have permission to confirm Proformas."
+        );
+
+
+        return;
+
+      }
+
+
+      if (
+        normalizedStatus
+        ===
+        "cancelled"
+        &&
+        !canCancelProforma
+      ) {
+
+        setError(
+          "You do not have permission to cancel Proformas."
+        );
+
+
+        return;
+
+      }
+
+
+      if (
+        ![
+          "confirmed",
+          "order confirmed",
+          "cancelled",
+        ].includes(
+          normalizedStatus
+        )
+        &&
+        !canEditProforma
+      ) {
+
+        setError(
+          "You do not have permission to change Proforma status."
+        );
+
+
+        return;
+
+      }
+
     }
 
 
@@ -1407,6 +1764,7 @@ export default function ProformaPage() {
       setSaving(
         true
       );
+
 
       setError(
         ""
@@ -1461,7 +1819,23 @@ export default function ProformaPage() {
     if (
       !selectedProforma
     ) {
+
       return;
+
+    }
+
+
+    if (
+      !canDeleteProforma
+    ) {
+
+      setError(
+        "You do not have permission to delete Proformas."
+      );
+
+
+      return;
+
     }
 
 
@@ -1474,6 +1848,7 @@ export default function ProformaPage() {
         +
         "cannot be deleted."
       );
+
 
       return;
 
@@ -1488,8 +1863,12 @@ export default function ProformaPage() {
       );
 
 
-    if (!confirmed) {
+    if (
+      !confirmed
+    ) {
+
       return;
+
     }
 
 
@@ -1539,7 +1918,9 @@ export default function ProformaPage() {
     if (
       !selectedProforma
     ) {
+
       return;
+
     }
 
 
@@ -1600,6 +1981,7 @@ export default function ProformaPage() {
               className="spin"
             />
 
+
             <h3>
               Loading Proforma...
             </h3>
@@ -1618,15 +2000,80 @@ export default function ProformaPage() {
       );
 
 
-    const currentStatusOptions =
-      USER_STATUS_OPTIONS.includes(
-        selectedProforma.status
+    /* ============================================================
+       STATUS OPTIONS BY PERMISSION
+    ============================================================ */
+
+    const currentStatusNormalized =
+      (
+        selectedProforma
+          .status
+        ||
+        ""
       )
-        ? USER_STATUS_OPTIONS
-        : [
-            selectedProforma.status,
-            ...USER_STATUS_OPTIONS,
-          ];
+        .trim()
+        .toLowerCase();
+
+
+    const permittedStatusOptions =
+      USER_STATUS_OPTIONS.filter(
+        statusOption => {
+
+          const normalizedStatus =
+            statusOption
+              .trim()
+              .toLowerCase();
+
+
+          if (
+            normalizedStatus
+            ===
+            currentStatusNormalized
+          ) {
+
+            return true;
+
+          }
+
+
+          if (
+            [
+              "confirmed",
+              "order confirmed",
+            ].includes(
+              normalizedStatus
+            )
+          ) {
+
+            return canConfirmProforma;
+
+          }
+
+
+          if (
+            normalizedStatus
+            ===
+            "cancelled"
+          ) {
+
+            return canCancelProforma;
+
+          }
+
+
+          return canEditProforma;
+
+        }
+      );
+
+
+    const currentStatusOptions =
+      Array.from(
+        new Set([
+          selectedProforma.status,
+          ...permittedStatusOptions,
+        ])
+      );
 
 
     return (
@@ -1676,7 +2123,8 @@ export default function ProformaPage() {
 
         {
           error
-          && (
+          &&
+          (
             <div className="proforma-alert error">
 
               <span>
@@ -1687,7 +2135,9 @@ export default function ProformaPage() {
               <button
                 type="button"
                 onClick={() =>
-                  setError("")
+                  setError(
+                    ""
+                  )
                 }
               >
 
@@ -1743,6 +2193,7 @@ export default function ProformaPage() {
                     .company_name
                 }
 
+
                 {
                   form.items[
                     0
@@ -1750,6 +2201,7 @@ export default function ProformaPage() {
                     ? (
                         <>
                           {" • "}
+
                           {
                             form.items[
                               0
@@ -1818,10 +2270,13 @@ export default function ProformaPage() {
 
 
             {
+              canEditProforma
+              &&
               !editing
               &&
               !workflowLocked
-              && (
+              &&
+              (
                 <button
                   type="button"
                   className="secondary-button"
@@ -1845,8 +2300,11 @@ export default function ProformaPage() {
 
 
             {
+              canDeleteProforma
+              &&
               !workflowLocked
-              && (
+              &&
+              (
                 <button
                   type="button"
                   className="danger-outline-button"
@@ -1919,9 +2377,11 @@ export default function ProformaPage() {
 
 
                     <span
-                      className={`status-badge ${statusClass(
-                        selectedProforma.status
-                      )}`}
+                      className={
+                        `status-badge ${statusClass(
+                          selectedProforma.status
+                        )}`
+                      }
                     >
 
                       {
@@ -1941,6 +2401,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Enquiry
                       </span>
+
 
                       <strong>
 
@@ -1962,6 +2423,7 @@ export default function ProformaPage() {
                         Proforma Date
                       </span>
 
+
                       <strong>
 
                         {
@@ -1981,6 +2443,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Customer
                       </span>
+
 
                       <strong>
 
@@ -2030,6 +2493,7 @@ export default function ProformaPage() {
                         Company
                       </span>
 
+
                       <strong>
 
                         {
@@ -2047,6 +2511,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Contact Person
                       </span>
+
 
                       <strong>
 
@@ -2068,6 +2533,7 @@ export default function ProformaPage() {
                         Phone
                       </span>
 
+
                       <strong>
 
                         {
@@ -2087,6 +2553,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Email
                       </span>
+
 
                       <strong>
 
@@ -2108,6 +2575,7 @@ export default function ProformaPage() {
                         GSTIN
                       </span>
 
+
                       <strong>
 
                         {
@@ -2127,6 +2595,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Enquiry Address
                       </span>
+
 
                       <strong>
 
@@ -2248,11 +2717,7 @@ export default function ProformaPage() {
 
 
                                   <td>
-
-                                    {
-                                      item.quantity
-                                    }
-
+                                    {item.quantity}
                                   </td>
 
 
@@ -2360,6 +2825,7 @@ export default function ProformaPage() {
                         Billing Address
                       </span>
 
+
                       <strong>
 
                         {
@@ -2379,6 +2845,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Shipping Address
                       </span>
+
 
                       <strong>
 
@@ -2425,6 +2892,7 @@ export default function ProformaPage() {
                         Validity
                       </span>
 
+
                       <strong>
 
                         {
@@ -2433,6 +2901,7 @@ export default function ProformaPage() {
                           ??
                           "-"
                         }
+
                         {" days"}
 
                       </strong>
@@ -2445,6 +2914,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Payment Terms
                       </span>
+
 
                       <strong>
 
@@ -2466,6 +2936,7 @@ export default function ProformaPage() {
                         Delivery Terms
                       </span>
 
+
                       <strong>
 
                         {
@@ -2485,6 +2956,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Notes
                       </span>
+
 
                       <strong>
 
@@ -2548,6 +3020,7 @@ export default function ProformaPage() {
                       Grand Total
                     </span>
 
+
                     <strong>
 
                       ₹
@@ -2571,6 +3044,7 @@ export default function ProformaPage() {
                         Subtotal
                       </span>
 
+
                       <strong>
 
                         ₹
@@ -2591,6 +3065,7 @@ export default function ProformaPage() {
                       <span>
                         Discount
                       </span>
+
 
                       <strong>
 
@@ -2613,6 +3088,7 @@ export default function ProformaPage() {
                         Taxable Amount
                       </span>
 
+
                       <strong>
 
                         ₹
@@ -2634,6 +3110,7 @@ export default function ProformaPage() {
                         GST / Tax
                       </span>
 
+
                       <strong>
 
                         ₹
@@ -2653,6 +3130,10 @@ export default function ProformaPage() {
                 </div>
 
 
+                {/* ============================================
+                    WORKFLOW STATUS PERMISSIONS
+                ============================================ */}
+
                 <div className="status-card">
 
                   <div className="status-card-title">
@@ -2671,11 +3152,15 @@ export default function ProformaPage() {
 
                   {
                     workflowLocked
+                    ||
+                    !canChangeProformaStatus
                       ? (
                           <div
-                            className={`status-badge ${statusClass(
-                              selectedProforma.status
-                            )}`}
+                            className={
+                              `status-badge ${statusClass(
+                                selectedProforma.status
+                              )}`
+                            }
                           >
 
                             {
@@ -2694,7 +3179,8 @@ export default function ProformaPage() {
                             onChange={
                               event =>
                                 void handleStatusChange(
-                                  event.target
+                                  event
+                                    .target
                                     .value
                                 )
                             }
@@ -2704,21 +3190,24 @@ export default function ProformaPage() {
                           >
 
                             {
-                              currentStatusOptions
-                                .map(
-                                  status => (
-                                    <option
-                                      key={
-                                        status
-                                      }
-                                      value={
-                                        status
-                                      }
-                                    >
-                                      {status}
-                                    </option>
-                                  )
+                              currentStatusOptions.map(
+                                statusValue => (
+
+                                  <option
+                                    key={
+                                      statusValue
+                                    }
+                                    value={
+                                      statusValue
+                                    }
+                                  >
+
+                                    {statusValue}
+
+                                  </option>
+
                                 )
+                              )
                             }
 
                           </select>
@@ -2784,6 +3273,7 @@ export default function ProformaPage() {
                         Enquiry
                       </span>
 
+
                       <strong>
 
                         {
@@ -2803,6 +3293,7 @@ export default function ProformaPage() {
                       <span className="record-secondary">
                         Customer
                       </span>
+
 
                       <strong>
 
@@ -2832,7 +3323,9 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "proforma_date",
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                         }
                       />
@@ -2889,7 +3382,9 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "billing_address",
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                         }
                       />
@@ -2915,7 +3410,9 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "shipping_address",
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                         }
                       />
@@ -3046,7 +3543,9 @@ export default function ProformaPage() {
                                           updateItem(
                                             index,
                                             "description",
-                                            event.target.value
+                                            event
+                                              .target
+                                              .value
                                           )
                                       }
                                       placeholder="e.g. Hydraulic Lift Crane"
@@ -3070,7 +3569,9 @@ export default function ProformaPage() {
                                             index,
                                             "quantity",
                                             Number(
-                                              event.target.value
+                                              event
+                                                .target
+                                                .value
                                             )
                                           )
                                       }
@@ -3092,7 +3593,9 @@ export default function ProformaPage() {
                                           updateItem(
                                             index,
                                             "unit",
-                                            event.target.value
+                                            event
+                                              .target
+                                              .value
                                           )
                                       }
                                     />
@@ -3115,7 +3618,9 @@ export default function ProformaPage() {
                                             index,
                                             "unit_price",
                                             Number(
-                                              event.target.value
+                                              event
+                                                .target
+                                                .value
                                             )
                                           )
                                       }
@@ -3141,7 +3646,9 @@ export default function ProformaPage() {
                                             index,
                                             "discount_percent",
                                             Number(
-                                              event.target.value
+                                              event
+                                                .target
+                                                .value
                                             )
                                           )
                                       }
@@ -3167,7 +3674,9 @@ export default function ProformaPage() {
                                             index,
                                             "tax_percent",
                                             Number(
-                                              event.target.value
+                                              event
+                                                .target
+                                                .value
                                             )
                                           )
                                       }
@@ -3200,7 +3709,8 @@ export default function ProformaPage() {
                                       className="icon-danger-button"
                                       disabled={
                                         form.items.length
-                                        === 1
+                                        ===
+                                        1
                                       }
                                       onClick={() =>
                                         removeItem(
@@ -3273,9 +3783,13 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "validity_days",
-                              event.target.value
+                              event
+                                .target
+                                .value
                                 ? Number(
-                                    event.target.value
+                                    event
+                                      .target
+                                      .value
                                   )
                                 : null
                             )
@@ -3303,7 +3817,9 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "payment_terms",
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                         }
                       />
@@ -3329,7 +3845,9 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "delivery_terms",
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                         }
                       />
@@ -3355,7 +3873,9 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "notes",
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                         }
                       />
@@ -3382,7 +3902,9 @@ export default function ProformaPage() {
                           event =>
                             updateField(
                               "terms_and_conditions",
-                              event.target.value
+                              event
+                                .target
+                                .value
                             )
                         }
                       />
@@ -3396,7 +3918,8 @@ export default function ProformaPage() {
 
                 {
                   formError
-                  && (
+                  &&
+                  (
                     <div className="proforma-alert error">
 
                       <span>
@@ -3424,13 +3947,16 @@ export default function ProformaPage() {
                         )
                       );
 
+
                       setSearchParams(
                         {}
                       );
 
                     }}
                   >
+
                     Cancel
+
                   </button>
 
 
@@ -3456,6 +3982,7 @@ export default function ProformaPage() {
                             />
                           )
                     }
+
 
                     {
                       saving
@@ -3512,6 +4039,7 @@ export default function ProformaPage() {
                       Grand Total
                     </span>
 
+
                     <strong>
 
                       ₹
@@ -3534,6 +4062,7 @@ export default function ProformaPage() {
                         Subtotal
                       </span>
 
+
                       <strong>
 
                         ₹
@@ -3553,6 +4082,7 @@ export default function ProformaPage() {
                       <span>
                         Discount
                       </span>
+
 
                       <strong>
 
@@ -3574,6 +4104,7 @@ export default function ProformaPage() {
                         Taxable Amount
                       </span>
 
+
                       <strong>
 
                         ₹
@@ -3593,6 +4124,7 @@ export default function ProformaPage() {
                       <span>
                         GST / Tax
                       </span>
+
 
                       <strong>
 
@@ -3696,23 +4228,29 @@ export default function ProformaPage() {
           </button>
 
 
-          <button
-            type="button"
-            className="primary-button"
-            onClick={() =>
-              navigate(
-                "/proformas/new"
-              )
-            }
-          >
+          {
+            canCreateProforma
+            &&
+            (
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() =>
+                  navigate(
+                    "/proformas/new"
+                  )
+                }
+              >
 
-            <FilePlus2
-              size={18}
-            />
+                <FilePlus2
+                  size={18}
+                />
 
-            New Proforma
+                New Proforma
 
-          </button>
+              </button>
+            )
+          }
 
         </div>
 
@@ -3742,6 +4280,7 @@ export default function ProformaPage() {
               Total Proformas
             </span>
 
+
             <strong>
 
               {
@@ -3749,6 +4288,7 @@ export default function ProformaPage() {
               }
 
             </strong>
+
 
             <small>
               All recorded documents
@@ -3776,17 +4316,20 @@ export default function ProformaPage() {
               Drafts
             </span>
 
+
             <strong>
 
               {
                 proformas.filter(
                   item =>
                     item.status
-                    === "Draft"
+                    ===
+                    "Draft"
                 ).length
               }
 
             </strong>
+
 
             <small>
               Still being prepared
@@ -3814,6 +4357,7 @@ export default function ProformaPage() {
               Order Confirmed
             </span>
 
+
             <strong>
 
               {
@@ -3831,6 +4375,7 @@ export default function ProformaPage() {
               }
 
             </strong>
+
 
             <small>
               Accepted customer orders
@@ -3858,6 +4403,7 @@ export default function ProformaPage() {
               Total Value
             </span>
 
+
             <strong>
 
               ₹
@@ -3879,6 +4425,7 @@ export default function ProformaPage() {
               }
 
             </strong>
+
 
             <small>
               Current records
@@ -3911,7 +4458,9 @@ export default function ProformaPage() {
             onChange={
               event =>
                 setSearch(
-                  event.target.value
+                  event
+                    .target
+                    .value
                 )
             }
             placeholder="Search proforma, customer or finished product..."
@@ -3920,11 +4469,14 @@ export default function ProformaPage() {
 
           {
             search
-            && (
+            &&
+            (
               <button
                 type="button"
                 onClick={() =>
-                  setSearch("")
+                  setSearch(
+                    ""
+                  )
                 }
               >
 
@@ -3946,7 +4498,9 @@ export default function ProformaPage() {
           onChange={
             event =>
               setStatusFilter(
-                event.target.value
+                event
+                  .target
+                  .value
               )
           }
         >
@@ -3997,7 +4551,8 @@ export default function ProformaPage() {
 
       {
         error
-        && (
+        &&
+        (
           <div className="proforma-alert error">
 
             <span>
@@ -4008,7 +4563,9 @@ export default function ProformaPage() {
             <button
               type="button"
               onClick={() =>
-                setError("")
+                setError(
+                  ""
+                )
               }
             >
 
@@ -4044,6 +4601,7 @@ export default function ProformaPage() {
                 filteredProformas
                   .length
               }
+
               {" records shown"}
 
             </p>
@@ -4061,313 +4619,333 @@ export default function ProformaPage() {
         {
           loading
           ? (
-            <div className="table-state">
+              <div className="table-state">
 
-              <Loader2
-                size={28}
-                className="spin"
-              />
-
-              <h3>
-                Loading Proformas...
-              </h3>
-
-            </div>
-          )
-          :
-          filteredProformas.length
-          === 0
-          ? (
-            <div className="table-state">
-
-              <div className="empty-state-icon">
-
-                <FileText
-                  size={27}
+                <Loader2
+                  size={28}
+                  className="spin"
                 />
 
+
+                <h3>
+                  Loading Proformas...
+                </h3>
+
               </div>
+            )
+          :
+          filteredProformas.length
+          ===
+          0
+            ? (
+                <div className="table-state">
+
+                  <div className="empty-state-icon">
+
+                    <FileText
+                      size={27}
+                    />
+
+                  </div>
 
 
-              <h3>
-                No Proformas found
-              </h3>
+                  <h3>
+                    No Proformas found
+                  </h3>
 
 
-              <p>
-                Try changing the search or status filter.
-              </p>
+                  <p>
+                    Try changing the search or status filter.
+                  </p>
 
-            </div>
-          )
-          : (
-            <div className="proforma-table-wrapper">
+                </div>
+              )
+            : (
+                <div className="proforma-table-wrapper">
 
-              <table className="proforma-table">
+                  <table className="proforma-table">
 
-                <thead>
+                    <thead>
 
-                  <tr>
+                      <tr>
 
-                    <th>
-                      Proforma
-                    </th>
+                        <th>
+                          Proforma
+                        </th>
 
-                    <th>
-                      Date
-                    </th>
+                        <th>
+                          Date
+                        </th>
 
-                    <th>
-                      Customer
-                    </th>
+                        <th>
+                          Customer
+                        </th>
 
-                    <th>
-                      Finished Product / Machine
-                    </th>
+                        <th>
+                          Finished Product / Machine
+                        </th>
 
-                    <th>
-                      Items
-                    </th>
+                        <th>
+                          Items
+                        </th>
 
-                    <th>
-                      Amount
-                    </th>
+                        <th>
+                          Amount
+                        </th>
 
-                    <th>
-                      Status
-                    </th>
+                        <th>
+                          Status
+                        </th>
 
-                    <th>
-                      Action
-                    </th>
+                        <th>
+                          Action
+                        </th>
 
-                  </tr>
+                      </tr>
 
-                </thead>
-
-
-                <tbody>
-
-                  {
-                    filteredProformas.map(
-                      proforma => {
-
-                        const firstItem =
-                          proforma.items[
-                            0
-                          ]?.description
-                          ||
-                          "-";
+                    </thead>
 
 
-                        return (
-                          <tr
-                            key={
-                              proforma.id
-                            }
-                          >
+                    <tbody>
 
-                            <td>
+                      {
+                        filteredProformas.map(
+                          proforma => {
 
-                              <div className="record-primary">
+                            const firstItem =
+                              proforma.items[
+                                0
+                              ]?.description
+                              ||
+                              "-";
 
-                                {
-                                  proforma
-                                    .proforma_number
+
+                            const recordLocked =
+                              [
+                                "Order Confirmed",
+                                "Confirmed",
+                                "Production Started",
+                                "Production Completed",
+                                "Final Bill Generated",
+                                "Payment Pending",
+                                "Payment Received",
+                                "Completed",
+                              ].includes(
+                                proforma.status
+                              );
+
+
+                            return (
+                              <tr
+                                key={
+                                  proforma.id
                                 }
-
-                              </div>
-
-                            </td>
-
-
-                            <td>
-
-                              {
-                                formatDate(
-                                  proforma
-                                    .proforma_date
-                                )
-                              }
-
-                            </td>
-
-
-                            <td>
-
-                              <div className="customer-name">
-
-                                {
-                                  proforma
-                                    .company_name
-                                }
-
-                              </div>
-
-
-                              {
-                                proforma
-                                  .contact_person
-                                && (
-                                  <div className="record-secondary">
-
-                                    {
-                                      proforma
-                                        .contact_person
-                                    }
-
-                                  </div>
-                                )
-                              }
-
-                            </td>
-
-
-                            <td>
-
-                              <div className="record-primary">
-
-                                {
-                                  firstItem
-                                }
-
-                              </div>
-
-
-                              {
-                                proforma.items.length
-                                > 1
-                                && (
-                                  <div className="record-secondary">
-
-                                    +
-                                    {
-                                      proforma
-                                        .items
-                                        .length
-                                      - 1
-                                    }
-                                    {" more"}
-
-                                  </div>
-                                )
-                              }
-
-                            </td>
-
-
-                            <td>
-
-                              {
-                                proforma
-                                  .items
-                                  .length
-                              }
-
-                            </td>
-
-
-                            <td>
-
-                              <strong className="amount">
-
-                                ₹
-                                {
-                                  money(
-                                    proforma
-                                      .grand_total
-                                  )
-                                }
-
-                              </strong>
-
-                            </td>
-
-
-                            <td>
-
-                              <span
-                                className={`status-badge ${statusClass(
-                                  proforma.status
-                                )}`}
                               >
 
-                                {
-                                  proforma
-                                    .status
-                                }
+                                <td>
 
-                              </span>
+                                  <div className="record-primary">
 
-                            </td>
+                                    {
+                                      proforma
+                                        .proforma_number
+                                    }
+
+                                  </div>
+
+                                </td>
 
 
-                            <td>
+                                <td>
 
-                              <div className="row-actions">
-
-                                <button
-                                  type="button"
-                                  title="View"
-                                  onClick={() =>
-                                    navigate(
-                                      `/proformas/${proforma.id}`
+                                  {
+                                    formatDate(
+                                      proforma
+                                        .proforma_date
                                     )
                                   }
-                                >
 
-                                  <Eye
-                                    size={16}
-                                  />
-
-                                </button>
+                                </td>
 
 
-                                {
-                                  ![
-                                    "Order Confirmed",
-                                    "Confirmed",
-                                    "Production Started",
-                                    "Production Completed",
-                                  ].includes(
-                                    proforma.status
-                                  )
-                                  && (
+                                <td>
+
+                                  <div className="customer-name">
+
+                                    {
+                                      proforma
+                                        .company_name
+                                    }
+
+                                  </div>
+
+
+                                  {
+                                    proforma
+                                      .contact_person
+                                    &&
+                                    (
+                                      <div className="record-secondary">
+
+                                        {
+                                          proforma
+                                            .contact_person
+                                        }
+
+                                      </div>
+                                    )
+                                  }
+
+                                </td>
+
+
+                                <td>
+
+                                  <div className="record-primary">
+
+                                    {
+                                      firstItem
+                                    }
+
+                                  </div>
+
+
+                                  {
+                                    proforma.items.length
+                                    >
+                                    1
+                                    &&
+                                    (
+                                      <div className="record-secondary">
+
+                                        +
+                                        {
+                                          proforma
+                                            .items
+                                            .length
+                                          -
+                                          1
+                                        }
+
+                                        {" more"}
+
+                                      </div>
+                                    )
+                                  }
+
+                                </td>
+
+
+                                <td>
+
+                                  {
+                                    proforma
+                                      .items
+                                      .length
+                                  }
+
+                                </td>
+
+
+                                <td>
+
+                                  <strong className="amount">
+
+                                    ₹
+                                    {
+                                      money(
+                                        proforma
+                                          .grand_total
+                                      )
+                                    }
+
+                                  </strong>
+
+                                </td>
+
+
+                                <td>
+
+                                  <span
+                                    className={
+                                      `status-badge ${statusClass(
+                                        proforma.status
+                                      )}`
+                                    }
+                                  >
+
+                                    {
+                                      proforma
+                                        .status
+                                    }
+
+                                  </span>
+
+                                </td>
+
+
+                                <td>
+
+                                  <div className="row-actions">
+
                                     <button
                                       type="button"
-                                      title="Edit"
+                                      title="View"
                                       onClick={() =>
                                         navigate(
-                                          `/proformas/${proforma.id}?edit=true`
+                                          `/proformas/${proforma.id}`
                                         )
                                       }
                                     >
 
-                                      <Pencil
+                                      <Eye
                                         size={16}
                                       />
 
                                     </button>
-                                  )
-                                }
 
-                              </div>
 
-                            </td>
+                                    {
+                                      canEditProforma
+                                      &&
+                                      !recordLocked
+                                      &&
+                                      (
+                                        <button
+                                          type="button"
+                                          title="Edit"
+                                          onClick={() =>
+                                            navigate(
+                                              `/proformas/${proforma.id}?edit=true`
+                                            )
+                                          }
+                                        >
 
-                          </tr>
-                        );
+                                          <Pencil
+                                            size={16}
+                                          />
 
+                                        </button>
+                                      )
+                                    }
+
+                                  </div>
+
+                                </td>
+
+                              </tr>
+                            );
+
+                          }
+                        )
                       }
-                    )
-                  }
 
-                </tbody>
+                    </tbody>
 
-              </table>
+                  </table>
 
-            </div>
-          )
+                </div>
+              )
         }
 
       </section>
