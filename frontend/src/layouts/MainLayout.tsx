@@ -139,6 +139,7 @@ export default function MainLayout() {
      Proformas      -> proformas.view
      Purchase Bills -> purchase_bills.view
      Products       -> products.view
+     Suppliers      -> suppliers.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -238,6 +239,9 @@ export default function MainLayout() {
 
         path:
           "/suppliers",
+
+        permission:
+          "suppliers.view",
 
         icon:
           <ShoppingCart

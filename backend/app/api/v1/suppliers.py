@@ -8,13 +8,12 @@ from fastapi import (
 
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
-)
-
 from app.dependencies.database import (
     get_db,
+)
+
+from app.dependencies.permissions import (
+    require_permission,
 )
 
 from app.models.user import User
@@ -36,6 +35,13 @@ router = APIRouter(
 )
 
 
+# ================================================================
+# CREATE SUPPLIER
+#
+# Permission:
+#     suppliers.create
+# ================================================================
+
 @router.post(
     "",
     response_model=SupplierResponse,
@@ -45,10 +51,8 @@ def create_supplier(
     supplier: SupplierCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
-            "Purchase",
+        require_permission(
+            "suppliers.create"
         )
     ),
 ):
@@ -59,9 +63,18 @@ def create_supplier(
     )
 
 
+# ================================================================
+# LIST SUPPLIERS
+#
+# Permission:
+#     suppliers.view
+# ================================================================
+
 @router.get(
     "",
-    response_model=list[SupplierResponse],
+    response_model=list[
+        SupplierResponse
+    ],
 )
 def get_suppliers(
     search: str | None = Query(
@@ -73,7 +86,9 @@ def get_suppliers(
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "suppliers.view"
+        )
     ),
 ):
     return SupplierService.get_all(
@@ -81,6 +96,13 @@ def get_suppliers(
         search,
     )
 
+
+# ================================================================
+# GET SUPPLIER
+#
+# Permission:
+#     suppliers.view
+# ================================================================
 
 @router.get(
     "/{supplier_id}",
@@ -90,7 +112,9 @@ def get_supplier(
     supplier_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "suppliers.view"
+        )
     ),
 ):
     supplier = SupplierService.get_by_id(
@@ -109,6 +133,13 @@ def get_supplier(
     return supplier
 
 
+# ================================================================
+# UPDATE SUPPLIER
+#
+# Permission:
+#     suppliers.edit
+# ================================================================
+
 @router.put(
     "/{supplier_id}",
     response_model=SupplierResponse,
@@ -118,10 +149,8 @@ def update_supplier(
     supplier: SupplierUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
-            "Purchase",
+        require_permission(
+            "suppliers.edit"
         )
     ),
 ):
@@ -144,6 +173,13 @@ def update_supplier(
     return updated_supplier
 
 
+# ================================================================
+# DEACTIVATE SUPPLIER
+#
+# Permission:
+#     suppliers.deactivate
+# ================================================================
+
 @router.delete(
     "/{supplier_id}",
 )
@@ -151,9 +187,8 @@ def deactivate_supplier(
     supplier_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "suppliers.deactivate"
         )
     ),
 ):

@@ -572,7 +572,13 @@ export default function AppRouter() {
           <Route
             path="/suppliers"
             element={
-              <SupplierPage />
+              <PermissionRoute
+                permission="suppliers.view"
+              >
+
+                <SupplierPage />
+
+              </PermissionRoute>
             }
           />
 
