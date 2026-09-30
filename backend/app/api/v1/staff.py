@@ -7,11 +7,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    require_role,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.staff import (
@@ -33,15 +33,11 @@ router = APIRouter(
 )
 
 
-STAFF_ROLES = (
-    "Boss",
-    "Admin",
-    "Accounts",
-)
-
-
 # ================================================================
 # CREATE STAFF
+#
+# Permission:
+#     staff.manage
 # ================================================================
 
 @router.post(
@@ -59,8 +55,8 @@ def create_staff(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *STAFF_ROLES
+        require_permission(
+            "staff.manage"
         )
     ),
 ):
@@ -89,6 +85,9 @@ def create_staff(
 
 # ================================================================
 # LIST STAFF
+#
+# Permission:
+#     staff.view
 # ================================================================
 
 @router.get(
@@ -116,8 +115,8 @@ def get_staff(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *STAFF_ROLES
+        require_permission(
+            "staff.view"
         )
     ),
 ):
@@ -148,6 +147,9 @@ def get_staff(
 
 # ================================================================
 # GET STAFF
+#
+# Permission:
+#     staff.view
 # ================================================================
 
 @router.get(
@@ -162,8 +164,8 @@ def get_staff_member(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *STAFF_ROLES
+        require_permission(
+            "staff.view"
         )
     ),
 ):
@@ -194,6 +196,9 @@ def get_staff_member(
 
 # ================================================================
 # UPDATE STAFF
+#
+# Permission:
+#     staff.manage
 # ================================================================
 
 @router.put(
@@ -209,8 +214,8 @@ def update_staff(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *STAFF_ROLES
+        require_permission(
+            "staff.manage"
         )
     ),
 ):
@@ -243,6 +248,9 @@ def update_staff(
 # ================================================================
 # DEACTIVATE STAFF
 #
+# Permission:
+#     staff.manage
+#
 # We do not hard-delete staff because historical production
 # overhead costing must remain traceable.
 # ================================================================
@@ -259,8 +267,8 @@ def deactivate_staff(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *STAFF_ROLES
+        require_permission(
+            "staff.manage"
         )
     ),
 ):

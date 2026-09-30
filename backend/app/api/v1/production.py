@@ -124,8 +124,14 @@ def create_production_order(
 # Finished Products:
 #     finished_products.view
 #
-# Stock and Finished Products need this shared order lookup without
-# being given access to the Production module itself.
+# Expenses:
+#     expenses.view
+#
+# Stock, Finished Products and Expenses need this shared order
+# lookup without being given access to the Production module.
+#
+# Expenses uses it only to associate DIRECT_PRODUCTION expenses
+# with a Production Order.
 # ============================================================
 
 @router.get(
@@ -139,6 +145,7 @@ def get_production_orders(
             "production.view",
             "stock.issue",
             "finished_products.view",
+            "expenses.view",
         )
     ),
 ):

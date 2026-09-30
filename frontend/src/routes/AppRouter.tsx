@@ -698,7 +698,13 @@ export default function AppRouter() {
           <Route
             path="/expenses"
             element={
-              <ExpensePage />
+              <PermissionRoute
+                permission="expenses.view"
+              >
+
+                <ExpensePage />
+
+              </PermissionRoute>
             }
           />
 

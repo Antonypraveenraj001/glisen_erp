@@ -46,6 +46,10 @@ import {
 } from "../../services/productionService";
 
 import {
+  usePermissions,
+} from "../../hooks/usePermissions";
+
+import {
   EXPENSE_CATEGORIES,
 } from "../../types/expense";
 
@@ -162,9 +166,16 @@ ExpenseCategory[] = [
 ================================================================ */
 
 function todayValue() {
-  return new Date()
-    .toISOString()
-    .slice(0, 10);
+
+  return (
+    new Date()
+      .toISOString()
+      .slice(
+        0,
+        10
+      )
+  );
+
 }
 
 
@@ -180,22 +191,31 @@ function createEmptyExpenseForm(
     expense_type:
       expenseType,
 
-    category: "",
+    category:
+      "",
 
-    description: "",
+    description:
+      "",
 
-    amount: "",
+    amount:
+      "",
 
-    production_order_id: "",
+    production_order_id:
+      "",
 
-    payment_mode: "",
+    payment_mode:
+      "",
 
-    reference_number: "",
+    reference_number:
+      "",
 
-    vendor_name: "",
+    vendor_name:
+      "",
 
-    notes: "",
+    notes:
+      "",
   };
+
 }
 
 
@@ -203,18 +223,25 @@ function createEmptyStaffForm():
 StaffFormState {
 
   return {
-    staff_name: "",
+    staff_name:
+      "",
 
-    designation: "",
+    designation:
+      "",
 
-    monthly_salary: "",
+    monthly_salary:
+      "",
 
-    joining_date: "",
+    joining_date:
+      "",
 
-    relieving_date: "",
+    relieving_date:
+      "",
 
-    notes: "",
+    notes:
+      "",
   };
+
 }
 
 
@@ -232,29 +259,39 @@ function formatCurrency(
       value
     );
 
+
   if (
     Number.isNaN(
       numericValue
     )
   ) {
-    return `₹${value}`;
+
+    return (
+      `₹${value}`
+    );
+
   }
 
-  return new Intl.NumberFormat(
-    "en-IN",
-    {
-      style:
-        "currency",
 
-      currency:
-        "INR",
+  return (
+    new Intl.NumberFormat(
+      "en-IN",
+      {
+        style:
+          "currency",
 
-      maximumFractionDigits:
-        2,
-    }
-  ).format(
-    numericValue
+        currency:
+          "INR",
+
+        maximumFractionDigits:
+          2,
+      }
+    )
+      .format(
+        numericValue
+      )
   );
+
 }
 
 
@@ -263,36 +300,48 @@ function formatDate(
     string | null | undefined
 ) {
 
-  if (!value) {
+  if (
+    !value
+  ) {
+
     return "—";
+
   }
+
 
   const parsed =
     new Date(
       value
     );
 
+
   if (
     Number.isNaN(
       parsed.getTime()
     )
   ) {
+
     return value;
+
   }
 
-  return parsed.toLocaleDateString(
-    "en-IN",
-    {
-      day:
-        "2-digit",
 
-      month:
-        "short",
+  return (
+    parsed.toLocaleDateString(
+      "en-IN",
+      {
+        day:
+          "2-digit",
 
-      year:
-        "numeric",
-    }
+        month:
+          "short",
+
+        year:
+          "numeric",
+      }
+    )
   );
+
 }
 
 
@@ -312,81 +361,107 @@ function getApiErrorMessage(
         ?.data
         ?.detail;
 
+
     if (
-      typeof detail ===
-      "string"
+      typeof detail
+      === "string"
     ) {
+
       return detail;
+
     }
 
   }
+
 
   if (
     error instanceof Error
     &&
     error.message
   ) {
-    return error.message;
+
+    return (
+      error.message
+    );
+
   }
 
+
   return fallback;
+
 }
 
 
 function getCategoriesForType(
-  expenseType: ExpenseType
+  expenseType:
+    ExpenseType
 ):
 ExpenseCategory[] {
 
   if (
-    expenseType ===
-    "OVERHEAD"
+    expenseType
+    === "OVERHEAD"
   ) {
+
     return (
       OVERHEAD_CATEGORIES
     );
+
   }
 
+
   if (
-    expenseType ===
-    "DIRECT_PRODUCTION"
+    expenseType
+    === "DIRECT_PRODUCTION"
   ) {
+
     return (
       DIRECT_CATEGORIES
     );
+
   }
+
 
   return (
     GENERAL_CATEGORIES
   );
+
 }
 
 
 function getExpenseTypeLabel(
-  expenseType: ExpenseType
+  expenseType:
+    ExpenseType
 ) {
 
   if (
-    expenseType ===
-    "DIRECT_PRODUCTION"
+    expenseType
+    === "DIRECT_PRODUCTION"
   ) {
+
     return (
       "Direct Production"
     );
+
   }
 
+
   if (
-    expenseType ===
-    "OVERHEAD"
+    expenseType
+    === "OVERHEAD"
   ) {
+
     return (
       "Company Overhead"
     );
+
   }
+
 
   return (
     "General"
   );
+
 }
 
 
@@ -395,6 +470,28 @@ function getExpenseTypeLabel(
 ================================================================ */
 
 export default function ExpensePage() {
+
+  /* ==============================================================
+     PERMISSIONS
+  ============================================================== */
+
+  const {
+    hasPermission,
+  } =
+    usePermissions();
+
+
+  const canViewStaff =
+    hasPermission(
+      "staff.view"
+    );
+
+
+  const canManageStaff =
+    hasPermission(
+      "staff.manage"
+    );
+
 
   /* ==============================================================
      PAGE STATE
@@ -415,7 +512,9 @@ export default function ExpensePage() {
   ] =
     useState<
       Expense[]
-    >([]);
+    >(
+      []
+    );
 
 
   const [
@@ -424,7 +523,9 @@ export default function ExpensePage() {
   ] =
     useState<
       Staff[]
-    >([]);
+    >(
+      []
+    );
 
 
   const [
@@ -433,7 +534,9 @@ export default function ExpensePage() {
   ] =
     useState<
       ProductionOrder[]
-    >([]);
+    >(
+      []
+    );
 
 
   const [
@@ -596,7 +699,9 @@ export default function ExpensePage() {
     search,
     setSearch,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   const [
@@ -605,7 +710,9 @@ export default function ExpensePage() {
   ] =
     useState<
       ExpenseType | ""
-    >("");
+    >(
+      ""
+    );
 
 
   const [
@@ -614,25 +721,36 @@ export default function ExpensePage() {
   ] =
     useState<
       ExpenseCategory | ""
-    >("");
+    >(
+      ""
+    );
 
 
   const [
     startDate,
     setStartDate,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   const [
     endDate,
     setEndDate,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   /* ==============================================================
      LOAD
+
+     Expenses and Production Orders are always loaded.
+
+     Staff data is loaded only when the role owns staff.view.
+     This keeps Expenses usable when the Staff module is OFF.
   ============================================================== */
 
   async function loadData() {
@@ -643,9 +761,18 @@ export default function ExpensePage() {
         true
       );
 
+
       setError(
         null
       );
+
+
+      const staffRequest =
+        canViewStaff
+          ? getStaff()
+          : Promise.resolve(
+              null
+            );
 
 
       const [
@@ -656,7 +783,7 @@ export default function ExpensePage() {
         await Promise.all([
           getExpenses(),
 
-          getStaff(),
+          staffRequest,
 
           getProductionOrders(),
         ]);
@@ -668,7 +795,10 @@ export default function ExpensePage() {
 
 
       setStaff(
-        staffData.items
+        staffData
+          ?.items
+        ??
+        []
       );
 
 
@@ -709,7 +839,47 @@ export default function ExpensePage() {
       void loadData();
 
     },
-    []
+    [
+      canViewStaff,
+    ]
+  );
+
+
+  /*
+   * If Staff access is removed while this page is open,
+   * immediately leave the Staff tab and clear Staff data.
+   */
+
+  useEffect(
+    () => {
+
+      if (
+        !canViewStaff
+      ) {
+
+        setStaff(
+          []
+        );
+
+
+        if (
+          activeTab
+          === "staff"
+        ) {
+
+          setActiveTab(
+            "overhead"
+          );
+
+        }
+
+      }
+
+    },
+    [
+      canViewStaff,
+      activeTab,
+    ]
   );
 
 
@@ -771,7 +941,8 @@ export default function ExpensePage() {
               second
             ) =>
               second.id
-              - first.id
+              -
+              first.id
           ),
 
       [
@@ -917,96 +1088,110 @@ export default function ExpensePage() {
             .toLowerCase();
 
 
-        return expenses.filter(
-          expense => {
+        return (
+          expenses.filter(
+            expense => {
 
-            if (
-              typeFilter
-              &&
-              expense.expense_type
-              !== typeFilter
-            ) {
-              return false;
-            }
+              if (
+                typeFilter
+                &&
+                expense.expense_type
+                !== typeFilter
+              ) {
 
+                return false;
 
-            if (
-              categoryFilter
-              &&
-              expense.category
-              !== categoryFilter
-            ) {
-              return false;
-            }
+              }
 
 
-            if (
-              startDate
-              &&
-              expense.expense_date
-              < startDate
-            ) {
-              return false;
-            }
+              if (
+                categoryFilter
+                &&
+                expense.category
+                !== categoryFilter
+              ) {
+
+                return false;
+
+              }
 
 
-            if (
-              endDate
-              &&
-              expense.expense_date
-              > endDate
-            ) {
-              return false;
-            }
+              if (
+                startDate
+                &&
+                expense.expense_date
+                < startDate
+              ) {
+
+                return false;
+
+              }
 
 
-            if (
-              !normalizedSearch
-            ) {
-              return true;
-            }
+              if (
+                endDate
+                &&
+                expense.expense_date
+                > endDate
+              ) {
+
+                return false;
+
+              }
 
 
-            const production =
-              expense
-                .production_order_id
-                ? productionById.get(
-                    expense
-                      .production_order_id
-                  )
-                : null;
+              if (
+                !normalizedSearch
+              ) {
+
+                return true;
+
+              }
 
 
-            const values = [
-              expense.category,
-              expense.description,
-              expense.vendor_name,
-              expense.payment_mode,
-              expense.reference_number,
-              expense.notes,
-              production
-                ?.production_number,
-              production
-                ?.product_name,
-            ];
-
-
-            return values
-              .filter(
-                Boolean
-              )
-              .some(
-                value =>
-                  String(
-                    value
-                  )
-                    .toLowerCase()
-                    .includes(
-                      normalizedSearch
+              const production =
+                expense
+                  .production_order_id
+                  ? productionById.get(
+                      expense
+                        .production_order_id
                     )
+                  : null;
+
+
+              const values = [
+                expense.category,
+                expense.description,
+                expense.vendor_name,
+                expense.payment_mode,
+                expense.reference_number,
+                expense.notes,
+                production
+                  ?.production_number,
+                production
+                  ?.product_name,
+              ];
+
+
+              return (
+                values
+                  .filter(
+                    Boolean
+                  )
+                  .some(
+                    value =>
+                      String(
+                        value
+                      )
+                        .toLowerCase()
+                        .includes(
+                          normalizedSearch
+                        )
+                  )
               );
 
-          }
+            }
+          )
         );
 
       },
@@ -1027,14 +1212,17 @@ export default function ExpensePage() {
   ============================================================== */
 
   function isExpenseLocked(
-    expense: Expense
+    expense:
+      Expense
   ) {
 
     if (
       expense.expense_type
       !== "DIRECT_PRODUCTION"
     ) {
+
       return false;
+
     }
 
 
@@ -1042,7 +1230,9 @@ export default function ExpensePage() {
       !expense
         .production_order_id
     ) {
+
       return true;
+
     }
 
 
@@ -1053,8 +1243,12 @@ export default function ExpensePage() {
       );
 
 
-    if (!production) {
+    if (
+      !production
+    ) {
+
       return true;
+
     }
 
 
@@ -1064,6 +1258,7 @@ export default function ExpensePage() {
         .toLowerCase()
       !== "in progress"
     );
+
   }
 
 
@@ -1072,7 +1267,8 @@ export default function ExpensePage() {
   ============================================================== */
 
   function openNewExpense(
-    expenseType: ExpenseType
+    expenseType:
+      ExpenseType
   ) {
 
     setEditingExpense(
@@ -1104,7 +1300,8 @@ export default function ExpensePage() {
   ============================================================== */
 
   function openEditExpense(
-    expense: Expense
+    expense:
+      Expense
   ) {
 
     if (
@@ -1187,7 +1384,9 @@ export default function ExpensePage() {
     if (
       expenseSaving
     ) {
+
       return;
+
     }
 
 
@@ -1520,7 +1719,8 @@ export default function ExpensePage() {
   ============================================================== */
 
   async function handleDeleteExpense(
-    expense: Expense
+    expense:
+      Expense
   ) {
 
     if (
@@ -1544,8 +1744,12 @@ export default function ExpensePage() {
       );
 
 
-    if (!confirmed) {
+    if (
+      !confirmed
+    ) {
+
       return;
+
     }
 
 
@@ -1601,6 +1805,15 @@ export default function ExpensePage() {
 
   function openNewStaff() {
 
+    if (
+      !canManageStaff
+    ) {
+
+      return;
+
+    }
+
+
     setEditingStaff(
       null
     );
@@ -1628,8 +1841,18 @@ export default function ExpensePage() {
   ============================================================== */
 
   function openEditStaff(
-    member: Staff
+    member:
+      Staff
   ) {
+
+    if (
+      !canManageStaff
+    ) {
+
+      return;
+
+    }
+
 
     setEditingStaff(
       member
@@ -1678,7 +1901,9 @@ export default function ExpensePage() {
     if (
       staffSaving
     ) {
+
       return;
+
     }
 
 
@@ -1709,6 +1934,19 @@ export default function ExpensePage() {
   ) {
 
     event.preventDefault();
+
+
+    if (
+      !canManageStaff
+    ) {
+
+      setStaffFormError(
+        "You do not have permission to manage Staff."
+      );
+
+      return;
+
+    }
 
 
     setStaffFormError(
@@ -1912,8 +2150,18 @@ export default function ExpensePage() {
   ============================================================== */
 
   async function handleDeactivateStaff(
-    member: Staff
+    member:
+      Staff
   ) {
+
+    if (
+      !canManageStaff
+    ) {
+
+      return;
+
+    }
+
 
     const confirmed =
       window.confirm(
@@ -1921,8 +2169,12 @@ export default function ExpensePage() {
       );
 
 
-    if (!confirmed) {
+    if (
+      !confirmed
+    ) {
+
       return;
+
     }
 
 
@@ -1978,15 +2230,29 @@ export default function ExpensePage() {
 
   function clearFilters() {
 
-    setSearch("");
+    setSearch(
+      ""
+    );
 
-    setTypeFilter("");
 
-    setCategoryFilter("");
+    setTypeFilter(
+      ""
+    );
 
-    setStartDate("");
 
-    setEndDate("");
+    setCategoryFilter(
+      ""
+    );
+
+
+    setStartDate(
+      ""
+    );
+
+
+    setEndDate(
+      ""
+    );
 
   }
 
@@ -1998,9 +2264,18 @@ export default function ExpensePage() {
   function renderHeaderAction() {
 
     if (
-      activeTab ===
-      "staff"
+      activeTab
+      === "staff"
     ) {
+
+      if (
+        !canManageStaff
+      ) {
+
+        return null;
+
+      }
+
 
       return (
         <button
@@ -2022,8 +2297,8 @@ export default function ExpensePage() {
 
 
     if (
-      activeTab ===
-      "overhead"
+      activeTab
+      === "overhead"
     ) {
 
       return (
@@ -2048,8 +2323,8 @@ export default function ExpensePage() {
 
 
     if (
-      activeTab ===
-      "direct"
+      activeTab
+      === "direct"
     ) {
 
       return (
@@ -2120,10 +2395,26 @@ export default function ExpensePage() {
 
 
           <p className="expense-subtitle">
-            Manage staff salary,
-            company overheads and costs
-            belonging directly to machines
-            being manufactured by Glisen.
+
+            {
+              canViewStaff
+                ? (
+                    <>
+                      Manage staff salary,
+                      company overheads and costs
+                      belonging directly to machines
+                      being manufactured by Glisen.
+                    </>
+                  )
+                : (
+                    <>
+                      Manage company overheads and costs
+                      belonging directly to machines
+                      being manufactured by Glisen.
+                    </>
+                  )
+            }
+
           </p>
 
         </div>
@@ -2179,62 +2470,73 @@ export default function ExpensePage() {
 
       <div className="expense-kpi-grid">
 
-        <div className="expense-kpi-card">
+        {
+          canViewStaff
+          && (
+            <>
+              <div className="expense-kpi-card">
 
-          <div>
+                <div>
 
-            <div className="expense-kpi-label">
-              Active Staff
-            </div>
+                  <div className="expense-kpi-label">
+                    Active Staff
+                  </div>
 
-            <div className="expense-kpi-value">
-              {
-                activeStaff.length
-              }
-            </div>
+                  <div className="expense-kpi-value">
+                    {
+                      activeStaff.length
+                    }
+                  </div>
 
-            <div className="expense-kpi-note">
-              Salary master records
-            </div>
+                  <div className="expense-kpi-note">
+                    Salary master records
+                  </div>
 
-          </div>
-
-
-          <div className="expense-kpi-icon blue">
-            <Users size={20} />
-          </div>
-
-        </div>
+                </div>
 
 
-        <div className="expense-kpi-card">
+                <div className="expense-kpi-icon blue">
+                  <Users
+                    size={20}
+                  />
+                </div>
 
-          <div>
-
-            <div className="expense-kpi-label">
-              Monthly Staff Salary
-            </div>
-
-            <div className="expense-kpi-value expense-kpi-money">
-              {
-                formatCurrency(
-                  monthlySalaryTotal
-                )
-              }
-            </div>
-
-            <div className="expense-kpi-note">
-              Future overhead pool
-            </div>
-
-          </div>
+              </div>
 
 
-          <div className="expense-kpi-icon lavender">
-            <WalletCards size={20} />
-          </div>
+              <div className="expense-kpi-card">
 
-        </div>
+                <div>
+
+                  <div className="expense-kpi-label">
+                    Monthly Staff Salary
+                  </div>
+
+                  <div className="expense-kpi-value expense-kpi-money">
+                    {
+                      formatCurrency(
+                        monthlySalaryTotal
+                      )
+                    }
+                  </div>
+
+                  <div className="expense-kpi-note">
+                    Future overhead pool
+                  </div>
+
+                </div>
+
+
+                <div className="expense-kpi-icon lavender">
+                  <WalletCards
+                    size={20}
+                  />
+                </div>
+
+              </div>
+            </>
+          )
+        }
 
 
         <div className="expense-kpi-card">
@@ -2261,7 +2563,9 @@ export default function ExpensePage() {
 
 
           <div className="expense-kpi-icon amber">
-            <Building2 size={20} />
+            <Building2
+              size={20}
+            />
           </div>
 
         </div>
@@ -2291,7 +2595,9 @@ export default function ExpensePage() {
 
 
           <div className="expense-kpi-icon rose">
-            <Factory size={20} />
+            <Factory
+              size={20}
+            />
           </div>
 
         </div>
@@ -2305,35 +2611,42 @@ export default function ExpensePage() {
 
       <div className="expense-tabs">
 
+        {
+          canViewStaff
+          && (
+            <button
+              type="button"
+              className={
+                activeTab
+                === "staff"
+                  ? "expense-tab active"
+                  : "expense-tab"
+              }
+              onClick={() =>
+                setActiveTab(
+                  "staff"
+                )
+              }
+            >
+              <Users
+                size={15}
+              />
+
+              Staff & Salary
+
+              <span>
+                {staff.length}
+              </span>
+            </button>
+          )
+        }
+
+
         <button
           type="button"
           className={
-            activeTab ===
-            "staff"
-              ? "expense-tab active"
-              : "expense-tab"
-          }
-          onClick={() =>
-            setActiveTab(
-              "staff"
-            )
-          }
-        >
-          <Users size={15} />
-
-          Staff & Salary
-
-          <span>
-            {staff.length}
-          </span>
-        </button>
-
-
-        <button
-          type="button"
-          className={
-            activeTab ===
-            "overhead"
+            activeTab
+            === "overhead"
               ? "expense-tab active"
               : "expense-tab"
           }
@@ -2343,7 +2656,9 @@ export default function ExpensePage() {
             )
           }
         >
-          <Building2 size={15} />
+          <Building2
+            size={15}
+          />
 
           Company Overheads
 
@@ -2359,8 +2674,8 @@ export default function ExpensePage() {
         <button
           type="button"
           className={
-            activeTab ===
-            "direct"
+            activeTab
+            === "direct"
               ? "expense-tab active"
               : "expense-tab"
           }
@@ -2370,7 +2685,9 @@ export default function ExpensePage() {
             )
           }
         >
-          <Factory size={15} />
+          <Factory
+            size={15}
+          />
 
           Direct Production Expenses
 
@@ -2386,8 +2703,8 @@ export default function ExpensePage() {
         <button
           type="button"
           className={
-            activeTab ===
-            "register"
+            activeTab
+            === "register"
               ? "expense-tab active"
               : "expense-tab"
           }
@@ -2397,12 +2714,16 @@ export default function ExpensePage() {
             )
           }
         >
-          <ReceiptText size={15} />
+          <ReceiptText
+            size={15}
+          />
 
           Expense Register
 
           <span>
-            {expenses.length}
+            {
+              expenses.length
+            }
           </span>
         </button>
 
@@ -2415,784 +2736,814 @@ export default function ExpensePage() {
 
       {
         loading
-        ? (
-          <div className="expense-panel">
+          ? (
+              <div className="expense-panel">
 
-            <div className="expense-loading-state">
+                <div className="expense-loading-state">
 
-              <Loader2
-                size={22}
-                className="expense-spin"
-              />
+                  <Loader2
+                    size={22}
+                    className="expense-spin"
+                  />
 
-              Loading expense workspace...
-
-            </div>
-
-          </div>
-        )
-        : (
-          <>
-
-            {/* ==================================================
-                STAFF
-            ================================================== */}
-
-            {
-              activeTab ===
-              "staff"
-              && (
-                <div className="expense-panel">
-
-                  <div className="expense-panel-header">
-
-                    <div>
-
-                      <div className="expense-panel-title">
-                        Staff & Salary Master
-                      </div>
-
-                      <div className="expense-panel-subtitle">
-                        Staff salary will become part
-                        of the monthly indirect
-                        production overhead pool.
-                      </div>
-
-                    </div>
-
-
-                    <div className="expense-record-count">
-                      {
-                        activeStaff.length
-                      }
-                      {" "}
-                      active
-                    </div>
-
-                  </div>
-
-
-                  <div className="expense-info-strip">
-
-                    <CircleDollarSign
-                      size={17}
-                    />
-
-                    <div>
-                      <strong>
-                        Salary is maintained here.
-                      </strong>
-
-                      <span>
-                        Do not create duplicate monthly
-                        salary Expense entries. The
-                        costing engine will use this
-                        salary master directly.
-                      </span>
-                    </div>
-
-                  </div>
-
-
-                  {
-                    staff.length ===
-                    0
-                    ? (
-                      <div className="expense-empty-state">
-
-                        <Users size={26} />
-
-                        No staff added yet.
-
-                      </div>
-                    )
-                    : (
-                      <div className="expense-table-wrap">
-
-                        <table className="expense-table">
-
-                          <thead>
-                            <tr>
-                              <th>
-                                Staff Name
-                              </th>
-
-                              <th>
-                                Designation
-                              </th>
-
-                              <th>
-                                Monthly Salary
-                              </th>
-
-                              <th>
-                                Joining Date
-                              </th>
-
-                              <th>
-                                Relieving Date
-                              </th>
-
-                              <th>
-                                Status
-                              </th>
-
-                              <th>
-                                Notes
-                              </th>
-
-                              <th className="align-right">
-                                Actions
-                              </th>
-                            </tr>
-                          </thead>
-
-
-                          <tbody>
-
-                            {
-                              staff.map(
-                                member => (
-
-                                  <tr
-                                    key={
-                                      member.id
-                                    }
-                                  >
-
-                                    <td>
-                                      <div className="expense-description">
-                                        {
-                                          member.staff_name
-                                        }
-                                      </div>
-                                    </td>
-
-
-                                    <td>
-                                      {
-                                        member.designation
-                                        || "—"
-                                      }
-                                    </td>
-
-
-                                    <td>
-                                      <strong className="expense-money">
-                                        {
-                                          formatCurrency(
-                                            member
-                                              .monthly_salary
-                                          )
-                                        }
-                                      </strong>
-                                    </td>
-
-
-                                    <td>
-                                      {
-                                        formatDate(
-                                          member
-                                            .joining_date
-                                        )
-                                      }
-                                    </td>
-
-
-                                    <td>
-                                      {
-                                        formatDate(
-                                          member
-                                            .relieving_date
-                                        )
-                                      }
-                                    </td>
-
-
-                                    <td>
-                                      <span
-                                        className={
-                                          member.is_active
-                                            ? "expense-status active"
-                                            : "expense-status inactive"
-                                        }
-                                      >
-                                        {
-                                          member.is_active
-                                            ? "Active"
-                                            : "Inactive"
-                                        }
-                                      </span>
-                                    </td>
-
-
-                                    <td>
-                                      <span className="expense-notes">
-                                        {
-                                          member.notes
-                                          || "—"
-                                        }
-                                      </span>
-                                    </td>
-
-
-                                    <td className="align-right">
-
-                                      <div className="expense-action-group">
-
-                                        <button
-                                          type="button"
-                                          className="expense-icon-button edit"
-                                          onClick={() =>
-                                            openEditStaff(
-                                              member
-                                            )
-                                          }
-                                          title="Edit staff"
-                                        >
-                                          <Edit3
-                                            size={14}
-                                          />
-                                        </button>
-
-
-                                        {
-                                          member.is_active
-                                          && (
-                                            <button
-                                              type="button"
-                                              className="expense-icon-button delete"
-                                              disabled={
-                                                deactivatingStaffId
-                                                === member.id
-                                              }
-                                              onClick={() =>
-                                                void handleDeactivateStaff(
-                                                  member
-                                                )
-                                              }
-                                              title="Deactivate staff"
-                                            >
-                                              {
-                                                deactivatingStaffId
-                                                === member.id
-                                                  ? (
-                                                    <Loader2
-                                                      size={14}
-                                                      className="expense-spin"
-                                                    />
-                                                  )
-                                                  : (
-                                                    <UserMinus
-                                                      size={14}
-                                                    />
-                                                  )
-                                              }
-                                            </button>
-                                          )
-                                        }
-
-                                      </div>
-
-                                    </td>
-
-                                  </tr>
-
-                                )
-                              )
-                            }
-
-                          </tbody>
-
-                        </table>
-
-                      </div>
-                    )
-                  }
+                  Loading expense workspace...
 
                 </div>
-              )
-            }
+
+              </div>
+            )
+          : (
+              <>
+
+                {/* ==================================================
+                    STAFF
+                ================================================== */}
+
+                {
+                  canViewStaff
+                  &&
+                  activeTab
+                  === "staff"
+                  && (
+                    <div className="expense-panel">
+
+                      <div className="expense-panel-header">
+
+                        <div>
+
+                          <div className="expense-panel-title">
+                            Staff & Salary Master
+                          </div>
+
+                          <div className="expense-panel-subtitle">
+                            Staff salary will become part
+                            of the monthly indirect
+                            production overhead pool.
+                          </div>
+
+                        </div>
 
 
-            {/* ==================================================
-                OVERHEAD
-            ================================================== */}
+                        <div className="expense-record-count">
+                          {
+                            activeStaff.length
+                          }
+                          {" "}
+                          active
+                        </div>
 
-            {
-              activeTab ===
-              "overhead"
-              && (
-                <div className="expense-panel">
-
-                  <div className="expense-panel-header">
-
-                    <div>
-
-                      <div className="expense-panel-title">
-                        Company Overheads
                       </div>
 
-                      <div className="expense-panel-subtitle">
-                        Rent, electricity, cleaning,
-                        general maintenance and other
-                        indirect company costs.
-                      </div>
 
-                    </div>
+                      <div className="expense-info-strip">
 
-
-                    <div className="expense-record-count">
-                      {
-                        overheadExpenses.length
-                      }
-                      {" "}
-                      records
-                    </div>
-
-                  </div>
-
-
-                  <div className="expense-info-strip overhead">
-
-                    <Building2
-                      size={17}
-                    />
-
-                    <div>
-
-                      <strong>
-                        Indirect production cost
-                      </strong>
-
-                      <span>
-                        These expenses belong to the
-                        company as a whole. Later they
-                        will be distributed across
-                        active production jobs according
-                        to production days.
-                      </span>
-
-                    </div>
-
-                  </div>
-
-
-                  {
-                    overheadExpenses.length
-                    === 0
-                    ? (
-                      <div className="expense-empty-state">
-
-                        <Building2
-                          size={26}
+                        <CircleDollarSign
+                          size={17}
                         />
 
-                        No company overheads recorded.
+                        <div>
+
+                          <strong>
+                            Salary is maintained here.
+                          </strong>
+
+                          <span>
+                            Do not create duplicate monthly
+                            salary Expense entries. The
+                            costing engine will use this
+                            salary master directly.
+                          </span>
+
+                        </div>
 
                       </div>
-                    )
-                    : (
-                      <ExpenseTable
-                        expenses={
-                          overheadExpenses
-                        }
-                        productionById={
-                          productionById
-                        }
-                        deletingExpenseId={
-                          deletingExpenseId
-                        }
-                        isExpenseLocked={
-                          isExpenseLocked
-                        }
-                        onEdit={
-                          openEditExpense
-                        }
-                        onDelete={
-                          handleDeleteExpense
-                        }
-                      />
-                    )
-                  }
-
-                </div>
-              )
-            }
 
 
-            {/* ==================================================
-                DIRECT PRODUCTION EXPENSES
-            ================================================== */}
+                      {
+                        staff.length
+                        === 0
+                          ? (
+                              <div className="expense-empty-state">
 
-            {
-              activeTab ===
-              "direct"
-              && (
-                <div className="expense-panel">
+                                <Users
+                                  size={26}
+                                />
 
-                  <div className="expense-panel-header">
+                                No staff added yet.
 
-                    <div>
+                              </div>
+                            )
+                          : (
+                              <div className="expense-table-wrap">
 
-                      <div className="expense-panel-title">
-                        Direct Production Expenses
-                      </div>
+                                <table className="expense-table">
 
-                      <div className="expense-panel-subtitle">
-                        Costs belonging specifically to
-                        one machine / finished product
-                        currently being manufactured.
-                      </div>
+                                  <thead>
+                                    <tr>
+
+                                      <th>
+                                        Staff Name
+                                      </th>
+
+                                      <th>
+                                        Designation
+                                      </th>
+
+                                      <th>
+                                        Monthly Salary
+                                      </th>
+
+                                      <th>
+                                        Joining Date
+                                      </th>
+
+                                      <th>
+                                        Relieving Date
+                                      </th>
+
+                                      <th>
+                                        Status
+                                      </th>
+
+                                      <th>
+                                        Notes
+                                      </th>
+
+                                      {
+                                        canManageStaff
+                                        && (
+                                          <th className="align-right">
+                                            Actions
+                                          </th>
+                                        )
+                                      }
+
+                                    </tr>
+                                  </thead>
+
+
+                                  <tbody>
+
+                                    {
+                                      staff.map(
+                                        member => (
+
+                                          <tr
+                                            key={
+                                              member.id
+                                            }
+                                          >
+
+                                            <td>
+
+                                              <div className="expense-description">
+                                                {
+                                                  member.staff_name
+                                                }
+                                              </div>
+
+                                            </td>
+
+
+                                            <td>
+                                              {
+                                                member.designation
+                                                || "—"
+                                              }
+                                            </td>
+
+
+                                            <td>
+
+                                              <strong className="expense-money">
+                                                {
+                                                  formatCurrency(
+                                                    member
+                                                      .monthly_salary
+                                                  )
+                                                }
+                                              </strong>
+
+                                            </td>
+
+
+                                            <td>
+                                              {
+                                                formatDate(
+                                                  member
+                                                    .joining_date
+                                                )
+                                              }
+                                            </td>
+
+
+                                            <td>
+                                              {
+                                                formatDate(
+                                                  member
+                                                    .relieving_date
+                                                )
+                                              }
+                                            </td>
+
+
+                                            <td>
+
+                                              <span
+                                                className={
+                                                  member.is_active
+                                                    ? "expense-status active"
+                                                    : "expense-status inactive"
+                                                }
+                                              >
+                                                {
+                                                  member.is_active
+                                                    ? "Active"
+                                                    : "Inactive"
+                                                }
+                                              </span>
+
+                                            </td>
+
+
+                                            <td>
+
+                                              <span className="expense-notes">
+                                                {
+                                                  member.notes
+                                                  || "—"
+                                                }
+                                              </span>
+
+                                            </td>
+
+
+                                            {
+                                              canManageStaff
+                                              && (
+                                                <td className="align-right">
+
+                                                  <div className="expense-action-group">
+
+                                                    <button
+                                                      type="button"
+                                                      className="expense-icon-button edit"
+                                                      onClick={() =>
+                                                        openEditStaff(
+                                                          member
+                                                        )
+                                                      }
+                                                      title="Edit staff"
+                                                    >
+                                                      <Edit3
+                                                        size={14}
+                                                      />
+                                                    </button>
+
+
+                                                    {
+                                                      member.is_active
+                                                      && (
+                                                        <button
+                                                          type="button"
+                                                          className="expense-icon-button delete"
+                                                          disabled={
+                                                            deactivatingStaffId
+                                                            === member.id
+                                                          }
+                                                          onClick={() =>
+                                                            void handleDeactivateStaff(
+                                                              member
+                                                            )
+                                                          }
+                                                          title="Deactivate staff"
+                                                        >
+                                                          {
+                                                            deactivatingStaffId
+                                                            === member.id
+                                                              ? (
+                                                                  <Loader2
+                                                                    size={14}
+                                                                    className="expense-spin"
+                                                                  />
+                                                                )
+                                                              : (
+                                                                  <UserMinus
+                                                                    size={14}
+                                                                  />
+                                                                )
+                                                          }
+                                                        </button>
+                                                      )
+                                                    }
+
+                                                  </div>
+
+                                                </td>
+                                              )
+                                            }
+
+                                          </tr>
+
+                                        )
+                                      )
+                                    }
+
+                                  </tbody>
+
+                                </table>
+
+                              </div>
+                            )
+                      }
 
                     </div>
+                  )
+                }
 
 
-                    <div className="expense-record-count">
+                {/* ==================================================
+                    OVERHEAD
+                ================================================== */}
+
+                {
+                  activeTab
+                  === "overhead"
+                  && (
+                    <div className="expense-panel">
+
+                      <div className="expense-panel-header">
+
+                        <div>
+
+                          <div className="expense-panel-title">
+                            Company Overheads
+                          </div>
+
+                          <div className="expense-panel-subtitle">
+                            Rent, electricity, cleaning,
+                            general maintenance and other
+                            indirect company costs.
+                          </div>
+
+                        </div>
+
+
+                        <div className="expense-record-count">
+                          {
+                            overheadExpenses.length
+                          }
+                          {" "}
+                          records
+                        </div>
+
+                      </div>
+
+
+                      <div className="expense-info-strip overhead">
+
+                        <Building2
+                          size={17}
+                        />
+
+                        <div>
+
+                          <strong>
+                            Indirect production cost
+                          </strong>
+
+                          <span>
+                            These expenses belong to the
+                            company as a whole. Later they
+                            will be distributed across
+                            active production jobs according
+                            to production days.
+                          </span>
+
+                        </div>
+
+                      </div>
+
+
+                      {
+                        overheadExpenses.length
+                        === 0
+                          ? (
+                              <div className="expense-empty-state">
+
+                                <Building2
+                                  size={26}
+                                />
+
+                                No company overheads recorded.
+
+                              </div>
+                            )
+                          : (
+                              <ExpenseTable
+                                expenses={
+                                  overheadExpenses
+                                }
+                                productionById={
+                                  productionById
+                                }
+                                deletingExpenseId={
+                                  deletingExpenseId
+                                }
+                                isExpenseLocked={
+                                  isExpenseLocked
+                                }
+                                onEdit={
+                                  openEditExpense
+                                }
+                                onDelete={
+                                  handleDeleteExpense
+                                }
+                              />
+                            )
+                      }
+
+                    </div>
+                  )
+                }
+
+
+                {/* ==================================================
+                    DIRECT PRODUCTION EXPENSES
+                ================================================== */}
+
+                {
+                  activeTab
+                  === "direct"
+                  && (
+                    <div className="expense-panel">
+
+                      <div className="expense-panel-header">
+
+                        <div>
+
+                          <div className="expense-panel-title">
+                            Direct Production Expenses
+                          </div>
+
+                          <div className="expense-panel-subtitle">
+                            Costs belonging specifically to
+                            one machine / finished product
+                            currently being manufactured.
+                          </div>
+
+                        </div>
+
+
+                        <div className="expense-record-count">
+                          {
+                            activeProductionOrders
+                              .length
+                          }
+                          {" "}
+                          live production
+                        </div>
+
+                      </div>
+
+
+                      <div className="expense-info-strip direct">
+
+                        <Factory
+                          size={17}
+                        />
+
+                        <div>
+
+                          <strong>
+                            Production-linked cost
+                          </strong>
+
+                          <span>
+                            Transport, outside machining,
+                            special labour, painting,
+                            loading, testing and similar
+                            costs can be assigned directly
+                            to one active Production Order.
+                          </span>
+
+                        </div>
+
+                      </div>
+
+
                       {
                         activeProductionOrders
                           .length
+                        === 0
+                        && (
+                          <div className="expense-warning-strip">
+                            No Production Order is currently
+                            In Progress. New Direct Production
+                            expenses cannot be entered until
+                            production is active.
+                          </div>
+                        )
                       }
-                      {" "}
-                      live production
-                    </div>
-
-                  </div>
 
 
-                  <div className="expense-info-strip direct">
+                      {
+                        directExpenses.length
+                        === 0
+                          ? (
+                              <div className="expense-empty-state">
 
-                    <Factory
-                      size={17}
-                    />
+                                <Factory
+                                  size={26}
+                                />
 
-                    <div>
+                                No direct production expenses recorded.
 
-                      <strong>
-                        Production-linked cost
-                      </strong>
-
-                      <span>
-                        Transport, outside machining,
-                        special labour, painting,
-                        loading, testing and similar
-                        costs can be assigned directly
-                        to one active Production Order.
-                      </span>
-
-                    </div>
-
-                  </div>
-
-
-                  {
-                    activeProductionOrders
-                      .length
-                    === 0
-                    && (
-                      <div className="expense-warning-strip">
-
-                        No Production Order is currently
-                        In Progress. New Direct Production
-                        expenses cannot be entered until
-                        production is active.
-
-                      </div>
-                    )
-                  }
-
-
-                  {
-                    directExpenses.length
-                    === 0
-                    ? (
-                      <div className="expense-empty-state">
-
-                        <Factory
-                          size={26}
-                        />
-
-                        No direct production expenses recorded.
-
-                      </div>
-                    )
-                    : (
-                      <ExpenseTable
-                        expenses={
-                          directExpenses
-                        }
-                        productionById={
-                          productionById
-                        }
-                        deletingExpenseId={
-                          deletingExpenseId
-                        }
-                        isExpenseLocked={
-                          isExpenseLocked
-                        }
-                        onEdit={
-                          openEditExpense
-                        }
-                        onDelete={
-                          handleDeleteExpense
-                        }
-                      />
-                    )
-                  }
-
-                </div>
-              )
-            }
-
-
-            {/* ==================================================
-                REGISTER
-            ================================================== */}
-
-            {
-              activeTab ===
-              "register"
-              && (
-                <div className="expense-panel">
-
-                  <div className="expense-panel-header">
-
-                    <div>
-
-                      <div className="expense-panel-title">
-                        Expense Register
-                      </div>
-
-                      <div className="expense-panel-subtitle">
-                        Complete expense history across
-                        general, overhead and direct
-                        production costs.
-                      </div>
+                              </div>
+                            )
+                          : (
+                              <ExpenseTable
+                                expenses={
+                                  directExpenses
+                                }
+                                productionById={
+                                  productionById
+                                }
+                                deletingExpenseId={
+                                  deletingExpenseId
+                                }
+                                isExpenseLocked={
+                                  isExpenseLocked
+                                }
+                                onEdit={
+                                  openEditExpense
+                                }
+                                onDelete={
+                                  handleDeleteExpense
+                                }
+                              />
+                            )
+                      }
 
                     </div>
+                  )
+                }
 
 
-                    <div className="expense-record-count">
+                {/* ==================================================
+                    REGISTER
+                ================================================== */}
+
+                {
+                  activeTab
+                  === "register"
+                  && (
+                    <div className="expense-panel">
+
+                      <div className="expense-panel-header">
+
+                        <div>
+
+                          <div className="expense-panel-title">
+                            Expense Register
+                          </div>
+
+                          <div className="expense-panel-subtitle">
+                            Complete expense history across
+                            general, overhead and direct
+                            production costs.
+                          </div>
+
+                        </div>
+
+
+                        <div className="expense-record-count">
+                          {
+                            filteredRegister.length
+                          }
+                          {" "}
+                          visible
+                        </div>
+
+                      </div>
+
+
+                      <div className="expense-filter-bar">
+
+                        <div className="expense-search-field">
+
+                          <Search
+                            size={15}
+                          />
+
+                          <input
+                            type="text"
+                            value={
+                              search
+                            }
+                            onChange={
+                              event =>
+                                setSearch(
+                                  event
+                                    .target
+                                    .value
+                                )
+                            }
+                            placeholder="Search description, vendor, production, reference..."
+                          />
+
+                        </div>
+
+
+                        <select
+                          className="expense-filter-select"
+                          value={
+                            typeFilter
+                          }
+                          onChange={
+                            event =>
+                              setTypeFilter(
+                                event
+                                  .target
+                                  .value as
+                                  ExpenseType | ""
+                              )
+                          }
+                        >
+
+                          <option value="">
+                            All Types
+                          </option>
+
+                          <option value="GENERAL">
+                            General
+                          </option>
+
+                          <option value="OVERHEAD">
+                            Company Overhead
+                          </option>
+
+                          <option value="DIRECT_PRODUCTION">
+                            Direct Production
+                          </option>
+
+                        </select>
+
+
+                        <select
+                          className="expense-filter-select"
+                          value={
+                            categoryFilter
+                          }
+                          onChange={
+                            event =>
+                              setCategoryFilter(
+                                event
+                                  .target
+                                  .value as
+                                  ExpenseCategory | ""
+                              )
+                          }
+                        >
+
+                          <option value="">
+                            All Categories
+                          </option>
+
+
+                          {
+                            EXPENSE_CATEGORIES
+                              .map(
+                                item => (
+
+                                  <option
+                                    key={
+                                      item
+                                    }
+                                    value={
+                                      item
+                                    }
+                                  >
+                                    {item}
+                                  </option>
+
+                                )
+                              )
+                          }
+
+                        </select>
+
+
+                        <label className="expense-date-field">
+
+                          <span>
+                            From
+                          </span>
+
+                          <input
+                            type="date"
+                            value={
+                              startDate
+                            }
+                            onChange={
+                              event =>
+                                setStartDate(
+                                  event
+                                    .target
+                                    .value
+                                )
+                            }
+                          />
+
+                        </label>
+
+
+                        <label className="expense-date-field">
+
+                          <span>
+                            To
+                          </span>
+
+                          <input
+                            type="date"
+                            value={
+                              endDate
+                            }
+                            onChange={
+                              event =>
+                                setEndDate(
+                                  event
+                                    .target
+                                    .value
+                                )
+                            }
+                          />
+
+                        </label>
+
+
+                        <button
+                          type="button"
+                          className="expense-clear-button"
+                          onClick={
+                            clearFilters
+                          }
+                        >
+                          <Filter
+                            size={14}
+                          />
+
+                          Clear
+                        </button>
+
+                      </div>
+
+
                       {
                         filteredRegister.length
-                      }
-                      {" "}
-                      visible
-                    </div>
+                        === 0
+                          ? (
+                              <div className="expense-empty-state">
 
-                  </div>
+                                <ReceiptText
+                                  size={26}
+                                />
 
+                                No expenses match the selected filters.
 
-                  <div className="expense-filter-bar">
-
-                    <div className="expense-search-field">
-
-                      <Search
-                        size={15}
-                      />
-
-                      <input
-                        type="text"
-                        value={
-                          search
-                        }
-                        onChange={
-                          event =>
-                            setSearch(
-                              event
-                                .target
-                                .value
+                              </div>
                             )
-                        }
-                        placeholder="Search description, vendor, production, reference..."
-                      />
-
-                    </div>
-
-
-                    <select
-                      className="expense-filter-select"
-                      value={
-                        typeFilter
-                      }
-                      onChange={
-                        event =>
-                          setTypeFilter(
-                            event
-                              .target
-                              .value as
-                              ExpenseType | ""
-                          )
-                      }
-                    >
-                      <option value="">
-                        All Types
-                      </option>
-
-                      <option value="GENERAL">
-                        General
-                      </option>
-
-                      <option value="OVERHEAD">
-                        Company Overhead
-                      </option>
-
-                      <option value="DIRECT_PRODUCTION">
-                        Direct Production
-                      </option>
-                    </select>
-
-
-                    <select
-                      className="expense-filter-select"
-                      value={
-                        categoryFilter
-                      }
-                      onChange={
-                        event =>
-                          setCategoryFilter(
-                            event
-                              .target
-                              .value as
-                              ExpenseCategory | ""
-                          )
-                      }
-                    >
-                      <option value="">
-                        All Categories
-                      </option>
-
-                      {
-                        EXPENSE_CATEGORIES
-                          .map(
-                            item => (
-                              <option
-                                key={
-                                  item
+                          : (
+                              <ExpenseTable
+                                expenses={
+                                  filteredRegister
                                 }
-                                value={
-                                  item
+                                productionById={
+                                  productionById
                                 }
-                              >
-                                {item}
-                              </option>
+                                deletingExpenseId={
+                                  deletingExpenseId
+                                }
+                                isExpenseLocked={
+                                  isExpenseLocked
+                                }
+                                onEdit={
+                                  openEditExpense
+                                }
+                                onDelete={
+                                  handleDeleteExpense
+                                }
+                                showType
+                              />
                             )
-                          )
                       }
 
-                    </select>
+                    </div>
+                  )
+                }
 
-
-                    <label className="expense-date-field">
-
-                      <span>
-                        From
-                      </span>
-
-                      <input
-                        type="date"
-                        value={
-                          startDate
-                        }
-                        onChange={
-                          event =>
-                            setStartDate(
-                              event
-                                .target
-                                .value
-                            )
-                        }
-                      />
-
-                    </label>
-
-
-                    <label className="expense-date-field">
-
-                      <span>
-                        To
-                      </span>
-
-                      <input
-                        type="date"
-                        value={
-                          endDate
-                        }
-                        onChange={
-                          event =>
-                            setEndDate(
-                              event
-                                .target
-                                .value
-                            )
-                        }
-                      />
-
-                    </label>
-
-
-                    <button
-                      type="button"
-                      className="expense-clear-button"
-                      onClick={
-                        clearFilters
-                      }
-                    >
-                      <Filter
-                        size={14}
-                      />
-
-                      Clear
-                    </button>
-
-                  </div>
-
-
-                  {
-                    filteredRegister.length
-                    === 0
-                    ? (
-                      <div className="expense-empty-state">
-
-                        <ReceiptText
-                          size={26}
-                        />
-
-                        No expenses match the selected filters.
-
-                      </div>
-                    )
-                    : (
-                      <ExpenseTable
-                        expenses={
-                          filteredRegister
-                        }
-                        productionById={
-                          productionById
-                        }
-                        deletingExpenseId={
-                          deletingExpenseId
-                        }
-                        isExpenseLocked={
-                          isExpenseLocked
-                        }
-                        onEdit={
-                          openEditExpense
-                        }
-                        onDelete={
-                          handleDeleteExpense
-                        }
-                        showType
-                      />
-                    )
-                  }
-
-                </div>
-              )
-            }
-
-          </>
-        )
+              </>
+            )
       }
 
 
@@ -3241,8 +3592,8 @@ export default function ExpensePage() {
                         : expenseForm
                             .expense_type
                           === "OVERHEAD"
-                          ? "This cost belongs to the company-wide overhead pool."
-                          : "General company expense."
+                            ? "This cost belongs to the company-wide overhead pool."
+                            : "General company expense."
                     }
                   </div>
 
@@ -3345,6 +3696,7 @@ export default function ExpensePage() {
                             activeProductionOrders
                               .map(
                                 order => (
+
                                   <option
                                     key={
                                       order.id
@@ -3365,6 +3717,7 @@ export default function ExpensePage() {
                                       order.quantity
                                     }
                                   </option>
+
                                 )
                               )
                           }
@@ -3456,6 +3809,7 @@ export default function ExpensePage() {
                         expenseCategoryOptions
                           .map(
                             item => (
+
                               <option
                                 key={
                                   item
@@ -3466,6 +3820,7 @@ export default function ExpensePage() {
                               >
                                 {item}
                               </option>
+
                             )
                           )
                       }
@@ -3741,6 +4096,8 @@ export default function ExpensePage() {
       ======================================================== */}
 
       {
+        canManageStaff
+        &&
         staffModalOpen
         && (
           <div className="expense-modal-backdrop">
@@ -3780,7 +4137,9 @@ export default function ExpensePage() {
                     closeStaffModal
                   }
                 >
-                  <X size={18} />
+                  <X
+                    size={18}
+                  />
                 </button>
 
               </div>
@@ -4051,6 +4410,7 @@ export default function ExpensePage() {
 
     </div>
   );
+
 }
 
 
@@ -4067,7 +4427,8 @@ function ExpenseTable({
   onDelete,
   showType = false,
 }: {
-  expenses: Expense[];
+  expenses:
+    Expense[];
 
   productionById:
     Map<
@@ -4080,17 +4441,20 @@ function ExpenseTable({
 
   isExpenseLocked:
     (
-      expense: Expense
+      expense:
+        Expense
     ) => boolean;
 
   onEdit:
     (
-      expense: Expense
+      expense:
+        Expense
     ) => void;
 
   onDelete:
     (
-      expense: Expense
+      expense:
+        Expense
     ) => Promise<void>;
 
   showType?:
@@ -4109,6 +4473,7 @@ function ExpenseTable({
               Date
             </th>
 
+
             {
               showType
               && (
@@ -4117,6 +4482,7 @@ function ExpenseTable({
                 </th>
               )
             }
+
 
             <th>
               Category
@@ -4254,26 +4620,26 @@ function ExpenseTable({
 
                       {
                         production
-                        ? (
-                          <div className="expense-production-cell">
+                          ? (
+                              <div className="expense-production-cell">
 
-                            <strong>
-                              {
-                                production
-                                  .production_number
-                              }
-                            </strong>
+                                <strong>
+                                  {
+                                    production
+                                      .production_number
+                                  }
+                                </strong>
 
-                            <span>
-                              {
-                                production
-                                  .product_name
-                              }
-                            </span>
+                                <span>
+                                  {
+                                    production
+                                      .product_name
+                                  }
+                                </span>
 
-                          </div>
-                        )
-                        : "—"
+                              </div>
+                            )
+                          : "—"
                       }
 
                     </td>
@@ -4335,63 +4701,63 @@ function ExpenseTable({
 
                       {
                         locked
-                        ? (
-                          <span className="expense-locked-badge">
-                            Locked
-                          </span>
-                        )
-                        : (
-                          <div className="expense-action-group">
+                          ? (
+                              <span className="expense-locked-badge">
+                                Locked
+                              </span>
+                            )
+                          : (
+                              <div className="expense-action-group">
 
-                            <button
-                              type="button"
-                              className="expense-icon-button edit"
-                              onClick={() =>
-                                onEdit(
-                                  expense
-                                )
-                              }
-                              title="Edit expense"
-                            >
-                              <Edit3
-                                size={14}
-                              />
-                            </button>
+                                <button
+                                  type="button"
+                                  className="expense-icon-button edit"
+                                  onClick={() =>
+                                    onEdit(
+                                      expense
+                                    )
+                                  }
+                                  title="Edit expense"
+                                >
+                                  <Edit3
+                                    size={14}
+                                  />
+                                </button>
 
 
-                            <button
-                              type="button"
-                              className="expense-icon-button delete"
-                              disabled={
-                                deletingExpenseId
-                                === expense.id
-                              }
-                              onClick={() =>
-                                void onDelete(
-                                  expense
-                                )
-                              }
-                              title="Delete expense"
-                            >
-                              {
-                                deletingExpenseId
-                                === expense.id
-                                  ? (
-                                    <Loader2
-                                      size={14}
-                                      className="expense-spin"
-                                    />
-                                  )
-                                  : (
-                                    <Trash2
-                                      size={14}
-                                    />
-                                  )
-                              }
-                            </button>
+                                <button
+                                  type="button"
+                                  className="expense-icon-button delete"
+                                  disabled={
+                                    deletingExpenseId
+                                    === expense.id
+                                  }
+                                  onClick={() =>
+                                    void onDelete(
+                                      expense
+                                    )
+                                  }
+                                  title="Delete expense"
+                                >
+                                  {
+                                    deletingExpenseId
+                                    === expense.id
+                                      ? (
+                                          <Loader2
+                                            size={14}
+                                            className="expense-spin"
+                                          />
+                                        )
+                                      : (
+                                          <Trash2
+                                            size={14}
+                                          />
+                                        )
+                                  }
+                                </button>
 
-                          </div>
-                        )
+                              </div>
+                            )
                       }
 
                     </td>
@@ -4409,4 +4775,5 @@ function ExpenseTable({
 
     </div>
   );
+
 }

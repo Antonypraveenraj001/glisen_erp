@@ -9,11 +9,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    require_role,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.expense import (
@@ -35,15 +35,11 @@ router = APIRouter(
 )
 
 
-EXPENSE_WRITE_ROLES = (
-    "Boss",
-    "Admin",
-    "Accounts",
-)
-
-
 # ================================================================
-# CREATE
+# CREATE EXPENSE
+#
+# Permission:
+#     expenses.create
 # ================================================================
 
 @router.post(
@@ -61,8 +57,8 @@ def create_expense(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *EXPENSE_WRITE_ROLES
+        require_permission(
+            "expenses.create"
         )
     ),
 ):
@@ -93,7 +89,10 @@ def create_expense(
 
 
 # ================================================================
-# LIST
+# LIST EXPENSES
+#
+# Permission:
+#     expenses.view
 # ================================================================
 
 @router.get(
@@ -152,10 +151,8 @@ def get_expenses(
     ),
 
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
-            "Accounts",
+        require_permission(
+            "expenses.view"
         )
     ),
 ):
@@ -210,7 +207,10 @@ def get_expenses(
 
 
 # ================================================================
-# GET ONE
+# GET EXPENSE
+#
+# Permission:
+#     expenses.view
 # ================================================================
 
 @router.get(
@@ -225,10 +225,8 @@ def get_expense(
     ),
 
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
-            "Accounts",
+        require_permission(
+            "expenses.view"
         )
     ),
 ):
@@ -258,7 +256,10 @@ def get_expense(
 
 
 # ================================================================
-# UPDATE
+# UPDATE EXPENSE
+#
+# Permission:
+#     expenses.edit
 # ================================================================
 
 @router.put(
@@ -274,8 +275,8 @@ def update_expense(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *EXPENSE_WRITE_ROLES
+        require_permission(
+            "expenses.edit"
         )
     ),
 ):
@@ -306,7 +307,10 @@ def update_expense(
 
 
 # ================================================================
-# DELETE
+# DELETE EXPENSE
+#
+# Permission:
+#     expenses.delete
 # ================================================================
 
 @router.delete(
@@ -323,8 +327,8 @@ def delete_expense(
     ),
 
     current_user: User = Depends(
-        require_role(
-            *EXPENSE_WRITE_ROLES
+        require_permission(
+            "expenses.delete"
         )
     ),
 ):
