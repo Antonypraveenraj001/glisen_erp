@@ -666,7 +666,13 @@ export default function AppRouter() {
           <Route
             path="/final-billing"
             element={
-              <FinalBillingPage />
+              <PermissionRoute
+                permission="final_billing.view"
+              >
+
+                <FinalBillingPage />
+
+              </PermissionRoute>
             }
           />
 

@@ -309,9 +309,10 @@ def create_proforma(
 # - proformas.view          -> Proforma module
 # - production.start       -> Start Production selector
 # - finished_products.view -> Finished Products linked context
+# - final_billing.view     -> Final Billing Proforma context
 #
-# Finished Products needs the Proforma/customer context without
-# being given access to the Proformas module itself.
+# These modules may read the Proforma list they need for their own
+# workflow without gaining access to the Proformas module itself.
 # ================================================================
 
 @router.get(
@@ -355,6 +356,7 @@ def get_proformas(
             "proformas.view",
             "production.start",
             "finished_products.view",
+            "final_billing.view",
         )
     ),
 ):

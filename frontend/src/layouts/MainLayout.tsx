@@ -144,6 +144,7 @@ export default function MainLayout() {
      Stock             -> stock.view
      Production        -> production.view
      Finished Products -> finished_products.view
+     Final Billing     -> final_billing.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -328,6 +329,9 @@ export default function MainLayout() {
 
         path:
           "/final-billing",
+
+        permission:
+          "final_billing.view",
 
         icon:
           <ReceiptText

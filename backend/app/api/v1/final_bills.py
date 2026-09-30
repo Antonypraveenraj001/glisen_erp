@@ -6,11 +6,13 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
+from app.dependencies.database import (
+    get_db,
 )
-from app.dependencies.database import get_db
+from app.dependencies.permissions import (
+    require_any_permission,
+    require_permission,
+)
 
 from app.models.user import User
 
@@ -44,25 +46,12 @@ router = APIRouter(
 )
 
 
-FINAL_BILL_WRITE_ROLES = (
-    "Boss",
-    "Admin",
-    "Sales",
-    "Accounts",
-)
-
-
-FINAL_BILL_PAYMENT_ROLES = (
-    "Boss",
-    "Admin",
-    "Accounts",
-)
-
-
 # ============================================================
 # CREATE FINAL BILL FROM PROFORMA
+#
+# Permission:
+#     final_billing.create_edit
 # ============================================================
-
 
 @router.post(
     "/from-proforma/{proforma_id}",
@@ -72,10 +61,12 @@ FINAL_BILL_PAYMENT_ROLES = (
 def create_final_bill_from_proforma(
     proforma_id: int,
     data: FinalBillCreateFromProforma,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *FINAL_BILL_WRITE_ROLES
+        require_permission(
+            "final_billing.create_edit"
         )
     ),
 ):
@@ -86,8 +77,12 @@ def create_final_bill_from_proforma(
             .create_from_proforma(
                 db=db,
                 proforma_id=proforma_id,
-                created_by=current_user.id,
-                invoice_date=data.invoice_date,
+                created_by=(
+                    current_user.id
+                ),
+                invoice_date=(
+                    data.invoice_date
+                ),
                 notes=data.notes,
             )
         )
@@ -98,14 +93,27 @@ def create_final_bill_from_proforma(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # GET ALL FINAL BILLS
+#
+# Shared endpoint:
+#
+# Final Billing:
+#     final_billing.view
+#
+# Finished Products:
+#     finished_products.view
+#
+# Finished Products uses this list only to resolve the billing
+# status linked to each manufactured output. That must continue
+# working even when the Final Billing module itself is OFF.
 # ============================================================
-
 
 @router.get(
     "",
@@ -114,9 +122,14 @@ def create_final_bill_from_proforma(
     ],
 )
 def get_all_final_bills(
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_any_permission(
+            "final_billing.view",
+            "finished_products.view",
+        )
     ),
 ):
 
@@ -130,8 +143,10 @@ def get_all_final_bills(
 
 # ============================================================
 # CREATE REVISED FINAL BILL
+#
+# Permission:
+#     final_billing.revision
 # ============================================================
-
 
 @router.post(
     "/{final_bill_id}/revise",
@@ -141,10 +156,12 @@ def get_all_final_bills(
 def create_revised_final_bill(
     final_bill_id: int,
     data: FinalBillRevisionCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *FINAL_BILL_WRITE_ROLES
+        require_permission(
+            "final_billing.revision"
         )
     ),
 ):
@@ -154,9 +171,15 @@ def create_revised_final_bill(
             FinalBillService
             .create_revision(
                 db=db,
-                final_bill_id=final_bill_id,
-                created_by=current_user.id,
-                invoice_date=data.invoice_date,
+                final_bill_id=(
+                    final_bill_id
+                ),
+                created_by=(
+                    current_user.id
+                ),
+                invoice_date=(
+                    data.invoice_date
+                ),
                 notes=data.notes,
             )
         )
@@ -167,14 +190,18 @@ def create_revised_final_bill(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # CREATE CREDIT NOTE
+#
+# Permission:
+#     final_billing.credit_note
 # ============================================================
-
 
 @router.post(
     "/{final_bill_id}/credit-note",
@@ -184,10 +211,12 @@ def create_revised_final_bill(
 def create_credit_note(
     final_bill_id: int,
     data: FinalBillCreditNoteCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *FINAL_BILL_WRITE_ROLES
+        require_permission(
+            "final_billing.credit_note"
         )
     ),
 ):
@@ -197,9 +226,15 @@ def create_credit_note(
             FinalBillService
             .create_credit_note(
                 db=db,
-                final_bill_id=final_bill_id,
-                created_by=current_user.id,
-                invoice_date=data.invoice_date,
+                final_bill_id=(
+                    final_bill_id
+                ),
+                created_by=(
+                    current_user.id
+                ),
+                invoice_date=(
+                    data.invoice_date
+                ),
                 notes=data.notes,
             )
         )
@@ -210,14 +245,18 @@ def create_credit_note(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # PAYMENT SUMMARY
+#
+# Permission:
+#     final_billing.view
 # ============================================================
-
 
 @router.get(
     "/{final_bill_id}/payment-summary",
@@ -227,9 +266,13 @@ def create_credit_note(
 )
 def get_final_bill_payment_summary(
     final_bill_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "final_billing.view"
+        )
     ),
 ):
 
@@ -259,8 +302,10 @@ def get_final_bill_payment_summary(
 
 # ============================================================
 # RECORD CUSTOMER PAYMENT
+#
+# Permission:
+#     final_billing.payment
 # ============================================================
-
 
 @router.post(
     "/{final_bill_id}/payments",
@@ -274,10 +319,12 @@ def get_final_bill_payment_summary(
 def create_final_bill_payment(
     final_bill_id: int,
     payment: FinalBillPaymentCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *FINAL_BILL_PAYMENT_ROLES
+        require_permission(
+            "final_billing.payment"
         )
     ),
 ):
@@ -291,9 +338,7 @@ def create_final_bill_payment(
                 final_bill_id=(
                     final_bill_id
                 ),
-                payment=(
-                    payment
-                ),
+                payment=payment,
                 created_by=(
                     current_user.id
                 ),
@@ -306,14 +351,18 @@ def create_final_bill_payment(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # UPDATE DRAFT FINAL BILL ITEM
+#
+# Permission:
+#     final_billing.create_edit
 # ============================================================
-
 
 @router.put(
     "/{final_bill_id}/items/{item_id}",
@@ -323,10 +372,12 @@ def update_final_bill_item(
     final_bill_id: int,
     item_id: int,
     data: FinalBillItemUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *FINAL_BILL_WRITE_ROLES
+        require_permission(
+            "final_billing.create_edit"
         )
     ),
 ):
@@ -336,7 +387,9 @@ def update_final_bill_item(
             FinalBillService
             .update_draft_item(
                 db=db,
-                final_bill_id=final_bill_id,
+                final_bill_id=(
+                    final_bill_id
+                ),
                 item_id=item_id,
                 data=data,
             )
@@ -348,14 +401,18 @@ def update_final_bill_item(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # ISSUE FINAL BILL
+#
+# Permission:
+#     final_billing.issue
 # ============================================================
-
 
 @router.patch(
     "/{final_bill_id}/issue",
@@ -363,10 +420,12 @@ def update_final_bill_item(
 )
 def issue_final_bill(
     final_bill_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *FINAL_BILL_WRITE_ROLES
+        require_permission(
+            "final_billing.issue"
         )
     ),
 ):
@@ -376,7 +435,9 @@ def issue_final_bill(
             FinalBillService
             .issue_final_bill(
                 db=db,
-                final_bill_id=final_bill_id,
+                final_bill_id=(
+                    final_bill_id
+                ),
             )
         )
 
@@ -386,14 +447,18 @@ def issue_final_bill(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # UPDATE DRAFT FINAL BILL HEADER
+#
+# Permission:
+#     final_billing.create_edit
 # ============================================================
-
 
 @router.put(
     "/{final_bill_id}",
@@ -402,10 +467,12 @@ def issue_final_bill(
 def update_final_bill(
     final_bill_id: int,
     data: FinalBillUpdate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *FINAL_BILL_WRITE_ROLES
+        require_permission(
+            "final_billing.create_edit"
         )
     ),
 ):
@@ -415,7 +482,9 @@ def update_final_bill(
             FinalBillService
             .update_draft(
                 db=db,
-                final_bill_id=final_bill_id,
+                final_bill_id=(
+                    final_bill_id
+                ),
                 data=data,
             )
         )
@@ -426,14 +495,18 @@ def update_final_bill(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # GET FINAL BILL BY ID
+#
+# Permission:
+#     final_billing.view
 # ============================================================
-
 
 @router.get(
     "/{final_bill_id}",
@@ -441,9 +514,13 @@ def update_final_bill(
 )
 def get_final_bill(
     final_bill_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "final_billing.view"
+        )
     ),
 ):
 
