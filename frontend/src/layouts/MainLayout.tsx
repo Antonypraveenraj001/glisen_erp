@@ -140,6 +140,7 @@ export default function MainLayout() {
      Purchase Bills -> purchase_bills.view
      Products       -> products.view
      Suppliers      -> suppliers.view
+     Customers      -> customers.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -256,6 +257,9 @@ export default function MainLayout() {
 
         path:
           "/customers",
+
+        permission:
+          "customers.view",
 
         icon:
           <Users

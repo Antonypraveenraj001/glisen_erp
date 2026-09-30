@@ -8,13 +8,12 @@ from fastapi import (
 
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
-)
-
 from app.dependencies.database import (
     get_db,
+)
+
+from app.dependencies.permissions import (
+    require_permission,
 )
 
 from app.models.user import User
@@ -40,8 +39,10 @@ router = APIRouter(
 #
 # Customers are created automatically from Enquiries.
 # There is intentionally no manual POST /customers endpoint.
+#
+# Permission:
+#     customers.view
 # ============================================================
-
 
 @router.get(
     "",
@@ -61,7 +62,9 @@ def get_customers(
         get_db
     ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "customers.view"
+        )
     ),
 ):
 
@@ -76,8 +79,10 @@ def get_customers(
 
 # ============================================================
 # GET CUSTOMER
+#
+# Permission:
+#     customers.view
 # ============================================================
-
 
 @router.get(
     "/{customer_id}",
@@ -89,7 +94,9 @@ def get_customer(
         get_db
     ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "customers.view"
+        )
     ),
 ):
 
@@ -121,6 +128,9 @@ def get_customer(
 # ============================================================
 # UPDATE CUSTOMER DIRECTORY DETAILS
 #
+# Permission:
+#     customers.edit
+#
 # This endpoint cannot change:
 #
 # - customer_code
@@ -129,7 +139,6 @@ def get_customer(
 #
 # Those identity/workflow fields are not part of CustomerUpdate.
 # ============================================================
-
 
 @router.put(
     "/{customer_id}",
@@ -142,10 +151,8 @@ def update_customer(
         get_db
     ),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
-            "Sales",
+        require_permission(
+            "customers.edit"
         )
     ),
 ):

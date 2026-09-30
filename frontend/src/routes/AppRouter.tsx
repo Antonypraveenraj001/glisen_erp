@@ -588,7 +588,13 @@ export default function AppRouter() {
           <Route
             path="/customers"
             element={
-              <CustomerPage />
+              <PermissionRoute
+                permission="customers.view"
+              >
+
+                <CustomerPage />
+
+              </PermissionRoute>
             }
           />
 
