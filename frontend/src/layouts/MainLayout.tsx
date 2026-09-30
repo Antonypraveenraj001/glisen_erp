@@ -147,6 +147,7 @@ export default function MainLayout() {
      Final Billing     -> final_billing.view
      GST               -> gst.view
      Expenses          -> expenses.view
+     Financial         -> financial.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -382,6 +383,9 @@ export default function MainLayout() {
 
         path:
           "/financial",
+
+        permission:
+          "financial.view",
 
         icon:
           <WalletCards

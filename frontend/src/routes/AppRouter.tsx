@@ -714,7 +714,13 @@ export default function AppRouter() {
           <Route
             path="/financial"
             element={
-              <FinancialAnalyzerPage />
+              <PermissionRoute
+                permission="financial.view"
+              >
+
+                <FinancialAnalyzerPage />
+
+              </PermissionRoute>
             }
           />
 
