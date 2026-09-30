@@ -84,15 +84,6 @@ import SettingsPage
 
 /* ================================================================
    DEFAULT MODULE ORDER
-
-   After login the ERP should not automatically force every user
-   into Dashboard.
-
-   Instead it finds the first module that the role is allowed to
-   access.
-
-   Staff is currently excluded because there is no Staff frontend
-   route in AppRouter yet.
 ================================================================ */
 
 const DEFAULT_MODULE_ROUTES = [
@@ -222,16 +213,6 @@ const DEFAULT_MODULE_ROUTES = [
 
 /* ================================================================
    DEFAULT LANDING ROUTE
-
-   Boss:
-       Dashboard
-
-   Other roles:
-       First permitted ERP module.
-
-   No module access:
-       Show a safe No Module Access screen instead of redirecting
-       the user into a module they are not allowed to use.
 ================================================================ */
 
 function DefaultLandingRoute() {
@@ -406,10 +387,6 @@ export default function AppRouter() {
 
       <Routes>
 
-        {/* =====================================================
-            PUBLIC
-        ====================================================== */}
-
         <Route
           path="/login"
           element={
@@ -417,10 +394,6 @@ export default function AppRouter() {
           }
         />
 
-
-        {/* =====================================================
-            PROTECTED
-        ====================================================== */}
 
         <Route
           element={
@@ -432,10 +405,6 @@ export default function AppRouter() {
           }
         >
 
-          {/* =================================================
-              DEFAULT LANDING
-          ================================================== */}
-
           <Route
             path="/"
             element={
@@ -444,9 +413,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              DASHBOARD
-          ================================================== */}
+          {/* DASHBOARD */}
 
           <Route
             path="/dashboard"
@@ -462,9 +429,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              ENQUIRIES
-          ================================================== */}
+          {/* ENQUIRIES */}
 
           <Route
             path="/enquiries"
@@ -480,9 +445,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              PROFORMAS
-          ================================================== */}
+          {/* PROFORMAS */}
 
           <Route
             path="/proformas"
@@ -530,9 +493,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              PURCHASE BILLS
-          ================================================== */}
+          {/* PURCHASE BILLS */}
 
           <Route
             path="/purchase-bills"
@@ -590,21 +551,23 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              PRODUCTS
-          ================================================== */}
+          {/* PRODUCTS */}
 
           <Route
             path="/products"
             element={
-              <ProductPage />
+              <PermissionRoute
+                permission="products.view"
+              >
+
+                <ProductPage />
+
+              </PermissionRoute>
             }
           />
 
 
-          {/* =================================================
-              SUPPLIERS
-          ================================================== */}
+          {/* SUPPLIERS */}
 
           <Route
             path="/suppliers"
@@ -614,9 +577,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              CUSTOMERS
-          ================================================== */}
+          {/* CUSTOMERS */}
 
           <Route
             path="/customers"
@@ -626,9 +587,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              STOCK
-          ================================================== */}
+          {/* STOCK */}
 
           <Route
             path="/stock"
@@ -638,9 +597,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              PRODUCTION
-          ================================================== */}
+          {/* PRODUCTION */}
 
           <Route
             path="/production"
@@ -650,9 +607,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              FINISHED PRODUCTS
-          ================================================== */}
+          {/* FINISHED PRODUCTS */}
 
           <Route
             path="/finished-products"
@@ -670,9 +625,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              FINAL BILLING
-          ================================================== */}
+          {/* FINAL BILLING */}
 
           <Route
             path="/final-billing"
@@ -682,9 +635,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              GST
-          ================================================== */}
+          {/* GST */}
 
           <Route
             path="/gst"
@@ -694,9 +645,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              EXPENSES
-          ================================================== */}
+          {/* EXPENSES */}
 
           <Route
             path="/expenses"
@@ -706,9 +655,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              FINANCIAL ANALYZER
-          ================================================== */}
+          {/* FINANCIAL */}
 
           <Route
             path="/financial"
@@ -718,9 +665,7 @@ export default function AppRouter() {
           />
 
 
-          {/* =================================================
-              SETTINGS
-          ================================================== */}
+          {/* SETTINGS */}
 
           <Route
             path="/settings"
@@ -731,10 +676,6 @@ export default function AppRouter() {
 
         </Route>
 
-
-        {/* =====================================================
-            404
-        ====================================================== */}
 
         <Route
           path="*"

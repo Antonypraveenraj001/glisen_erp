@@ -138,6 +138,7 @@ export default function MainLayout() {
      Enquiries      -> enquiries.view
      Proformas      -> proformas.view
      Purchase Bills -> purchase_bills.view
+     Products       -> products.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -220,6 +221,9 @@ export default function MainLayout() {
 
         path:
           "/products",
+
+        permission:
+          "products.view",
 
         icon:
           <Package
@@ -437,10 +441,6 @@ export default function MainLayout() {
   return (
     <div className="erp-shell">
 
-      {/* =========================================================
-          SIDEBAR
-      ========================================================== */}
-
       <aside className="erp-sidebar">
 
         <div className="erp-brand">
@@ -499,11 +499,9 @@ export default function MainLayout() {
                   >
 
                     <span className="erp-nav-icon">
-
                       {
                         item.icon
                       }
-
                     </span>
 
 
@@ -546,10 +544,6 @@ export default function MainLayout() {
 
       </aside>
 
-
-      {/* =========================================================
-          MAIN CONTENT
-      ========================================================== */}
 
       <div className="erp-content-shell">
 
