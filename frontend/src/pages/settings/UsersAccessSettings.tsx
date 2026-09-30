@@ -40,6 +40,10 @@ import {
   useAuth,
 } from "../../context/AuthContext";
 
+import {
+  usePermissions,
+} from "../../hooks/usePermissions";
+
 import type {
   CreateManagedUserPayload,
   ManagedRole,
@@ -280,23 +284,38 @@ export default function UsersAccessSettings() {
     useAuth();
 
 
-  const isBoss =
-    currentUser
-      ?.role
-    === "Boss";
+  const {
+    isBoss,
+    hasPermission,
+  } =
+    usePermissions();
 
 
-  const isAdmin =
-    currentUser
-      ?.role
-    === "Admin";
+  /* ==============================================================
+     PERMISSIONS
+  ============================================================== */
+
+  const canViewUsers =
+    hasPermission(
+      "users.view"
+    );
 
 
   const canManageUsers =
-    isBoss
-    ||
-    isAdmin;
+    hasPermission(
+      "users.manage"
+    );
 
+
+  const canManagePermissions =
+    hasPermission(
+      "permissions.manage"
+    );
+
+
+  /* ==============================================================
+     DATA
+  ============================================================== */
 
   const [
     users,
@@ -516,8 +535,16 @@ export default function UsersAccessSettings() {
   async function loadData() {
 
     if (
-      !canManageUsers
+      !canViewUsers
     ) {
+
+      setUsers(
+        []
+      );
+
+      setRoles(
+        []
+      );
 
       setLoading(
         false
@@ -593,16 +620,27 @@ export default function UsersAccessSettings() {
 
       void loadData();
 
+  // Permission changes require a new login in normal ERP use.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
     },
-    []
+    [
+      canViewUsers,
+    ]
   );
 
 
   /* ==============================================================
-     MODAL
+     USER MODAL
   ============================================================== */
 
   function openCreateUser() {
+
+    if (
+      !canManageUsers
+    ) {
+      return;
+    }
+
 
     const firstRole =
       selectableRoles[
@@ -643,6 +681,13 @@ export default function UsersAccessSettings() {
     managedUser:
       ManagedUser
   ) {
+
+    if (
+      !canManageUsers
+    ) {
+      return;
+    }
+
 
     setEditingUser(
       managedUser
@@ -947,7 +992,21 @@ export default function UsersAccessSettings() {
       }
 
 
-      closeUserModal();
+      setUserModalOpen(
+        false
+      );
+
+      setEditingUser(
+        null
+      );
+
+      setUserForm(
+        createEmptyUserForm()
+      );
+
+      setUserFormError(
+        null
+      );
 
 
       await loadData();
@@ -989,6 +1048,13 @@ export default function UsersAccessSettings() {
     managedUser:
       ManagedUser
   ) {
+
+    if (
+      !canManageUsers
+    ) {
+      return;
+    }
+
 
     const nextStatus =
       !managedUser.is_active;
@@ -1083,6 +1149,13 @@ export default function UsersAccessSettings() {
       ManagedUser
   ) {
 
+    if (
+      !canManageUsers
+    ) {
+      return;
+    }
+
+
     setResetUser(
       managedUser
     );
@@ -1135,6 +1208,8 @@ export default function UsersAccessSettings() {
 
 
     if (
+      !canManageUsers
+      ||
       !resetUser
     ) {
       return;
@@ -1198,7 +1273,17 @@ export default function UsersAccessSettings() {
       );
 
 
-      closeResetPassword();
+      setResetUser(
+        null
+      );
+
+      setResetPasswordForm(
+        createEmptyResetPassword()
+      );
+
+      setResetPasswordError(
+        null
+      );
 
 
       setNotice({
@@ -1246,6 +1331,13 @@ export default function UsersAccessSettings() {
   ) {
 
     if (
+      !canManageUsers
+    ) {
+      return false;
+    }
+
+
+    if (
       isBoss
     ) {
       return true;
@@ -1265,7 +1357,7 @@ export default function UsersAccessSettings() {
   ============================================================== */
 
   if (
-    !canManageUsers
+    !canViewUsers
   ) {
 
     return (
@@ -1282,7 +1374,7 @@ export default function UsersAccessSettings() {
           </h2>
 
           <p>
-            Only Boss and Admin users can manage ERP user accounts.
+            You do not have permission to view ERP user accounts.
           </p>
 
         </div>
@@ -1360,21 +1452,27 @@ export default function UsersAccessSettings() {
           </button>
 
 
-          <button
-            type="button"
-            className="settings-security-primary"
-            onClick={
-              openCreateUser
-            }
-          >
+          {
+            canManageUsers
+            &&
+            (
+              <button
+                type="button"
+                className="settings-security-primary"
+                onClick={
+                  openCreateUser
+                }
+              >
 
-            <UserPlus
-              size={15}
-            />
+                <UserPlus
+                  size={15}
+                />
 
-            Add User
+                Add User
 
-          </button>
+              </button>
+            )
+          }
 
         </div>
 
@@ -1407,6 +1505,27 @@ export default function UsersAccessSettings() {
             }
 
             {notice.text}
+
+          </div>
+        )
+      }
+
+
+      {
+        !canManageUsers
+        &&
+        (
+          <div className="settings-security-info-box">
+
+            <strong>
+              Read-only access
+            </strong>
+
+            <span>
+              You can view ERP users and roles, but you cannot
+              create, edit, activate, deactivate or reset
+              another user's password.
+            </span>
 
           </div>
         )
@@ -1513,7 +1632,7 @@ export default function UsersAccessSettings() {
             </h3>
 
             <p>
-              Boss accounts are protected from Admin modification.
+              Boss accounts remain protected from non-Boss modification.
             </p>
 
           </div>
@@ -1549,9 +1668,15 @@ export default function UsersAccessSettings() {
                   LAST LOGIN
                 </th>
 
-                <th>
-                  ACTION
-                </th>
+                {
+                  canManageUsers
+                  &&
+                  (
+                    <th>
+                      ACTION
+                    </th>
+                  )
+                }
 
               </tr>
 
@@ -1587,6 +1712,7 @@ export default function UsersAccessSettings() {
                           <div className="settings-user-name-cell">
 
                             <div className="settings-user-avatar-small">
+
                               {
                                 managedUser.full_name
                                   .trim()
@@ -1596,6 +1722,7 @@ export default function UsersAccessSettings() {
                                   )
                                   .toUpperCase()
                               }
+
                             </div>
 
 
@@ -1606,6 +1733,7 @@ export default function UsersAccessSettings() {
                               </strong>
 
                               <span>
+
                                 {
                                   isCurrent
                                     ? "Current user"
@@ -1613,6 +1741,7 @@ export default function UsersAccessSettings() {
                                         managedUser.created_at
                                       )}`
                                 }
+
                               </span>
 
                             </div>
@@ -1683,112 +1812,120 @@ export default function UsersAccessSettings() {
 
 
                         <td>
+
                           {
                             formatDateTime(
                               managedUser.last_login
                             )
                           }
-                        </td>
-
-
-                        <td>
-
-                          <div className="settings-user-actions">
-
-                            <button
-                              type="button"
-                              title="Edit user"
-                              disabled={
-                                !manageable
-                              }
-                              onClick={
-                                () =>
-                                  openEditUser(
-                                    managedUser
-                                  )
-                              }
-                            >
-
-                              <Edit3
-                                size={14}
-                              />
-
-                            </button>
-
-
-                            <button
-                              type="button"
-                              title="Reset password"
-                              disabled={
-                                !manageable
-                                ||
-                                isCurrent
-                              }
-                              onClick={
-                                () =>
-                                  openResetPassword(
-                                    managedUser
-                                  )
-                              }
-                            >
-
-                              <KeyRound
-                                size={14}
-                              />
-
-                            </button>
-
-
-                            <button
-                              type="button"
-                              title={
-                                managedUser.is_active
-                                  ? "Deactivate user"
-                                  : "Activate user"
-                              }
-                              disabled={
-                                !manageable
-                                ||
-                                isCurrent
-                                ||
-                                changingStatusUserId
-                                === managedUser.id
-                              }
-                              onClick={
-                                () =>
-                                  void toggleUserStatus(
-                                    managedUser
-                                  )
-                              }
-                            >
-
-                              {
-                                changingStatusUserId
-                                === managedUser.id
-                                  ? (
-                                      <Loader2
-                                        size={14}
-                                        className="settings-security-spin"
-                                      />
-                                    )
-                                  : managedUser.is_active
-                                    ? (
-                                        <Power
-                                          size={14}
-                                        />
-                                      )
-                                    : (
-                                        <UserCheck
-                                          size={14}
-                                        />
-                                      )
-                              }
-
-                            </button>
-
-                          </div>
 
                         </td>
+
+
+                        {
+                          canManageUsers
+                          &&
+                          (
+                            <td>
+
+                              <div className="settings-user-actions">
+
+                                <button
+                                  type="button"
+                                  title="Edit user"
+                                  disabled={
+                                    !manageable
+                                  }
+                                  onClick={
+                                    () =>
+                                      openEditUser(
+                                        managedUser
+                                      )
+                                  }
+                                >
+
+                                  <Edit3
+                                    size={14}
+                                  />
+
+                                </button>
+
+
+                                <button
+                                  type="button"
+                                  title="Reset password"
+                                  disabled={
+                                    !manageable
+                                    ||
+                                    isCurrent
+                                  }
+                                  onClick={
+                                    () =>
+                                      openResetPassword(
+                                        managedUser
+                                      )
+                                  }
+                                >
+
+                                  <KeyRound
+                                    size={14}
+                                  />
+
+                                </button>
+
+
+                                <button
+                                  type="button"
+                                  title={
+                                    managedUser.is_active
+                                      ? "Deactivate user"
+                                      : "Activate user"
+                                  }
+                                  disabled={
+                                    !manageable
+                                    ||
+                                    isCurrent
+                                    ||
+                                    changingStatusUserId
+                                    === managedUser.id
+                                  }
+                                  onClick={
+                                    () =>
+                                      void toggleUserStatus(
+                                        managedUser
+                                      )
+                                  }
+                                >
+
+                                  {
+                                    changingStatusUserId
+                                    === managedUser.id
+                                      ? (
+                                          <Loader2
+                                            size={14}
+                                            className="settings-security-spin"
+                                          />
+                                        )
+                                      : managedUser.is_active
+                                        ? (
+                                            <Power
+                                              size={14}
+                                            />
+                                          )
+                                        : (
+                                            <UserCheck
+                                              size={14}
+                                            />
+                                          )
+                                  }
+
+                                </button>
+
+                              </div>
+
+                            </td>
+                          )
+                        }
 
                       </tr>
                     );
@@ -1855,12 +1992,15 @@ export default function UsersAccessSettings() {
                   </strong>
 
                   <span>
+
                     {
                       role.description
                       ||
                       `${role.name} Role`
                     }
+
                   </span>
+
 
                   {
                     role.name
@@ -1888,23 +2028,21 @@ export default function UsersAccessSettings() {
           </strong>
 
           <span>
-            The roles and user accounts are now managed here.
-            The next access-control stage will connect the existing
-            permission table to every ERP module before exposing
-            editable role permissions. We will not display a fake
-            permission matrix that only controls part of the app.
+            Module access is stored as granular backend permissions.
+            Only the Boss can change role-module permission assignments.
           </span>
 
         </div>
 
       </section>
 
+
       {/* =========================================================
           ROLE PERMISSION MATRIX
       ========================================================== */}
 
       {
-        isBoss
+        canManagePermissions
         &&
         (
           <RolePermissionMatrix />
@@ -1918,6 +2056,8 @@ export default function UsersAccessSettings() {
 
       {
         userModalOpen
+        &&
+        canManageUsers
         &&
         (
           <div className="settings-security-modal-backdrop">
@@ -1933,19 +2073,23 @@ export default function UsersAccessSettings() {
                   </span>
 
                   <h3>
+
                     {
                       editingUser
                         ? "Edit User"
                         : "Create User"
                     }
+
                   </h3>
 
                   <p>
+
                     {
                       editingUser
                         ? "Update account identity and assigned role."
                         : "Create a new account for Glisen ERP."
                     }
+
                   </p>
 
                 </div>
@@ -2089,6 +2233,7 @@ export default function UsersAccessSettings() {
                         Select Role
                       </option>
 
+
                       {
                         selectableRoles.map(
                           role => (
@@ -2100,7 +2245,9 @@ export default function UsersAccessSettings() {
                                 role.id
                               }
                             >
+
                               {role.name}
+
                             </option>
                           )
                         )
@@ -2236,6 +2383,7 @@ export default function UsersAccessSettings() {
                           )
                     }
 
+
                     {
                       editingUser
                         ? "Save User"
@@ -2261,6 +2409,8 @@ export default function UsersAccessSettings() {
 
       {
         resetUser
+        &&
+        canManageUsers
         &&
         (
           <div className="settings-security-modal-backdrop">

@@ -6,11 +6,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    require_role,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.role_permissions import (
@@ -32,9 +32,12 @@ router = APIRouter(
 
 
 # ================================================================
-# GET MATRIX
+# GET PERMISSION MATRIX
 #
-# Boss only.
+# Permission:
+#     permissions.manage
+#
+# This permission is Boss-only in the permission catalogue.
 # ================================================================
 
 @router.get(
@@ -47,9 +50,10 @@ def get_permission_matrix(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
+        require_permission(
+            "permissions.manage"
         )
     ),
 ):
@@ -63,9 +67,12 @@ def get_permission_matrix(
 
 
 # ================================================================
-# UPDATE ONE ROLE
+# UPDATE ROLE PERMISSIONS
 #
-# Boss only.
+# Permission:
+#     permissions.manage
+#
+# This permission is Boss-only in the permission catalogue.
 # ================================================================
 
 @router.put(
@@ -76,14 +83,17 @@ def get_permission_matrix(
 )
 def update_role_permissions(
     role_id: int,
+
     data:
         UpdateRolePermissionsRequest,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
+        require_permission(
+            "permissions.manage"
         )
     ),
 ):
@@ -94,7 +104,9 @@ def update_role_permissions(
             RolePermissionService
             .update_role_permissions(
                 db=db,
-                role_id=role_id,
+                role_id=(
+                    role_id
+                ),
                 permission_ids=(
                     data.permission_ids
                 ),

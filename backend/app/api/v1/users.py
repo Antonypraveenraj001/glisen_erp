@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.dependencies.auth import (
     get_current_user,
-    require_role,
 )
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import (
     User,
@@ -38,6 +40,9 @@ router = APIRouter(
 
 # ================================================================
 # CURRENT USER
+#
+# Every authenticated user must be able to retrieve their own
+# profile. This endpoint is not tied to Settings permissions.
 # ================================================================
 
 @router.get(
@@ -55,6 +60,12 @@ def get_current_user_profile(
 
 # ================================================================
 # ROLES
+#
+# Permission:
+#     users.view
+#
+# The role list is needed by Users & Access when displaying
+# existing users and assigning roles.
 # ================================================================
 
 @router.get(
@@ -67,10 +78,10 @@ def list_roles(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "users.view"
         )
     ),
 ):
@@ -85,6 +96,9 @@ def list_roles(
 
 # ================================================================
 # LIST USERS
+#
+# Permission:
+#     users.view
 # ================================================================
 
 @router.get(
@@ -104,10 +118,10 @@ def list_users(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "users.view"
         )
     ),
 ):
@@ -122,6 +136,12 @@ def list_users(
 
 # ================================================================
 # CREATE USER
+#
+# Permission:
+#     users.manage
+#
+# Additional account protections are enforced inside
+# UserManagementService.
 # ================================================================
 
 @router.post(
@@ -133,13 +153,14 @@ def list_users(
 )
 def create_user(
     data: CreateUser,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "users.manage"
         )
     ),
 ):
@@ -191,6 +212,15 @@ def create_user(
 
 # ================================================================
 # UPDATE USER
+#
+# Permission:
+#     users.manage
+#
+# UserManagementService continues to protect:
+#     - Boss accounts
+#     - the final active Boss
+#     - self-role changes
+#     - other restricted account operations
 # ================================================================
 
 @router.put(
@@ -200,13 +230,14 @@ def create_user(
 def update_user(
     user_id: int,
     data: UpdateUser,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "users.manage"
         )
     ),
 ):
@@ -258,7 +289,13 @@ def update_user(
 
 
 # ================================================================
-# ACTIVATE / DEACTIVATE
+# ACTIVATE / DEACTIVATE USER
+#
+# Permission:
+#     users.manage
+#
+# Service-level protections remain authoritative for protected
+# accounts and self-deactivation.
 # ================================================================
 
 @router.patch(
@@ -268,13 +305,14 @@ def update_user(
 def update_user_status(
     user_id: int,
     data: UserStatusUpdate,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "users.manage"
         )
     ),
 ):

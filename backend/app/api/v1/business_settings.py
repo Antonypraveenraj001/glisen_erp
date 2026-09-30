@@ -4,12 +4,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.business_settings import (
@@ -29,6 +28,16 @@ router = APIRouter(
 )
 
 
+# ================================================================
+# GET BUSINESS SETTINGS
+#
+# Permission:
+#     settings.view
+#
+# Reading these values is allowed to users who can open Settings.
+# Modification remains Boss-only.
+# ================================================================
+
 @router.get(
     "",
     response_model=(
@@ -39,10 +48,14 @@ def get_business_settings(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "settings.view"
+        )
     ),
 ):
+
     return (
         BusinessSettingsService
         .get_or_create(
@@ -50,6 +63,17 @@ def get_business_settings(
         )
     )
 
+
+# ================================================================
+# UPDATE BUSINESS SETTINGS
+#
+# Permission:
+#     settings.business.manage
+#
+# This permission is marked boss_only in the permission catalogue.
+# It cannot be assigned to normal roles through the permission
+# matrix.
+# ================================================================
 
 @router.put(
     "",
@@ -59,15 +83,18 @@ def get_business_settings(
 )
 def update_business_settings(
     data: BusinessSettingsUpdate,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
+        require_permission(
+            "settings.business.manage"
         )
     ),
 ):
+
     return (
         BusinessSettingsService
         .update(

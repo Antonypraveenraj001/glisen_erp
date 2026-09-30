@@ -8,10 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.dependencies.auth import (
     get_current_user,
-    require_role,
 )
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import (
     User,
@@ -36,6 +38,10 @@ router = APIRouter(
 
 # ================================================================
 # CHANGE MY PASSWORD
+#
+# Every authenticated user may change their own password.
+#
+# This must NOT depend on Settings or Users & Access permissions.
 # ================================================================
 
 @router.post(
@@ -46,9 +52,11 @@ router = APIRouter(
 )
 def change_password(
     data: ChangePasswordRequest,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
         get_current_user
     ),
@@ -93,6 +101,12 @@ def change_password(
 
 # ================================================================
 # RESET ANOTHER USER PASSWORD
+#
+# Permission:
+#     users.manage
+#
+# SecurityService continues to enforce additional protections,
+# including restrictions around protected Boss accounts.
 # ================================================================
 
 @router.post(
@@ -104,13 +118,14 @@ def change_password(
 def reset_user_password(
     user_id: int,
     data: ResetPasswordRequest,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "users.manage"
         )
     ),
 ):

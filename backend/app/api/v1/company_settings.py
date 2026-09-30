@@ -13,12 +13,11 @@ from fastapi.responses import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.company_settings import (
@@ -39,6 +38,13 @@ router = APIRouter(
 )
 
 
+# ================================================================
+# CREATE COMPANY SETTINGS
+#
+# Permission:
+#     settings.company.manage
+# ================================================================
+
 @router.post(
     "",
     response_model=(
@@ -50,17 +56,20 @@ router = APIRouter(
 )
 def create_company_settings(
     data: CompanySettingsCreate,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "settings.company.manage"
         )
     ),
 ):
+
     try:
+
         return (
             CompanySettingsService
             .create(
@@ -70,6 +79,7 @@ def create_company_settings(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -79,6 +89,13 @@ def create_company_settings(
             ),
         ) from exc
 
+
+# ================================================================
+# GET COMPANY SETTINGS
+#
+# Permission:
+#     settings.view
+# ================================================================
 
 @router.get(
     "",
@@ -90,10 +107,14 @@ def get_company_settings(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "settings.view"
+        )
     ),
 ):
+
     company_settings = (
         CompanySettingsService
         .get(
@@ -101,10 +122,12 @@ def get_company_settings(
         )
     )
 
+
     if (
         company_settings
         is None
     ):
+
         raise HTTPException(
             status_code=(
                 status.HTTP_404_NOT_FOUND
@@ -115,8 +138,16 @@ def get_company_settings(
             ),
         )
 
+
     return company_settings
 
+
+# ================================================================
+# UPDATE COMPANY SETTINGS
+#
+# Permission:
+#     settings.company.manage
+# ================================================================
 
 @router.put(
     "",
@@ -126,17 +157,20 @@ def get_company_settings(
 )
 def update_company_settings(
     data: CompanySettingsUpdate,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "settings.company.manage"
         )
     ),
 ):
+
     try:
+
         return (
             CompanySettingsService
             .update(
@@ -146,6 +180,7 @@ def update_company_settings(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -156,6 +191,13 @@ def update_company_settings(
         ) from exc
 
 
+# ================================================================
+# UPLOAD COMPANY LOGO
+#
+# Permission:
+#     settings.company.manage
+# ================================================================
+
 @router.post(
     "/logo",
     response_model=(
@@ -164,17 +206,20 @@ def update_company_settings(
 )
 async def upload_company_logo(
     file: UploadFile = File(...),
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "settings.company.manage"
         )
     ),
 ):
+
     try:
+
         content = await file.read(
             (
                 CompanySettingsService
@@ -182,6 +227,7 @@ async def upload_company_logo(
             )
             + 1
         )
+
 
         return (
             CompanySettingsService
@@ -196,6 +242,7 @@ async def upload_company_logo(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
@@ -206,8 +253,16 @@ async def upload_company_logo(
         ) from exc
 
     finally:
+
         await file.close()
 
+
+# ================================================================
+# GET COMPANY LOGO
+#
+# Permission:
+#     settings.view
+# ================================================================
 
 @router.get(
     "/logo",
@@ -216,10 +271,14 @@ def get_company_logo(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "settings.view"
+        )
     ),
 ):
+
     company_settings = (
         CompanySettingsService
         .get(
@@ -227,10 +286,12 @@ def get_company_logo(
         )
     )
 
+
     if (
         company_settings
         is None
     ):
+
         raise HTTPException(
             status_code=(
                 status.HTTP_404_NOT_FOUND
@@ -241,6 +302,7 @@ def get_company_logo(
             ),
         )
 
+
     logo_path = (
         CompanySettingsService
         .resolve_logo_path(
@@ -248,7 +310,12 @@ def get_company_logo(
         )
     )
 
-    if logo_path is None:
+
+    if (
+        logo_path
+        is None
+    ):
+
         raise HTTPException(
             status_code=(
                 status.HTTP_404_NOT_FOUND
@@ -258,6 +325,7 @@ def get_company_logo(
             ),
         )
 
+
     media_type = (
         mimetypes.guess_type(
             logo_path.name
@@ -266,12 +334,20 @@ def get_company_logo(
         "application/octet-stream"
     )
 
+
     return FileResponse(
         path=logo_path,
         media_type=media_type,
         filename=logo_path.name,
     )
 
+
+# ================================================================
+# DELETE COMPANY LOGO
+#
+# Permission:
+#     settings.company.manage
+# ================================================================
 
 @router.delete(
     "/logo",
@@ -283,14 +359,16 @@ def delete_company_logo(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "settings.company.manage"
         )
     ),
 ):
+
     try:
+
         return (
             CompanySettingsService
             .delete_logo(
@@ -299,6 +377,7 @@ def delete_company_logo(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST

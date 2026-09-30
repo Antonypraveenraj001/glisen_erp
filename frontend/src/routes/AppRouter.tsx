@@ -730,7 +730,13 @@ export default function AppRouter() {
           <Route
             path="/settings"
             element={
-              <SettingsPage />
+              <PermissionRoute
+                permission="settings.view"
+              >
+
+                <SettingsPage />
+
+              </PermissionRoute>
             }
           />
 

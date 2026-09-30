@@ -148,8 +148,7 @@ export default function MainLayout() {
      GST               -> gst.view
      Expenses          -> expenses.view
      Financial         -> financial.view
-
-     Remaining modules will be connected one by one.
+     Settings          -> settings.view
   ============================================================== */
 
   const menuItems:
@@ -400,6 +399,9 @@ export default function MainLayout() {
 
         path:
           "/settings",
+
+        permission:
+          "settings.view",
 
         icon:
           <Settings

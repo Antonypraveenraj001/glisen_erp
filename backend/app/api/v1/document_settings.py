@@ -4,12 +4,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.document_settings import (
@@ -29,6 +28,13 @@ router = APIRouter(
 )
 
 
+# ================================================================
+# GET DOCUMENT SETTINGS
+#
+# Permission:
+#     settings.view
+# ================================================================
+
 @router.get(
     "",
     response_model=(
@@ -39,10 +45,14 @@ def get_document_settings(
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "settings.view"
+        )
     ),
 ):
+
     return (
         DocumentSettingsService
         .get_or_create(
@@ -50,6 +60,13 @@ def get_document_settings(
         )
     )
 
+
+# ================================================================
+# UPDATE DOCUMENT SETTINGS
+#
+# Permission:
+#     settings.documents.manage
+# ================================================================
 
 @router.put(
     "",
@@ -59,16 +76,18 @@ def get_document_settings(
 )
 def update_document_settings(
     data: DocumentSettingsUpdate,
+
     db: Session = Depends(
         get_db
     ),
+
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Admin",
+        require_permission(
+            "settings.documents.manage"
         )
     ),
 ):
+
     return (
         DocumentSettingsService
         .update(

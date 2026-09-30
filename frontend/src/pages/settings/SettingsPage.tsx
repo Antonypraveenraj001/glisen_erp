@@ -52,6 +52,11 @@ import {
   useAuth,
 } from "../../context/AuthContext";
 
+import {
+  usePermissions,
+} from "../../hooks/usePermissions";
+
+
 import type {
   BusinessSettings,
   BusinessSettingsPayload,
@@ -717,15 +722,46 @@ export default function SettingsPage() {
      PERMISSIONS
   ============================================================== */
 
+  const {
+    hasPermission,
+  } =
+    usePermissions();
+
+
   const canManageCompany =
-    user?.role === "Boss"
-    ||
-    user?.role === "Admin";
+    hasPermission(
+      "settings.company.manage"
+    );
 
 
-  const isBoss =
-    user?.role === "Boss";
+  const canManageDocuments =
+    hasPermission(
+      "settings.documents.manage"
+    );
 
+
+  const canManageBusiness =
+    hasPermission(
+      "settings.business.manage"
+    );
+
+
+  const canViewUsers =
+    hasPermission(
+      "users.view"
+    );
+
+
+  const canViewBackup =
+    hasPermission(
+      "backup.view"
+    );
+
+
+  const canViewFinancialYear =
+    hasPermission(
+      "financial_year.view"
+    );
 
   /* ==============================================================
      LOGO REFRESH
@@ -1450,7 +1486,7 @@ export default function SettingsPage() {
   async function handleSaveDocuments() {
 
     if (
-      !canManageCompany
+      !canManageDocuments
     ) {
       return;
     }
@@ -1679,7 +1715,7 @@ export default function SettingsPage() {
   async function handleSaveBusiness() {
 
     if (
-      !isBoss
+      !canManageBusiness
     ) {
       return;
     }
@@ -2100,61 +2136,73 @@ export default function SettingsPage() {
           </button>
 
 
-          <button
-            type="button"
-            className={
-              activeTab
-              === "business"
-                ? "active"
-                : ""
-            }
-            onClick={
-              () =>
-                setActiveTab(
-                  "business"
-                )
-            }
-          >
+          {
+            canManageBusiness
+            &&
+            (
+              <button
+                type="button"
+                className={
+                  activeTab
+                  === "business"
+                    ? "active"
+                    : ""
+                }
+                onClick={
+                  () =>
+                    setActiveTab(
+                      "business"
+                    )
+                }
+              >
 
-            <SlidersHorizontal
-              size={17}
-            />
+                <SlidersHorizontal
+                  size={17}
+                />
 
-            <span>
-              Business & Numbering
-            </span>
+                <span>
+                  Business & Numbering
+                </span>
 
-          </button>
+              </button>
+            )
+          }
 
 
           <div className="settings-nav-divider" />
 
 
-          <button
-            type="button"
-            className={
-              activeTab
-              === "users"
-                ? "active"
-                : ""
-            }
-            onClick={
-              () =>
-                setActiveTab(
-                  "users"
-                )
-            }
-          >
+          {
+            canViewUsers
+            &&
+            (
+              <button
+                type="button"
+                className={
+                  activeTab
+                  === "users"
+                    ? "active"
+                    : ""
+                }
+                onClick={
+                  () =>
+                    setActiveTab(
+                      "users"
+                    )
+                }
+              >
 
-            <Users
-              size={17}
-            />
+                <Users
+                  size={17}
+                />
 
-            <span>
-              Users & Access
-            </span>
+                <span>
+                  Users & Access
+                </span>
 
-          </button>
+              </button>
+            )
+          }
 
 
           <button
@@ -2184,60 +2232,72 @@ export default function SettingsPage() {
           </button>
 
 
-          <button
-            type="button"
-            className={
-              activeTab
-              === "backup"
-                ? "active"
-                : ""
-            }
-            onClick={
-              () =>
-                setActiveTab(
-                  "backup"
-                )
-            }
-          >
+          {
+            canViewBackup
+            &&
+            (
+              <button
+                type="button"
+                className={
+                  activeTab
+                  === "backup"
+                    ? "active"
+                    : ""
+                }
+                onClick={
+                  () =>
+                    setActiveTab(
+                      "backup"
+                    )
+                }
+              >
 
-            <Database
-              size={17}
-            />
+                <Database
+                  size={17}
+                />
 
-            <span>
-              Backup & Recovery
-            </span>
+                <span>
+                  Backup & Recovery
+                </span>
 
-          </button>
+              </button>
+            )
+          }
 
 
-          <button
-            type="button"
-            className={
-              activeTab
-              === "financial-year"
-                ? "active"
-                : ""
-            }
-            onClick={
-              () =>
-                setActiveTab(
-                  "financial-year"
-                )
-            }
-          >
+          {
+            canViewFinancialYear
+            &&
+            (
+              <button
+                type="button"
+                className={
+                  activeTab
+                  === "financial-year"
+                    ? "active"
+                    : ""
+                }
+                onClick={
+                  () =>
+                    setActiveTab(
+                      "financial-year"
+                    )
+                }
+              >
 
-            <CalendarDays
-              size={17}
-            />
+                <CalendarDays
+                  size={17}
+                />
 
-            <span>
-              Financial Year
-            </span>
+                <span>
+                  Financial Year
+                </span>
 
-          </button>
+              </button>
+            )
+          }
 
-        </aside>
+        </aside> 
 
 
         {/* =======================================================
@@ -3018,7 +3078,7 @@ export default function SettingsPage() {
 
 
                   {
-                    !canManageCompany
+                    !canManageDocuments
                     &&
                     (
                       <span className="settings-readonly-badge">
@@ -3075,7 +3135,7 @@ export default function SettingsPage() {
                         type="radio"
                         name="print-mode"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.default_print_mode
@@ -3121,7 +3181,7 @@ export default function SettingsPage() {
                         type="radio"
                         name="print-mode"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.default_print_mode
@@ -3168,7 +3228,7 @@ export default function SettingsPage() {
                         max="100"
                         step="1"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         value={
                           documentForm.letterhead_top_space_mm
@@ -3239,7 +3299,7 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.show_logo
@@ -3273,7 +3333,7 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.show_gst_number
@@ -3307,7 +3367,7 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.show_contact_details
@@ -3341,7 +3401,7 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.show_bank_details_on_proforma
@@ -3375,7 +3435,7 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.show_bank_details_on_final_bill
@@ -3409,7 +3469,7 @@ export default function SettingsPage() {
                       <input
                         type="checkbox"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         checked={
                           documentForm.show_authorized_signature
@@ -3438,7 +3498,7 @@ export default function SettingsPage() {
 
                       <input
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                           ||
                           !documentForm.show_authorized_signature
                         }
@@ -3465,7 +3525,7 @@ export default function SettingsPage() {
 
                       <input
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                           ||
                           !documentForm.show_authorized_signature
                         }
@@ -3492,7 +3552,7 @@ export default function SettingsPage() {
 
                       <textarea
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         value={
                           documentForm.footer_text
@@ -3554,7 +3614,7 @@ export default function SettingsPage() {
                         type="number"
                         min="1"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         value={
                           documentForm.proforma_validity_days
@@ -3579,7 +3639,7 @@ export default function SettingsPage() {
 
                       <textarea
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         value={
                           documentForm.proforma_payment_terms
@@ -3604,7 +3664,7 @@ export default function SettingsPage() {
 
                       <textarea
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         value={
                           documentForm.proforma_delivery_terms
@@ -3630,7 +3690,7 @@ export default function SettingsPage() {
                       <textarea
                         className="settings-large-textarea"
                         disabled={
-                          !canManageCompany
+                          !canManageDocuments
                         }
                         value={
                           documentForm.proforma_terms_and_conditions
@@ -3652,7 +3712,7 @@ export default function SettingsPage() {
 
 
                 {
-                  canManageCompany
+                  canManageDocuments
                   &&
                   (
                     <div className="settings-save-bar">
@@ -3718,6 +3778,8 @@ export default function SettingsPage() {
             activeTab
             === "business"
             &&
+            canManageBusiness
+            &&
             (
               <>
 
@@ -3736,15 +3798,7 @@ export default function SettingsPage() {
                   </div>
 
 
-                  {
-                    !isBoss
-                    &&
-                    (
-                      <span className="settings-readonly-badge">
-                        Boss only
-                      </span>
-                    )
-                  }
+                  
 
                 </div>
 
@@ -3789,7 +3843,7 @@ export default function SettingsPage() {
                           businessForm.currency_code
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         maxLength={3}
                         onChange={
@@ -3815,7 +3869,7 @@ export default function SettingsPage() {
                           businessForm.timezone
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -3844,7 +3898,7 @@ export default function SettingsPage() {
                           businessForm.default_gst_percent
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -3872,7 +3926,7 @@ export default function SettingsPage() {
                           businessForm.default_page_size
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4012,7 +4066,7 @@ export default function SettingsPage() {
                           businessForm.enquiry_prefix
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4043,7 +4097,7 @@ export default function SettingsPage() {
                           businessForm.proforma_prefix
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4074,7 +4128,7 @@ export default function SettingsPage() {
                           businessForm.production_prefix
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4099,7 +4153,7 @@ export default function SettingsPage() {
                           businessForm.finished_goods_receipt_prefix
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4124,7 +4178,7 @@ export default function SettingsPage() {
                           businessForm.invoice_prefix
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4149,7 +4203,7 @@ export default function SettingsPage() {
                           businessForm.credit_note_prefix
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4177,7 +4231,7 @@ export default function SettingsPage() {
                           businessForm.sequence_digits
                         }
                         disabled={
-                          !isBoss
+                          !canManageBusiness
                         }
                         onChange={
                           event =>
@@ -4210,7 +4264,7 @@ export default function SettingsPage() {
 
 
                 {
-                  isBoss
+                  canManageBusiness
                   &&
                   (
                     <div className="settings-save-bar">
@@ -4278,16 +4332,18 @@ export default function SettingsPage() {
           }
 
 
-          {/* =====================================================
-              FUTURE SECTIONS ALREADY FIXED IN FINAL STRUCTURE
+                    {/* =====================================================
+              SETTINGS SUB-SECTIONS
           ====================================================== */}
 
-          {
+{
             activeTab
             === "users"
             &&
+            canViewUsers
+            &&
             (
-             <UsersAccessSettings />
+              <UsersAccessSettings />
             )
           }
 
@@ -4305,6 +4361,8 @@ export default function SettingsPage() {
           {
             activeTab
             === "backup"
+            &&
+            canViewBackup
             &&
             (
               <SettingsStagePlaceholder
@@ -4324,6 +4382,8 @@ export default function SettingsPage() {
           {
             activeTab
             === "financial-year"
+            &&
+            canViewFinancialYear
             &&
             (
               <SettingsStagePlaceholder
