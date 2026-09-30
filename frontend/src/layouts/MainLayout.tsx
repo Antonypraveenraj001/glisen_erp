@@ -141,6 +141,7 @@ export default function MainLayout() {
      Products       -> products.view
      Suppliers      -> suppliers.view
      Customers      -> customers.view
+     Stock          -> stock.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -274,6 +275,9 @@ export default function MainLayout() {
 
         path:
           "/stock",
+
+        permission:
+          "stock.view",
 
         icon:
           <Boxes

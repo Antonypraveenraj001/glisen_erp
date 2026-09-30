@@ -604,7 +604,13 @@ export default function AppRouter() {
           <Route
             path="/stock"
             element={
-              <StockPage />
+              <PermissionRoute
+                permission="stock.view"
+              >
+
+                <StockPage />
+
+              </PermissionRoute>
             }
           />
 

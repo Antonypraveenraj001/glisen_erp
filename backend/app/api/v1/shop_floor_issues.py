@@ -6,11 +6,12 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
+from app.dependencies.database import (
+    get_db,
 )
-from app.dependencies.database import get_db
+from app.dependencies.permissions import (
+    require_permission,
+)
 from app.models.user import User
 from app.schemas.shop_floor_issue import (
     ShopFloorIssueCreate,
@@ -28,18 +29,12 @@ router = APIRouter(
 )
 
 
-SHOP_FLOOR_ISSUE_ROLES = (
-    "Boss",
-    "Admin",
-    "Production",
-    "Store",
-)
-
-
 # ============================================================
 # CREATE ISSUE
+#
+# Permission:
+#     stock.issue
 # ============================================================
-
 
 @router.post(
     "/orders/{production_order_id}",
@@ -49,18 +44,23 @@ SHOP_FLOOR_ISSUE_ROLES = (
 def issue_material_to_shop_floor(
     production_order_id: int,
     issue_data: ShopFloorIssueCreate,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        require_role(
-            *SHOP_FLOOR_ISSUE_ROLES
+        require_permission(
+            "stock.issue"
         )
     ),
 ):
-    service = ShopFloorIssueService(
-        db
+    service = (
+        ShopFloorIssueService(
+            db
+        )
     )
 
     try:
+
         return service.issue_material(
             production_order_id=(
                 production_order_id
@@ -70,18 +70,23 @@ def issue_material_to_shop_floor(
         )
 
     except ValueError as exc:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_400_BAD_REQUEST
             ),
-            detail=str(exc),
+            detail=str(
+                exc
+            ),
         )
 
 
 # ============================================================
 # LIST ALL
+#
+# Permission:
+#     stock.view
 # ============================================================
-
 
 @router.get(
     "",
@@ -90,22 +95,33 @@ def issue_material_to_shop_floor(
     ],
 )
 def get_shop_floor_issues(
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
-    service = ShopFloorIssueService(
-        db
+    service = (
+        ShopFloorIssueService(
+            db
+        )
     )
 
-    return service.get_all_issues()
+    return (
+        service
+        .get_all_issues()
+    )
 
 
 # ============================================================
-# STATIC LOOKUPS
+# GET BY ISSUE NUMBER
+#
+# Permission:
+#     stock.view
 # ============================================================
-
 
 @router.get(
     "/number/{issue_number}",
@@ -113,22 +129,30 @@ def get_shop_floor_issues(
 )
 def get_shop_floor_issue_by_number(
     issue_number: str,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
-    service = ShopFloorIssueService(
-        db
+    service = (
+        ShopFloorIssueService(
+            db
+        )
     )
 
     issue = (
-        service.get_issue_by_number(
+        service
+        .get_issue_by_number(
             issue_number
         )
     )
 
     if issue is None:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_404_NOT_FOUND
@@ -141,6 +165,13 @@ def get_shop_floor_issue_by_number(
     return issue
 
 
+# ============================================================
+# GET ISSUES BY PRODUCTION ORDER
+#
+# Permission:
+#     stock.view
+# ============================================================
+
 @router.get(
     "/orders/{production_order_id}",
     response_model=list[
@@ -149,13 +180,19 @@ def get_shop_floor_issue_by_number(
 )
 def get_shop_floor_issues_by_order(
     production_order_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
-    service = ShopFloorIssueService(
-        db
+    service = (
+        ShopFloorIssueService(
+            db
+        )
     )
 
     return (
@@ -166,6 +203,13 @@ def get_shop_floor_issues_by_order(
     )
 
 
+# ============================================================
+# PRODUCTION ORDER ISSUE SUMMARY
+#
+# Permission:
+#     stock.view
+# ============================================================
+
 @router.get(
     "/orders/{production_order_id}/summary",
     response_model=(
@@ -174,13 +218,19 @@ def get_shop_floor_issues_by_order(
 )
 def get_shop_floor_issue_summary(
     production_order_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
-    service = ShopFloorIssueService(
-        db
+    service = (
+        ShopFloorIssueService(
+            db
+        )
     )
 
     return (
@@ -191,6 +241,13 @@ def get_shop_floor_issue_summary(
     )
 
 
+# ============================================================
+# GET ISSUES BY PRODUCTION MATERIAL
+#
+# Permission:
+#     stock.view
+# ============================================================
+
 @router.get(
     "/materials/{production_material_id}",
     response_model=list[
@@ -199,13 +256,19 @@ def get_shop_floor_issue_summary(
 )
 def get_shop_floor_issues_by_material(
     production_material_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
-    service = ShopFloorIssueService(
-        db
+    service = (
+        ShopFloorIssueService(
+            db
+        )
     )
 
     return (
@@ -217,9 +280,11 @@ def get_shop_floor_issues_by_material(
 
 
 # ============================================================
-# DYNAMIC ID LOOKUP
+# GET ISSUE BY ID
+#
+# Permission:
+#     stock.view
 # ============================================================
-
 
 @router.get(
     "/{issue_id}",
@@ -227,20 +292,30 @@ def get_shop_floor_issues_by_material(
 )
 def get_shop_floor_issue(
     issue_id: int,
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
-    service = ShopFloorIssueService(
-        db
+    service = (
+        ShopFloorIssueService(
+            db
+        )
     )
 
-    issue = service.get_issue(
-        issue_id
+    issue = (
+        service
+        .get_issue(
+            issue_id
+        )
     )
 
     if issue is None:
+
         raise HTTPException(
             status_code=(
                 status.HTTP_404_NOT_FOUND

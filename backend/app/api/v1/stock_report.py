@@ -7,11 +7,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.stock_movement import (
@@ -36,6 +36,9 @@ router = APIRouter(
 
 # ============================================================
 # STOCK SUMMARY
+#
+# Permission:
+#     stock.view
 # ============================================================
 
 @router.get(
@@ -57,9 +60,13 @@ def get_stock_summary(
             "Out of Stock or Over Stock"
         ),
     ),
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
     return (
@@ -74,6 +81,9 @@ def get_stock_summary(
 
 # ============================================================
 # STOCK MOVEMENT HISTORY
+#
+# Permission:
+#     stock.view
 # ============================================================
 
 @router.get(
@@ -108,9 +118,13 @@ def get_stock_movements(
             "Include movements up to this date/time"
         ),
     ),
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "stock.view"
+        )
     ),
 ):
     return (

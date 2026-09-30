@@ -6,11 +6,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    require_role,
-)
 from app.dependencies.database import (
     get_db,
+)
+from app.dependencies.permissions import (
+    require_permission,
 )
 from app.models.user import User
 from app.schemas.direct_stock_issue import (
@@ -32,16 +32,11 @@ router = APIRouter(
 )
 
 
-STOCK_ISSUE_ROLES = (
-    "Boss",
-    "Admin",
-    "Production",
-    "Store",
-)
-
-
 # ============================================================
 # ISSUE STOCK DIRECTLY TO PRODUCTION ORDER
+#
+# Permission:
+#     stock.issue
 # ============================================================
 
 @router.post(
@@ -56,8 +51,8 @@ def issue_stock_to_production_order(
         get_db
     ),
     current_user: User = Depends(
-        require_role(
-            *STOCK_ISSUE_ROLES
+        require_permission(
+            "stock.issue"
         )
     ),
 ):
