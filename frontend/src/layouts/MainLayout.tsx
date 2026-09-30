@@ -134,9 +134,10 @@ export default function MainLayout() {
 
      Permission enforcement connected so far:
 
-     Dashboard -> dashboard.view
-     Enquiries -> enquiries.view
-     Proformas -> proformas.view
+     Dashboard      -> dashboard.view
+     Enquiries      -> enquiries.view
+     Proformas      -> proformas.view
+     Purchase Bills -> purchase_bills.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -202,6 +203,9 @@ export default function MainLayout() {
 
         path:
           "/purchase-bills",
+
+        permission:
+          "purchase_bills.view",
 
         icon:
           <ReceiptText

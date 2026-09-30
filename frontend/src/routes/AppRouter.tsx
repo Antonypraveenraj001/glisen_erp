@@ -434,9 +434,6 @@ export default function AppRouter() {
 
           {/* =================================================
               DEFAULT LANDING
-
-              User is redirected to the first module their role
-              is allowed to use.
           ================================================== */}
 
           <Route
@@ -540,7 +537,13 @@ export default function AppRouter() {
           <Route
             path="/purchase-bills"
             element={
-              <PurchaseBillList />
+              <PermissionRoute
+                permission="purchase_bills.view"
+              >
+
+                <PurchaseBillList />
+
+              </PermissionRoute>
             }
           />
 
@@ -548,7 +551,13 @@ export default function AppRouter() {
           <Route
             path="/purchase-bills/scan"
             element={
-              <PurchaseBillScanner />
+              <PermissionRoute
+                permission="purchase_bills.ai_scan"
+              >
+
+                <PurchaseBillScanner />
+
+              </PermissionRoute>
             }
           />
 
@@ -556,7 +565,13 @@ export default function AppRouter() {
           <Route
             path="/purchase-bills/review"
             element={
-              <PurchaseBillReview />
+              <PermissionRoute
+                permission="purchase_bills.create"
+              >
+
+                <PurchaseBillReview />
+
+              </PermissionRoute>
             }
           />
 
@@ -564,7 +579,13 @@ export default function AppRouter() {
           <Route
             path="/purchase-bills/:id"
             element={
-              <PurchaseBillDetails />
+              <PermissionRoute
+                permission="purchase_bills.view"
+              >
+
+                <PurchaseBillDetails />
+
+              </PermissionRoute>
             }
           />
 

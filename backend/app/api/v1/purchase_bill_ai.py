@@ -6,8 +6,8 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import require_role
 from app.dependencies.database import get_db
+from app.dependencies.permissions import require_permission
 from app.models.user import User
 
 from app.schemas.purchase_bill_ai import (
@@ -35,6 +35,9 @@ router = APIRouter(
 
 # ============================================================
 # AI EXTRACTION
+#
+# Permission:
+#     purchase_bills.ai_scan
 # ============================================================
 
 @router.post(
@@ -45,9 +48,8 @@ async def extract_purchase_bill(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Purchase",
+        require_permission(
+            "purchase_bills.ai_scan"
         )
     ),
 ):
@@ -72,6 +74,9 @@ async def extract_purchase_bill(
 
 # ============================================================
 # CONFIRM PURCHASE BILL
+#
+# Permission:
+#     purchase_bills.create
 # ============================================================
 
 @router.post(
@@ -81,9 +86,8 @@ def confirm_purchase_bill(
     request: PurchaseBillAIConfirmRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Purchase",
+        require_permission(
+            "purchase_bills.create"
         )
     ),
 ):

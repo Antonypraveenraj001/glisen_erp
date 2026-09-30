@@ -7,11 +7,8 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
-)
 from app.dependencies.database import get_db
+from app.dependencies.permissions import require_permission
 from app.models.user import User
 from app.repositories.purchase_bill_repository import (
     PurchaseBillRepository,
@@ -44,6 +41,9 @@ router = APIRouter(
 
 # ================================================================
 # CREATE PURCHASE BILL
+#
+# Permission:
+#     purchase_bills.create
 # ================================================================
 
 @router.post(
@@ -55,9 +55,8 @@ def create_purchase_bill(
     purchase_bill: PurchaseBillCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Purchase",
+        require_permission(
+            "purchase_bills.create"
         )
     ),
 ):
@@ -70,6 +69,9 @@ def create_purchase_bill(
 
 # ================================================================
 # STATISTICS
+#
+# Permission:
+#     purchase_bills.view
 # ================================================================
 
 @router.get(
@@ -79,7 +81,9 @@ def create_purchase_bill(
 def get_purchase_bill_statistics(
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "purchase_bills.view"
+        )
     ),
 ):
     return (
@@ -92,6 +96,9 @@ def get_purchase_bill_statistics(
 
 # ================================================================
 # LIST PURCHASE BILLS
+#
+# Permission:
+#     purchase_bills.view
 # ================================================================
 
 @router.get(
@@ -110,7 +117,9 @@ def get_purchase_bills(
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "purchase_bills.view"
+        )
     ),
 ):
     return (
@@ -124,6 +133,9 @@ def get_purchase_bills(
 
 # ================================================================
 # UNPAID PURCHASE BILL AGING
+#
+# Permission:
+#     purchase_bills.view
 # ================================================================
 
 @router.get(
@@ -135,7 +147,9 @@ def get_purchase_bills(
 def get_unpaid_purchase_bill_aging(
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "purchase_bills.view"
+        )
     ),
 ):
     """
@@ -157,6 +171,9 @@ def get_unpaid_purchase_bill_aging(
 
 # ================================================================
 # PAYMENT SUMMARY
+#
+# Permission:
+#     purchase_bills.view
 # ================================================================
 
 @router.get(
@@ -169,7 +186,9 @@ def get_purchase_bill_payment_summary(
     purchase_bill_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "purchase_bills.view"
+        )
     ),
 ):
     summary = (
@@ -197,6 +216,9 @@ def get_purchase_bill_payment_summary(
 
 # ================================================================
 # RECORD SUPPLIER PAYMENT
+#
+# Permission:
+#     purchase_bills.payment
 # ================================================================
 
 @router.post(
@@ -213,9 +235,8 @@ def create_purchase_bill_payment(
     payment: PurchaseBillPaymentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Accounts",
+        require_permission(
+            "purchase_bills.payment"
         )
     ),
 ):
@@ -236,6 +257,9 @@ def create_purchase_bill_payment(
 
 # ================================================================
 # GET PURCHASE BILL
+#
+# Permission:
+#     purchase_bills.view
 # ================================================================
 
 @router.get(
@@ -246,7 +270,9 @@ def get_purchase_bill(
     purchase_bill_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "purchase_bills.view"
+        )
     ),
 ):
 
@@ -273,6 +299,9 @@ def get_purchase_bill(
 
 # ================================================================
 # UPDATE PURCHASE BILL
+#
+# Permission:
+#     purchase_bills.edit
 # ================================================================
 
 @router.put(
@@ -284,9 +313,8 @@ def update_purchase_bill(
     purchase_bill: PurchaseBillUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Purchase",
+        require_permission(
+            "purchase_bills.edit"
         )
     ),
 ):
@@ -319,6 +347,9 @@ def update_purchase_bill(
 
 # ================================================================
 # CANCEL PURCHASE BILL
+#
+# Permission:
+#     purchase_bills.cancel
 # ================================================================
 
 @router.delete(
@@ -328,9 +359,8 @@ def deactivate_purchase_bill(
     purchase_bill_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            "Boss",
-            "Purchase",
+        require_permission(
+            "purchase_bills.cancel"
         )
     ),
 ):
