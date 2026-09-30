@@ -14,6 +14,10 @@ import PermissionRoute
 import MainLayout
   from "../layouts/MainLayout";
 
+import {
+  useAuth,
+} from "../context/AuthContext";
+
 import Login
   from "../pages/auth/Login";
 
@@ -78,6 +82,323 @@ import SettingsPage
   from "../pages/settings/SettingsPage";
 
 
+/* ================================================================
+   DEFAULT MODULE ORDER
+
+   After login the ERP should not automatically force every user
+   into Dashboard.
+
+   Instead it finds the first module that the role is allowed to
+   access.
+
+   Staff is currently excluded because there is no Staff frontend
+   route in AppRouter yet.
+================================================================ */
+
+const DEFAULT_MODULE_ROUTES = [
+
+  {
+    permission:
+      "dashboard.view",
+
+    path:
+      "/dashboard",
+  },
+
+  {
+    permission:
+      "enquiries.view",
+
+    path:
+      "/enquiries",
+  },
+
+  {
+    permission:
+      "proformas.view",
+
+    path:
+      "/proformas",
+  },
+
+  {
+    permission:
+      "purchase_bills.view",
+
+    path:
+      "/purchase-bills",
+  },
+
+  {
+    permission:
+      "products.view",
+
+    path:
+      "/products",
+  },
+
+  {
+    permission:
+      "suppliers.view",
+
+    path:
+      "/suppliers",
+  },
+
+  {
+    permission:
+      "customers.view",
+
+    path:
+      "/customers",
+  },
+
+  {
+    permission:
+      "stock.view",
+
+    path:
+      "/stock",
+  },
+
+  {
+    permission:
+      "production.view",
+
+    path:
+      "/production",
+  },
+
+  {
+    permission:
+      "finished_products.view",
+
+    path:
+      "/finished-products",
+  },
+
+  {
+    permission:
+      "final_billing.view",
+
+    path:
+      "/final-billing",
+  },
+
+  {
+    permission:
+      "gst.view",
+
+    path:
+      "/gst",
+  },
+
+  {
+    permission:
+      "expenses.view",
+
+    path:
+      "/expenses",
+  },
+
+  {
+    permission:
+      "financial.view",
+
+    path:
+      "/financial",
+  },
+
+  {
+    permission:
+      "settings.view",
+
+    path:
+      "/settings",
+  },
+
+];
+
+
+/* ================================================================
+   DEFAULT LANDING ROUTE
+
+   Boss:
+       Dashboard
+
+   Other roles:
+       First permitted ERP module.
+
+   No module access:
+       Show a safe No Module Access screen instead of redirecting
+       the user into a module they are not allowed to use.
+================================================================ */
+
+function DefaultLandingRoute() {
+
+  const {
+    user,
+  } =
+    useAuth();
+
+
+  if (
+    !user
+  ) {
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+
+  }
+
+
+  if (
+    user.role
+    ===
+    "Boss"
+  ) {
+
+    return (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    );
+
+  }
+
+
+  const permissionSet =
+    new Set(
+      user.permissions
+      ??
+      []
+    );
+
+
+  const firstAllowedRoute =
+    DEFAULT_MODULE_ROUTES.find(
+      module =>
+        permissionSet.has(
+          module.permission
+        )
+    );
+
+
+  if (
+    firstAllowedRoute
+  ) {
+
+    return (
+      <Navigate
+        to={
+          firstAllowedRoute.path
+        }
+        replace
+      />
+    );
+
+  }
+
+
+  return (
+    <div
+      style={{
+        minHeight:
+          "360px",
+
+        display:
+          "flex",
+
+        alignItems:
+          "center",
+
+        justifyContent:
+          "center",
+
+        padding:
+          "30px",
+      }}
+    >
+
+      <div
+        style={{
+          width:
+            "100%",
+
+          maxWidth:
+            "520px",
+
+          padding:
+            "30px",
+
+          border:
+            "1px solid #dce5f0",
+
+          borderRadius:
+            "16px",
+
+          background:
+            "#ffffff",
+
+          textAlign:
+            "center",
+
+          boxShadow:
+            "0 8px 24px rgba(31, 57, 101, 0.05)",
+        }}
+      >
+
+        <h2
+          style={{
+            margin:
+              0,
+
+            color:
+              "#233d61",
+
+            fontSize:
+              "18px",
+          }}
+        >
+          No Module Access
+        </h2>
+
+
+        <p
+          style={{
+            margin:
+              "9px 0 0",
+
+            color:
+              "#8191a8",
+
+            fontSize:
+              "11px",
+
+            lineHeight:
+              1.6,
+          }}
+        >
+          Your role is currently not assigned to any ERP module.
+          Please contact the Boss administrator.
+        </p>
+
+      </div>
+
+    </div>
+  );
+}
+
+
+/* ================================================================
+   ROUTER
+================================================================ */
+
 export default function AppRouter() {
 
   return (
@@ -111,13 +432,17 @@ export default function AppRouter() {
           }
         >
 
+          {/* =================================================
+              DEFAULT LANDING
+
+              User is redirected to the first module their role
+              is allowed to use.
+          ================================================== */}
+
           <Route
             path="/"
             element={
-              <Navigate
-                to="/dashboard"
-                replace
-              />
+              <DefaultLandingRoute />
             }
           />
 
@@ -129,7 +454,13 @@ export default function AppRouter() {
           <Route
             path="/dashboard"
             element={
-              <DashboardPage />
+              <PermissionRoute
+                permission="dashboard.view"
+              >
+
+                <DashboardPage />
+
+              </PermissionRoute>
             }
           />
 

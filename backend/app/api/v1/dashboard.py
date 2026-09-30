@@ -2,16 +2,23 @@ from fastapi import (
     APIRouter,
     Depends,
 )
+
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
+from app.dependencies.database import (
+    get_db,
 )
-from app.dependencies.database import get_db
+
+from app.dependencies.permissions import (
+    require_permission,
+)
+
 from app.models.user import User
+
 from app.schemas.dashboard import (
     DashboardSummary,
 )
+
 from app.services.dashboard_service import (
     DashboardService,
 )
@@ -19,27 +26,54 @@ from app.services.dashboard_service import (
 
 router = APIRouter(
     prefix="/dashboard",
-    tags=["Dashboard"],
+    tags=[
+        "Dashboard",
+    ],
 )
 
+
+# ================================================================
+# DASHBOARD SUMMARY
+#
+# Dashboard module access:
+#
+#     dashboard.view
+#
+# If the role does not have the Dashboard module selected in
+# Settings -> Users & Access, this API returns 403.
+#
+# Boss continues to receive full access through the shared
+# permission dependency.
+# ================================================================
 
 @router.get(
     "/summary",
     response_model=DashboardSummary,
 )
 def get_dashboard_summary(
-    db: Session = Depends(get_db),
+    db: Session = Depends(
+        get_db
+    ),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "dashboard.view"
+        )
     ),
 ):
 
     role_name = (
-        current_user.role.name
+        current_user
+        .role
+        .name
     )
 
     # ============================================================
     # FINANCIAL VISIBILITY
+    #
+    # Dashboard access and financial visibility are separate.
+    #
+    # A role may be allowed to open Dashboard without being allowed
+    # to see Boss-only company financial values.
     #
     # ONLY Boss can see:
     #
@@ -53,20 +87,24 @@ def get_dashboard_summary(
     # ============================================================
 
     can_view_financials = (
-        role_name == "Boss"
+        role_name
+        ==
+        "Boss"
     )
 
     # ============================================================
     # PURCHASE BILL PAYMENT WATCH
     #
-    # This is operational payment monitoring,
-    # not the Financial Analyzer.
+    # Operational supplier-payment monitoring remains unchanged.
     #
-    # Boss     -> full access
-    # Accounts -> can monitor supplier payments
-    # Purchase -> can monitor supplier bills
+    # Boss
+    # Accounts
+    # Purchase
     #
-    # Recording payments is still separately restricted.
+    # may see this information.
+    #
+    # Recording supplier payments is controlled separately by the
+    # Purchase Bills module/API permissions.
     # ============================================================
 
     can_view_purchase_payments = (

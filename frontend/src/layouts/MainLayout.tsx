@@ -74,7 +74,8 @@ function getInitials(
 
   if (
     parts.length
-    === 1
+    ===
+    1
   ) {
 
     return (
@@ -131,13 +132,13 @@ export default function MainLayout() {
   /* ==============================================================
      SIDEBAR MENU
 
-     Modules connected to permission enforcement so far:
+     Permission enforcement connected so far:
 
+     Dashboard -> dashboard.view
      Enquiries -> enquiries.view
      Proformas -> proformas.view
 
-     Remaining modules stay unchanged until their own
-     enforcement stage is completed and tested.
+     Remaining modules will be connected one by one.
   ============================================================== */
 
   const menuItems:
@@ -150,6 +151,9 @@ export default function MainLayout() {
 
         path:
           "/dashboard",
+
+        permission:
+          "dashboard.view",
 
         icon:
           <Gauge
