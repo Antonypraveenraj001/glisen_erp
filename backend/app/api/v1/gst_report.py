@@ -11,12 +11,13 @@ from fastapi.responses import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-)
 from app.dependencies.database import (
     get_db,
 )
+from app.dependencies.permissions import (
+    require_permission,
+)
+from app.models.user import User
 from app.schemas.gst_report import (
     GSTReportResponse,
     PurchaseGSTReportResponse,
@@ -39,6 +40,9 @@ router = APIRouter(
 
 # ================================================================
 # SALES GST
+#
+# Permission:
+#     gst.view
 # ================================================================
 
 @router.get(
@@ -57,8 +61,10 @@ def get_gst_report(
     db: Session = Depends(
         get_db
     ),
-    current_user=Depends(
-        get_current_user
+    current_user: User = Depends(
+        require_permission(
+            "gst.view"
+        )
     ),
 ):
     try:
@@ -84,6 +90,9 @@ def get_gst_report(
 
 # ================================================================
 # SALES GST EXCEL
+#
+# Permission:
+#     gst.export
 # ================================================================
 
 @router.get(
@@ -102,8 +111,10 @@ def export_gst_report_excel(
     db: Session = Depends(
         get_db
     ),
-    current_user=Depends(
-        get_current_user
+    current_user: User = Depends(
+        require_permission(
+            "gst.export"
+        )
     ),
 ):
     try:
@@ -170,6 +181,9 @@ def export_gst_report_excel(
 
 # ================================================================
 # PURCHASE GST
+#
+# Permission:
+#     gst.view
 # ================================================================
 
 @router.get(
@@ -190,8 +204,10 @@ def get_purchase_gst_report(
     db: Session = Depends(
         get_db
     ),
-    current_user=Depends(
-        get_current_user
+    current_user: User = Depends(
+        require_permission(
+            "gst.view"
+        )
     ),
 ):
     try:
@@ -217,6 +233,9 @@ def get_purchase_gst_report(
 
 # ================================================================
 # PURCHASE GST EXCEL
+#
+# Permission:
+#     gst.export
 # ================================================================
 
 @router.get(
@@ -235,8 +254,10 @@ def export_purchase_gst_excel(
     db: Session = Depends(
         get_db
     ),
-    current_user=Depends(
-        get_current_user
+    current_user: User = Depends(
+        require_permission(
+            "gst.export"
+        )
     ),
 ):
     try:

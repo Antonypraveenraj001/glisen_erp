@@ -682,7 +682,13 @@ export default function AppRouter() {
           <Route
             path="/gst"
             element={
-              <GSTReportPage />
+              <PermissionRoute
+                permission="gst.view"
+              >
+
+                <GSTReportPage />
+
+              </PermissionRoute>
             }
           />
 

@@ -145,6 +145,7 @@ export default function MainLayout() {
      Production        -> production.view
      Finished Products -> finished_products.view
      Final Billing     -> final_billing.view
+     GST               -> gst.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -346,6 +347,9 @@ export default function MainLayout() {
 
         path:
           "/gst",
+
+        permission:
+          "gst.view",
 
         icon:
           <FileBarChart
