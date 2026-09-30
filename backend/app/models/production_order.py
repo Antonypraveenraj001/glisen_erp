@@ -59,15 +59,10 @@ class ProductionOrder(Base):
     # MANUFACTURED PRODUCT
     # ========================================================
     #
-    # product_name is now the source of truth for what Glisen
+    # product_name is the source of truth for what Glisen
     # manufactures.
     #
-    # Example:
-    #   Custom Hydraulic Press
-    #   Conveyor Assembly
-    #   Special Purpose Machine
-    #
-    # This is NOT required to exist in purchased Products/Stock.
+    # This is separate from purchased Products / Stock.
     # ========================================================
 
     product_name: Mapped[str] = mapped_column(
@@ -85,10 +80,10 @@ class ProductionOrder(Base):
     # LEGACY PRODUCT MASTER LINK
     # ========================================================
     #
-    # Existing historical Production Orders may still point to
-    # products.id.
+    # Existing historical Production Orders may still point
+    # to products.id.
     #
-    # New manufactured jobs will not require this field.
+    # New manufactured jobs normally leave this NULL.
     # ========================================================
 
     product_id: Mapped[int | None] = mapped_column(
@@ -163,6 +158,67 @@ class ProductionOrder(Base):
     proforma_item = relationship(
         "ProformaItem",
     )
+
+    # --------------------------------------------------------
+    # LINKED PROFORMA
+    #
+    # This relationship allows shared Production Order
+    # responses to expose:
+    #
+    # - Proforma Number
+    # - Customer / Company Name
+    #
+    # Store users can therefore select the correct Production
+    # Order without being granted access to the Proforma module.
+    # --------------------------------------------------------
+
+    proforma = relationship(
+        "Proforma",
+        foreign_keys=[
+            proforma_id,
+        ],
+        lazy="selectin",
+    )
+
+    # --------------------------------------------------------
+    # HUMAN-READABLE PROFORMA CONTEXT
+    # --------------------------------------------------------
+
+    @property
+    def proforma_number(
+        self,
+    ) -> str | None:
+
+        if (
+            self.proforma
+            is None
+        ):
+            return None
+
+        return (
+            self.proforma
+            .proforma_number
+        )
+
+    @property
+    def company_name(
+        self,
+    ) -> str | None:
+
+        if (
+            self.proforma
+            is None
+        ):
+            return None
+
+        return (
+            self.proforma
+            .company_name
+        )
+
+    # --------------------------------------------------------
+    # PRODUCTION CHILD RECORDS
+    # --------------------------------------------------------
 
     operations = relationship(
         "ProductionOperation",

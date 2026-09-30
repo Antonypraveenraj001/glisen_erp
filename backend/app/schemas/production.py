@@ -99,13 +99,26 @@ class ProductionOrderResponse(BaseModel):
 
     proforma_id: int
 
+    # --------------------------------------------------------
+    # HUMAN-READABLE LINKED PROFORMA CONTEXT
+    #
+    # These values come from the related Proforma.
+    # They are not additional database columns on
+    # production_orders.
+    # --------------------------------------------------------
+
+    proforma_number: str | None = None
+
+    company_name: str | None = None
+
     proforma_item_id: int | None = None
 
+    # Manufactured output.
     product_name: str
 
     unit: str
 
-    # Legacy only.
+    # Legacy purchased Product link only.
     product_id: int | None = None
 
     quantity: int
@@ -113,12 +126,15 @@ class ProductionOrderResponse(BaseModel):
     status: str
 
     planned_start_date: date | None = None
+
     actual_start_date: date | None = None
+
     actual_end_date: date | None = None
 
     notes: str | None = None
 
     created_at: datetime
+
     updated_at: datetime
 
     model_config = ConfigDict(
@@ -192,10 +208,10 @@ class ProductionMaterialUpdate(BaseModel):
 class ProductionMaterialResponse(BaseModel):
 
     id: int
+
     production_order_id: int
 
-    # This IS allowed to reference purchased Stock,
-    # because Production Materials are materials consumed.
+    # Materials may reference purchased Stock products.
     product_id: int | None = None
 
     material_name: str
@@ -203,9 +219,11 @@ class ProductionMaterialResponse(BaseModel):
     unit: str | None = None
 
     quantity_required: Decimal
+
     quantity_issued: Decimal
 
     unit_cost: Decimal
+
     material_cost: Decimal
 
     model_config = ConfigDict(
@@ -220,7 +238,9 @@ class ProductionMaterialSummaryResponse(BaseModel):
     total_materials: int
 
     total_quantity_required: Decimal
+
     total_quantity_issued: Decimal
+
     total_quantity_remaining: Decimal
 
     total_material_cost: Decimal
@@ -298,6 +318,7 @@ class ProductionOperationComplete(BaseModel):
 class ProductionOperationResponse(BaseModel):
 
     id: int
+
     production_order_id: int
 
     operation_name: str
@@ -305,7 +326,9 @@ class ProductionOperationResponse(BaseModel):
     machine_name: str | None = None
 
     hourly_rate: Decimal
+
     planned_hours: Decimal
+
     actual_hours: Decimal
 
     operation_cost: Decimal
@@ -313,6 +336,7 @@ class ProductionOperationResponse(BaseModel):
     status: str
 
     started_at: datetime | None = None
+
     completed_at: datetime | None = None
 
     model_config = ConfigDict(
@@ -327,10 +351,13 @@ class ProductionOperationSummaryResponse(BaseModel):
     total_operations: int
 
     pending_operations: int
+
     in_progress_operations: int
+
     completed_operations: int
 
     total_planned_hours: Decimal
+
     total_actual_hours: Decimal
 
     total_operation_cost: Decimal

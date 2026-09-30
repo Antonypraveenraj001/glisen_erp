@@ -18,6 +18,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Settings2,
   Wrench,
@@ -28,6 +29,10 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+import {
+  usePermissions,
+} from "../../hooks/usePermissions";
+
 import "./ProductionPage.css";
 
 import {
@@ -37,6 +42,7 @@ import {
   createProductionOrdersFromProforma,
   getProductionOrderDetail,
   getProductionOrders,
+  reopenProductionOrder,
   startProductionOperation,
   updateProductionOrderStatus,
 } from "../../services/productionService";
@@ -69,6 +75,10 @@ const EMPTY_OPERATION_FORM = {
 };
 
 
+const PAGE_SIZE =
+  10;
+
+
 /* ================================================================
    HELPERS
 ================================================================ */
@@ -76,12 +86,17 @@ const EMPTY_OPERATION_FORM = {
 function formatDate(
   value: string | null
 ) {
+
   if (!value) {
     return "-";
   }
 
+
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
+
 
   if (
     Number.isNaN(
@@ -90,6 +105,7 @@ function formatDate(
   ) {
     return value;
   }
+
 
   return date.toLocaleDateString(
     "en-IN"
@@ -100,21 +116,29 @@ function formatDate(
 function formatNumber(
   value: string | number
 ) {
+
   const numericValue =
-    Number(value);
+    Number(
+      value
+    );
+
 
   if (
     Number.isNaN(
       numericValue
     )
   ) {
-    return String(value);
+    return String(
+      value
+    );
   }
+
 
   return new Intl.NumberFormat(
     "en-IN",
     {
-      maximumFractionDigits: 2,
+      maximumFractionDigits:
+        2,
     }
   ).format(
     numericValue
@@ -125,8 +149,12 @@ function formatNumber(
 function formatCurrency(
   value: string | number
 ) {
+
   const numericValue =
-    Number(value);
+    Number(
+      value
+    );
+
 
   if (
     Number.isNaN(
@@ -136,12 +164,18 @@ function formatCurrency(
     return `₹${value}`;
   }
 
+
   return new Intl.NumberFormat(
     "en-IN",
     {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 2,
+      style:
+        "currency",
+
+      currency:
+        "INR",
+
+      maximumFractionDigits:
+        2,
     }
   ).format(
     numericValue
@@ -152,6 +186,7 @@ function formatCurrency(
 function getStatusClass(
   status: string
 ) {
+
   const normalized =
     status
       .toLowerCase()
@@ -160,40 +195,51 @@ function getStatusClass(
         "-"
       );
 
+
   if (
-    normalized ===
+    normalized
+    ===
     "completed"
   ) {
     return "completed";
   }
 
+
   if (
-    normalized ===
+    normalized
+    ===
     "in-progress"
   ) {
     return "in-progress";
   }
 
+
   if (
-    normalized ===
+    normalized
+    ===
     "pending"
   ) {
     return "planned";
   }
 
+
   if (
-    normalized ===
+    normalized
+    ===
     "planned"
   ) {
     return "planned";
   }
 
+
   if (
-    normalized ===
+    normalized
+    ===
     "cancelled"
   ) {
     return "cancelled";
   }
+
 
   return "default";
 }
@@ -203,23 +249,29 @@ function getApiErrorMessage(
   error: unknown,
   fallback: string
 ) {
+
   if (
     axios.isAxiosError(
       error
     )
   ) {
+
     const detail =
       error.response
         ?.data
         ?.detail;
 
+
     if (
-      typeof detail ===
+      typeof detail
+      ===
       "string"
     ) {
       return detail;
     }
+
   }
+
 
   if (
     error instanceof Error
@@ -229,41 +281,76 @@ function getApiErrorMessage(
     return error.message;
   }
 
+
   return fallback;
 }
 
 
 const inputStyle:
 React.CSSProperties = {
-  width: "100%",
-  minHeight: "39px",
-  padding: "0 10px",
+
+  width:
+    "100%",
+
+  minHeight:
+    "39px",
+
+  padding:
+    "0 10px",
+
   border:
     "1px solid #d9e3f0",
-  borderRadius: "9px",
-  background: "#ffffff",
-  color: "#405a7e",
-  outline: "none",
-  fontSize: "11px",
+
+  borderRadius:
+    "9px",
+
+  background:
+    "#ffffff",
+
+  color:
+    "#405a7e",
+
+  outline:
+    "none",
+
+  fontSize:
+    "11px",
 };
 
 
 const readOnlyInputStyle:
 React.CSSProperties = {
+
   ...inputStyle,
-  background: "#f6f8fc",
-  color: "#7183a3",
+
+  background:
+    "#f6f8fc",
+
+  color:
+    "#7183a3",
 };
 
 
 const labelStyle:
 React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "6px",
-  color: "#617494",
-  fontSize: "9px",
-  fontWeight: 750,
+
+  display:
+    "flex",
+
+  flexDirection:
+    "column",
+
+  gap:
+    "6px",
+
+  color:
+    "#617494",
+
+  fontSize:
+    "9px",
+
+  fontWeight:
+    750,
 };
 
 
@@ -275,6 +362,18 @@ export default function ProductionPage() {
 
   const navigate =
     useNavigate();
+
+
+  const {
+    hasPermission,
+  } =
+    usePermissions();
+
+
+  const canReopenProduction =
+    hasPermission(
+      "production.reopen"
+    );
 
 
   const [
@@ -315,17 +414,30 @@ export default function ProductionPage() {
 
 
   const [
+    currentPage,
+    setCurrentPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
     loading,
     setLoading,
   ] =
-    useState(true);
+    useState(
+      true
+    );
 
 
   const [
     detailLoading,
     setDetailLoading,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
@@ -348,14 +460,18 @@ export default function ProductionPage() {
     startProductionOpen,
     setStartProductionOpen,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
     proformaLoading,
     setProformaLoading,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
@@ -381,7 +497,9 @@ export default function ProductionPage() {
     startingProduction,
     setStartingProduction,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
@@ -404,7 +522,9 @@ export default function ProductionPage() {
     showOperationForm,
     setShowOperationForm,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
@@ -420,7 +540,9 @@ export default function ProductionPage() {
     operationSaving,
     setOperationSaving,
   ] =
-    useState(false);
+    useState(
+      false
+    );
 
 
   const [
@@ -460,14 +582,25 @@ export default function ProductionPage() {
 
 
   /* ==============================================================
-     COMPLETE PRODUCTION
+     COMPLETE / REOPEN PRODUCTION
   ============================================================== */
 
   const [
     completingProduction,
     setCompletingProduction,
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
+
+  const [
+    reopeningProduction,
+    setReopeningProduction,
+  ] =
+    useState(
+      false
+    );
 
 
   const [
@@ -496,6 +629,7 @@ export default function ProductionPage() {
             string
           >();
 
+
         proformas.forEach(
           proforma => {
 
@@ -506,6 +640,7 @@ export default function ProductionPage() {
 
           }
         );
+
 
         return map;
 
@@ -519,12 +654,15 @@ export default function ProductionPage() {
   function getProformaNumber(
     proformaId: number
   ) {
+
     return (
       proformaNumberById.get(
         proformaId
       )
-      || `Proforma ${proformaId}`
+      ||
+      `Proforma ${proformaId}`
     );
+
   }
 
 
@@ -539,6 +677,7 @@ export default function ProductionPage() {
       setLoading(
         true
       );
+
 
       setError(
         null
@@ -559,6 +698,7 @@ export default function ProductionPage() {
         productionData
       );
 
+
       setProformas(
         proformaData
       );
@@ -570,6 +710,7 @@ export default function ProductionPage() {
       console.error(
         err
       );
+
 
       setError(
         getApiErrorMessage(
@@ -677,6 +818,115 @@ export default function ProductionPage() {
 
 
   /* ==============================================================
+     PAGINATION
+  ============================================================== */
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredOrders.length
+        /
+        PAGE_SIZE
+      )
+    );
+
+
+  const paginatedOrders =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            currentPage
+            -
+            1
+          )
+          *
+          PAGE_SIZE;
+
+
+        return filteredOrders.slice(
+          start,
+          start
+          +
+          PAGE_SIZE
+        );
+
+      },
+      [
+        filteredOrders,
+        currentPage,
+      ]
+    );
+
+
+  const firstRecord =
+    filteredOrders.length
+      >
+      0
+        ? (
+            (
+              currentPage
+              -
+              1
+            )
+            *
+            PAGE_SIZE
+          )
+          +
+          1
+        : 0;
+
+
+  const lastRecord =
+    Math.min(
+      currentPage
+      *
+      PAGE_SIZE,
+
+      filteredOrders.length
+    );
+
+
+  useEffect(
+    () => {
+
+      setCurrentPage(
+        1
+      );
+
+    },
+    [
+      search,
+    ]
+  );
+
+
+  useEffect(
+    () => {
+
+      if (
+        currentPage
+        >
+        totalPages
+      ) {
+
+        setCurrentPage(
+          totalPages
+        );
+
+      }
+
+    },
+    [
+      currentPage,
+      totalPages,
+    ]
+  );
+
+
+  /* ==============================================================
      KPI
   ============================================================== */
 
@@ -687,7 +937,8 @@ export default function ProductionPage() {
           order =>
             order.status
               .toLowerCase()
-            === "completed"
+            ===
+            "completed"
         ).length,
       [
         orders,
@@ -702,7 +953,8 @@ export default function ProductionPage() {
           order =>
             order.status
               .toLowerCase()
-            === "in progress"
+            ===
+            "in progress"
         ).length,
       [
         orders,
@@ -717,7 +969,8 @@ export default function ProductionPage() {
           order =>
             order.status
               .toLowerCase()
-            === "pending"
+            ===
+            "pending"
         ).length,
       [
         orders,
@@ -730,7 +983,8 @@ export default function ProductionPage() {
   ============================================================== */
 
   async function refreshOrderDetail(
-    productionOrderId: number
+    productionOrderId:
+      number
   ) {
 
     const detail =
@@ -750,7 +1004,8 @@ export default function ProductionPage() {
 
 
   async function openOrderDetail(
-    order: ProductionOrder
+    order:
+      ProductionOrder
   ) {
 
     try {
@@ -759,17 +1014,21 @@ export default function ProductionPage() {
         true
       );
 
+
       setError(
         null
       );
+
 
       setOperationError(
         null
       );
 
+
       setCompletionError(
         null
       );
+
 
       setShowOperationForm(
         false
@@ -797,7 +1056,9 @@ export default function ProductionPage() {
           ] =
             Number(
               operation.actual_hours
-            ) > 0
+            )
+            >
+            0
               ? String(
                   operation.actual_hours
                 )
@@ -844,17 +1105,21 @@ export default function ProductionPage() {
       null
     );
 
+
     setShowOperationForm(
       false
     );
+
 
     setOperationError(
       null
     );
 
+
     setCompletionError(
       null
     );
+
 
     setOperationForm(
       EMPTY_OPERATION_FORM
@@ -914,7 +1179,9 @@ export default function ProductionPage() {
         hourlyRate
       )
       ||
-      hourlyRate < 0
+      hourlyRate
+      <
+      0
     ) {
 
       setOperationError(
@@ -931,7 +1198,9 @@ export default function ProductionPage() {
         plannedHours
       )
       ||
-      plannedHours < 0
+      plannedHours
+      <
+      0
     ) {
 
       setOperationError(
@@ -948,6 +1217,7 @@ export default function ProductionPage() {
       setOperationSaving(
         true
       );
+
 
       setOperationError(
         null
@@ -1026,7 +1296,8 @@ export default function ProductionPage() {
   ============================================================== */
 
   async function handleStartOperation(
-    operationId: number
+    operationId:
+      number
   ) {
 
     if (
@@ -1041,6 +1312,7 @@ export default function ProductionPage() {
       setOperationActionId(
         operationId
       );
+
 
       setOperationError(
         null
@@ -1088,7 +1360,8 @@ export default function ProductionPage() {
   ============================================================== */
 
   async function handleCompleteOperation(
-    operationId: number
+    operationId:
+      number
   ) {
 
     if (
@@ -1111,7 +1384,9 @@ export default function ProductionPage() {
         hours
       )
       ||
-      hours <= 0
+      hours
+      <=
+      0
     ) {
 
       setOperationError(
@@ -1128,6 +1403,7 @@ export default function ProductionPage() {
       setOperationActionId(
         operationId
       );
+
 
       setOperationError(
         null
@@ -1187,11 +1463,35 @@ export default function ProductionPage() {
     }
 
 
+    const confirmed =
+      window.confirm(
+        `Complete ${selectedOrder.production_number}?\n\n`
+        +
+        `Finished Product / Machine: ${selectedOrder.product_name}\n`
+        +
+        `Quantity: ${selectedOrder.quantity} ${selectedOrder.unit}\n\n`
+        +
+        "This will mark Production as Completed and create "
+        +
+        "the Finished Product record.\n\n"
+        +
+        "A Boss can reopen it only before Final Billing starts."
+      );
+
+
+    if (
+      !confirmed
+    ) {
+      return;
+    }
+
+
     try {
 
       setCompletingProduction(
         true
       );
+
 
       setCompletionError(
         null
@@ -1255,13 +1555,133 @@ export default function ProductionPage() {
 
       } catch {
 
-        // Keep the original error visible.
+        // Keep original completion error visible.
 
       }
 
     } finally {
 
       setCompletingProduction(
+        false
+      );
+
+    }
+
+  }
+
+
+  /* ==============================================================
+     REOPEN COMPLETED PRODUCTION
+     BOSS-ONLY RECOVERY
+  ============================================================== */
+
+  async function handleReopenProduction() {
+
+    if (
+      !selectedOrder
+    ) {
+      return;
+    }
+
+
+    if (
+      !canReopenProduction
+    ) {
+
+      setCompletionError(
+        "Only Boss can reopen completed Production."
+      );
+
+      return;
+
+    }
+
+
+    const confirmed =
+      window.confirm(
+        `Reopen ${selectedOrder.production_number}?\n\n`
+        +
+        `Finished Product / Machine: ${selectedOrder.product_name}\n\n`
+        +
+        "This will:\n"
+        +
+        "• remove the Finished Product record\n"
+        +
+        "• remove the Finished Goods Receipt\n"
+        +
+        "• return Production to In Progress\n\n"
+        +
+        "Issued materials and completed operations will remain.\n\n"
+        +
+        "Production cannot be reopened after Final Billing has started."
+      );
+
+
+    if (
+      !confirmed
+    ) {
+      return;
+    }
+
+
+    try {
+
+      setReopeningProduction(
+        true
+      );
+
+
+      setCompletionError(
+        null
+      );
+
+
+      await reopenProductionOrder(
+        selectedOrder.id
+      );
+
+
+      const [
+        refreshedOrders,
+        refreshedDetail,
+      ] =
+        await Promise.all([
+          getProductionOrders(),
+
+          getProductionOrderDetail(
+            selectedOrder.id
+          ),
+        ]);
+
+
+      setOrders(
+        refreshedOrders
+      );
+
+
+      setSelectedOrder(
+        refreshedDetail
+      );
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+
+      setCompletionError(
+        getApiErrorMessage(
+          err,
+          "Unable to reopen Production."
+        )
+      );
+
+    } finally {
+
+      setReopeningProduction(
         false
       );
 
@@ -1280,13 +1700,16 @@ export default function ProductionPage() {
       true
     );
 
+
     setSelectedProformaId(
       null
     );
 
+
     setProformaSearch(
       ""
     );
+
 
     setStartProductionError(
       null
@@ -1359,9 +1782,11 @@ export default function ProductionPage() {
       false
     );
 
+
     setSelectedProformaId(
       null
     );
+
 
     setStartProductionError(
       null
@@ -1403,18 +1828,21 @@ export default function ProductionPage() {
               const status =
                 (
                   proforma.status
-                  || ""
+                  ||
+                  ""
                 )
                   .trim()
                   .toLowerCase();
 
 
               return (
-                status ===
-                  "confirmed"
+                status
+                ===
+                "confirmed"
                 ||
-                status ===
-                  "order confirmed"
+                status
+                ===
+                "order confirmed"
               );
 
             }
@@ -1431,7 +1859,9 @@ export default function ProductionPage() {
           .filter(
             proforma => {
 
-              if (!query) {
+              if (
+                !query
+              ) {
                 return true;
               }
 
@@ -1455,7 +1885,8 @@ export default function ProductionPage() {
                   item =>
                     (
                       item.description
-                      || ""
+                      ||
+                      ""
                     )
                       .toLowerCase()
                       .includes(
@@ -1495,10 +1926,12 @@ export default function ProductionPage() {
       () =>
         availableProformas.find(
           proforma =>
-            proforma.id ===
+            proforma.id
+            ===
             selectedProformaId
         )
-        ?? null,
+        ??
+        null,
       [
         availableProformas,
         selectedProformaId,
@@ -1509,7 +1942,8 @@ export default function ProductionPage() {
   async function handleStartProduction() {
 
     if (
-      selectedProformaId ===
+      selectedProformaId
+      ===
       null
     ) {
 
@@ -1528,6 +1962,7 @@ export default function ProductionPage() {
         true
       );
 
+
       setStartProductionError(
         null
       );
@@ -1536,7 +1971,8 @@ export default function ProductionPage() {
       const proformaToStart =
         proformas.find(
           proforma =>
-            proforma.id ===
+            proforma.id
+            ===
             selectedProformaId
         );
 
@@ -1544,23 +1980,27 @@ export default function ProductionPage() {
       if (
         !proformaToStart
       ) {
+
         throw new Error(
           "Selected Proforma could not be found."
         );
+
       }
 
 
       const currentStatus =
         (
           proformaToStart.status
-          || ""
+          ||
+          ""
         )
           .trim()
           .toLowerCase();
 
 
       if (
-        currentStatus ===
+        currentStatus
+        ===
         "confirmed"
       ) {
 
@@ -1579,12 +2019,15 @@ export default function ProductionPage() {
 
 
       if (
-        createdOrders.length ===
+        createdOrders.length
+        ===
         0
       ) {
+
         throw new Error(
           "No Production Orders were created."
         );
+
       }
 
 
@@ -1694,8 +2137,10 @@ export default function ProductionPage() {
           style={{
             display:
               "flex",
+
             alignItems:
               "center",
+
             gap:
               "10px",
           }}
@@ -1704,14 +2149,17 @@ export default function ProductionPage() {
           <button
             type="button"
             className="production-refresh-button"
-            onClick={() =>
-              void openStartProduction()
+            onClick={
+              () =>
+                void openStartProduction()
             }
             style={{
               background:
                 "#3478ed",
+
               borderColor:
                 "#3478ed",
+
               color:
                 "#ffffff",
             }}
@@ -1729,8 +2177,9 @@ export default function ProductionPage() {
           <button
             type="button"
             className="production-refresh-button"
-            onClick={() =>
-              void loadOrders()
+            onClick={
+              () =>
+                void loadOrders()
             }
           >
 
@@ -1749,7 +2198,8 @@ export default function ProductionPage() {
 
       {
         error
-        && (
+        &&
+        (
           <div className="production-error">
             {error}
           </div>
@@ -1770,6 +2220,7 @@ export default function ProductionPage() {
             <div className="production-kpi-label">
               Total Orders
             </div>
+
 
             <div className="production-kpi-value">
               {orders.length}
@@ -1797,6 +2248,7 @@ export default function ProductionPage() {
               Pending
             </div>
 
+
             <div className="production-kpi-value">
               {pendingCount}
             </div>
@@ -1823,6 +2275,7 @@ export default function ProductionPage() {
               In Progress
             </div>
 
+
             <div className="production-kpi-value">
               {inProgressCount}
             </div>
@@ -1848,6 +2301,7 @@ export default function ProductionPage() {
             <div className="production-kpi-label">
               Completed
             </div>
+
 
             <div className="production-kpi-value">
               {completedCount}
@@ -1893,7 +2347,11 @@ export default function ProductionPage() {
 
 
           <div className="production-panel-badge">
-            {filteredOrders.length} records
+
+            {
+              filteredOrders.length
+            } records
+
           </div>
 
         </div>
@@ -1925,12 +2383,16 @@ export default function ProductionPage() {
 
             {
               search
-              && (
+              &&
+              (
                 <button
                   type="button"
                   className="production-search-clear"
-                  onClick={() =>
-                    setSearch("")
+                  onClick={
+                    () =>
+                      setSearch(
+                        ""
+                      )
                   }
                 >
 
@@ -1950,238 +2412,390 @@ export default function ProductionPage() {
         {
           loading
             ? (
-              <div className="production-loading-state">
+                <div className="production-loading-state">
 
-                <Loader2
-                  size={22}
-                  className="production-spin"
-                />
-
-                Loading production orders...
-
-              </div>
-            )
-            : filteredOrders.length
-                === 0
-              ? (
-                <div className="production-empty-state">
-
-                  <Factory
-                    size={25}
+                  <Loader2
+                    size={22}
+                    className="production-spin"
                   />
 
-                  No production orders found.
+                  Loading production orders...
 
                 </div>
               )
-              : (
-                <div className="production-table-wrap">
+            : filteredOrders.length
+              ===
+              0
+                ? (
+                    <div className="production-empty-state">
 
-                  <table className="production-table">
+                      <Factory
+                        size={25}
+                      />
 
-                    <thead>
+                      No production orders found.
 
-                      <tr>
+                    </div>
+                  )
+                : (
+                    <>
 
-                        <th>
-                          Production
-                        </th>
+                      <div className="production-table-wrap">
 
-                        <th>
-                          Proforma
-                        </th>
+                        <table className="production-table">
 
-                        <th>
-                          Finished Product / Machine
-                        </th>
+                          <thead>
 
-                        <th>
-                          Quantity
-                        </th>
+                            <tr>
 
-                        <th>
-                          Planned Start
-                        </th>
+                              <th>
+                                Production
+                              </th>
 
-                        <th>
-                          Actual Start
-                        </th>
+                              <th>
+                                Proforma
+                              </th>
 
-                        <th>
-                          Actual End
-                        </th>
+                              <th>
+                                Finished Product / Machine
+                              </th>
 
-                        <th>
-                          Status
-                        </th>
+                              <th>
+                                Quantity
+                              </th>
 
-                        <th className="align-right">
-                          View
-                        </th>
+                              <th>
+                                Planned Start
+                              </th>
 
-                      </tr>
+                              <th>
+                                Actual Start
+                              </th>
 
-                    </thead>
+                              <th>
+                                Actual End
+                              </th>
 
+                              <th>
+                                Status
+                              </th>
 
-                    <tbody>
-
-                      {
-                        filteredOrders.map(
-                          order => (
-                            <tr
-                              key={
-                                order.id
-                              }
-                            >
-
-                              <td>
-
-                                <div className="production-number">
-
-                                  {
-                                    order
-                                      .production_number
-                                  }
-
-                                </div>
-
-                              </td>
-
-
-                              <td>
-
-                                <span className="production-reference">
-
-                                  {
-                                    getProformaNumber(
-                                      order.proforma_id
-                                    )
-                                  }
-
-                                </span>
-
-                              </td>
-
-
-                              <td>
-
-                                <strong>
-
-                                  {
-                                    order
-                                      .product_name
-                                  }
-
-                                </strong>
-
-                              </td>
-
-
-                              <td>
-
-                                <strong>
-
-                                  {
-                                    formatNumber(
-                                      order.quantity
-                                    )
-                                  }{" "}
-                                  {
-                                    order.unit
-                                  }
-
-                                </strong>
-
-                              </td>
-
-
-                              <td>
-
-                                {
-                                  formatDate(
-                                    order
-                                      .planned_start_date
-                                  )
-                                }
-
-                              </td>
-
-
-                              <td>
-
-                                {
-                                  formatDate(
-                                    order
-                                      .actual_start_date
-                                  )
-                                }
-
-                              </td>
-
-
-                              <td>
-
-                                {
-                                  formatDate(
-                                    order
-                                      .actual_end_date
-                                  )
-                                }
-
-                              </td>
-
-
-                              <td>
-
-                                <span
-                                  className={`production-status ${getStatusClass(
-                                    order.status
-                                  )}`}
-                                >
-
-                                  {
-                                    order.status
-                                  }
-
-                                </span>
-
-                              </td>
-
-
-                              <td className="align-right">
-
-                                <button
-                                  type="button"
-                                  className="production-view-button"
-                                  onClick={() =>
-                                    void openOrderDetail(
-                                      order
-                                    )
-                                  }
-                                >
-
-                                  Details
-
-                                  <ChevronRight
-                                    size={14}
-                                  />
-
-                                </button>
-
-                              </td>
+                              <th className="align-right">
+                                View
+                              </th>
 
                             </tr>
-                          )
-                        )
-                      }
 
-                    </tbody>
+                          </thead>
 
-                  </table>
 
-                </div>
-              )
+                          <tbody>
+
+                            {
+                              paginatedOrders.map(
+                                order => (
+
+                                  <tr
+                                    key={
+                                      order.id
+                                    }
+                                  >
+
+                                    <td>
+
+                                      <div className="production-number">
+
+                                        {
+                                          order
+                                            .production_number
+                                        }
+
+                                      </div>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <span className="production-reference">
+
+                                        {
+                                          getProformaNumber(
+                                            order.proforma_id
+                                          )
+                                        }
+
+                                      </span>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <strong>
+
+                                        {
+                                          order
+                                            .product_name
+                                        }
+
+                                      </strong>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <strong>
+
+                                        {
+                                          formatNumber(
+                                            order.quantity
+                                          )
+                                        }{" "}
+
+                                        {
+                                          order.unit
+                                        }
+
+                                      </strong>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        formatDate(
+                                          order
+                                            .planned_start_date
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        formatDate(
+                                          order
+                                            .actual_start_date
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        formatDate(
+                                          order
+                                            .actual_end_date
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <span
+                                        className={
+                                          `production-status ${getStatusClass(
+                                            order.status
+                                          )}`
+                                        }
+                                      >
+
+                                        {
+                                          order.status
+                                        }
+
+                                      </span>
+
+                                    </td>
+
+
+                                    <td className="align-right">
+
+                                      <button
+                                        type="button"
+                                        className="production-view-button"
+                                        onClick={
+                                          () =>
+                                            void openOrderDetail(
+                                              order
+                                            )
+                                        }
+                                      >
+
+                                        Details
+
+                                        <ChevronRight
+                                          size={14}
+                                        />
+
+                                      </button>
+
+                                    </td>
+
+                                  </tr>
+
+                                )
+                              )
+                            }
+
+                          </tbody>
+
+                        </table>
+
+                      </div>
+
+
+                      {/* ==========================================
+                          PAGINATION
+                      =========================================== */}
+
+                      <div
+                        style={{
+                          display:
+                            "flex",
+
+                          alignItems:
+                            "center",
+
+                          justifyContent:
+                            "space-between",
+
+                          gap:
+                            "14px",
+
+                          padding:
+                            "16px 18px",
+
+                          borderTop:
+                            "1px solid #e8eef7",
+                        }}
+                      >
+
+                        <div className="production-panel-subtitle">
+
+                          Showing{" "}
+
+                          <strong>
+                            {firstRecord}
+                          </strong>
+
+                          {"–"}
+
+                          <strong>
+                            {lastRecord}
+                          </strong>
+
+                          {" of "}
+
+                          <strong>
+                            {
+                              filteredOrders.length
+                            }
+                          </strong>
+
+                          {" records"}
+
+                        </div>
+
+
+                        <div
+                          style={{
+                            display:
+                              "flex",
+
+                            alignItems:
+                              "center",
+
+                            gap:
+                              "10px",
+                          }}
+                        >
+
+                          <button
+                            type="button"
+                            className="production-view-button"
+                            disabled={
+                              currentPage
+                              <=
+                              1
+                            }
+                            onClick={
+                              () =>
+                                setCurrentPage(
+                                  page =>
+                                    Math.max(
+                                      1,
+                                      page
+                                      -
+                                      1
+                                    )
+                                )
+                            }
+                          >
+
+                            Previous
+
+                          </button>
+
+
+                          <span className="production-panel-subtitle">
+
+                            Page{" "}
+
+                            <strong>
+                              {currentPage}
+                            </strong>
+
+                            {" of "}
+
+                            <strong>
+                              {totalPages}
+                            </strong>
+
+                          </span>
+
+
+                          <button
+                            type="button"
+                            className="production-view-button"
+                            disabled={
+                              currentPage
+                              >=
+                              totalPages
+                            }
+                            onClick={
+                              () =>
+                                setCurrentPage(
+                                  page =>
+                                    Math.min(
+                                      totalPages,
+                                      page
+                                      +
+                                      1
+                                    )
+                                )
+                            }
+                          >
+
+                            Next
+
+                          </button>
+
+                        </div>
+
+                      </div>
+
+                    </>
+                  )
         }
 
       </div>
@@ -2189,7 +2803,8 @@ export default function ProductionPage() {
 
       {
         detailLoading
-        && (
+        &&
+        (
           <div className="production-detail-loading">
 
             <Loader2
@@ -2205,12 +2820,13 @@ export default function ProductionPage() {
 
 
       {/* ======================================================
-          START PRODUCTION
+          START PRODUCTION MODAL
       ====================================================== */}
 
       {
         startProductionOpen
-        && (
+        &&
+        (
           <div className="production-modal-backdrop">
 
             <div className="production-modal">
@@ -2259,7 +2875,8 @@ export default function ProductionPage() {
 
               {
                 startProductionError
-                && (
+                &&
+                (
                   <div
                     className="production-error"
                     style={{
@@ -2267,9 +2884,11 @@ export default function ProductionPage() {
                         "18px 20px 0",
                     }}
                   >
+
                     {
                       startProductionError
                     }
+
                   </div>
                 )
               }
@@ -2343,210 +2962,221 @@ export default function ProductionPage() {
                 {
                   proformaLoading
                     ? (
-                      <div className="production-loading-state">
+                        <div className="production-loading-state">
 
-                        <Loader2
-                          size={22}
-                          className="production-spin"
-                        />
-
-                        Loading available Proformas...
-
-                      </div>
-                    )
-                    : availableProformas
-                        .length === 0
-                      ? (
-                        <div className="production-empty-state">
-
-                          <Factory
-                            size={25}
+                          <Loader2
+                            size={22}
+                            className="production-spin"
                           />
 
-                          No confirmed Proformas are
-                          waiting to start production.
+                          Loading available Proformas...
 
                         </div>
                       )
-                      : (
-                        <div className="production-table-wrap">
+                    : availableProformas.length
+                      ===
+                      0
+                        ? (
+                            <div className="production-empty-state">
 
-                          <table className="production-table">
+                              <Factory
+                                size={25}
+                              />
 
-                            <thead>
+                              No confirmed Proformas are
+                              waiting to start production.
 
-                              <tr>
+                            </div>
+                          )
+                        : (
+                            <div className="production-table-wrap">
 
-                                <th>
-                                  Proforma
-                                </th>
+                              <table className="production-table">
 
-                                <th>
-                                  Date
-                                </th>
+                                <thead>
 
-                                <th>
-                                  Customer
-                                </th>
+                                  <tr>
 
-                                <th>
-                                  Finished Product / Machine
-                                </th>
+                                    <th>
+                                      Proforma
+                                    </th>
 
-                                <th>
-                                  Status
-                                </th>
+                                    <th>
+                                      Date
+                                    </th>
 
-                                <th>
-                                  Value
-                                </th>
+                                    <th>
+                                      Customer
+                                    </th>
 
-                                <th className="align-right">
-                                  Select
-                                </th>
+                                    <th>
+                                      Finished Product / Machine
+                                    </th>
 
-                              </tr>
+                                    <th>
+                                      Status
+                                    </th>
 
-                            </thead>
+                                    <th>
+                                      Value
+                                    </th>
 
+                                    <th className="align-right">
+                                      Select
+                                    </th>
 
-                            <tbody>
+                                  </tr>
 
-                              {
-                                availableProformas.map(
-                                  proforma => {
-
-                                    const isSelected =
-                                      selectedProformaId
-                                      === proforma.id;
-
-
-                                    const productNames =
-                                      proforma.items
-                                        .map(
-                                          item =>
-                                            item.description
-                                            || ""
-                                        )
-                                        .filter(Boolean)
-                                        .join(", ");
+                                </thead>
 
 
-                                    return (
-                                      <tr
-                                        key={
-                                          proforma.id
-                                        }
-                                      >
+                                <tbody>
 
-                                        <td>
+                                  {
+                                    availableProformas.map(
+                                      proforma => {
 
-                                          <div className="production-number">
-
-                                            {
-                                              proforma
-                                                .proforma_number
-                                            }
-
-                                          </div>
-
-                                        </td>
+                                        const isSelected =
+                                          selectedProformaId
+                                          ===
+                                          proforma.id;
 
 
-                                        <td>
-
-                                          {
-                                            formatDate(
-                                              proforma
-                                                .proforma_date
+                                        const productNames =
+                                          proforma.items
+                                            .map(
+                                              item =>
+                                                item.description
+                                                ||
+                                                ""
                                             )
-                                          }
-
-                                        </td>
-
-
-                                        <td>
-
-                                          <strong>
-
-                                            {
-                                              proforma
-                                                .company_name
-                                            }
-
-                                          </strong>
-
-                                        </td>
-
-
-                                        <td>
-
-                                          <strong>
-
-                                            {
-                                              productNames
-                                              || "-"
-                                            }
-
-                                          </strong>
-
-                                        </td>
-
-
-                                        <td>
-                                          {
-                                            proforma.status
-                                          }
-                                        </td>
-
-
-                                        <td>
-
-                                          {
-                                            formatCurrency(
-                                              proforma
-                                                .grand_total
+                                            .filter(
+                                              Boolean
                                             )
-                                          }
+                                            .join(
+                                              ", "
+                                            );
 
-                                        </td>
 
-
-                                        <td className="align-right">
-
-                                          <button
-                                            type="button"
-                                            className="production-view-button"
-                                            onClick={() =>
-                                              setSelectedProformaId(
-                                                proforma.id
-                                              )
+                                        return (
+                                          <tr
+                                            key={
+                                              proforma.id
                                             }
                                           >
 
-                                            {
-                                              isSelected
-                                                ? "Selected"
-                                                : "Select"
-                                            }
+                                            <td>
 
-                                          </button>
+                                              <div className="production-number">
 
-                                        </td>
+                                                {
+                                                  proforma
+                                                    .proforma_number
+                                                }
 
-                                      </tr>
-                                    );
+                                              </div>
 
+                                            </td>
+
+
+                                            <td>
+
+                                              {
+                                                formatDate(
+                                                  proforma
+                                                    .proforma_date
+                                                )
+                                              }
+
+                                            </td>
+
+
+                                            <td>
+
+                                              <strong>
+
+                                                {
+                                                  proforma
+                                                    .company_name
+                                                }
+
+                                              </strong>
+
+                                            </td>
+
+
+                                            <td>
+
+                                              <strong>
+
+                                                {
+                                                  productNames
+                                                  ||
+                                                  "-"
+                                                }
+
+                                              </strong>
+
+                                            </td>
+
+
+                                            <td>
+
+                                              {
+                                                proforma.status
+                                              }
+
+                                            </td>
+
+
+                                            <td>
+
+                                              {
+                                                formatCurrency(
+                                                  proforma
+                                                    .grand_total
+                                                )
+                                              }
+
+                                            </td>
+
+
+                                            <td className="align-right">
+
+                                              <button
+                                                type="button"
+                                                className="production-view-button"
+                                                onClick={
+                                                  () =>
+                                                    setSelectedProformaId(
+                                                      proforma.id
+                                                    )
+                                                }
+                                              >
+
+                                                {
+                                                  isSelected
+                                                    ? "Selected"
+                                                    : "Select"
+                                                }
+
+                                              </button>
+
+                                            </td>
+
+                                          </tr>
+                                        );
+
+                                      }
+                                    )
                                   }
-                                )
-                              }
 
-                            </tbody>
+                                </tbody>
 
-                          </table>
+                              </table>
 
-                        </div>
-                      )
+                            </div>
+                          )
                 }
 
               </div>
@@ -2554,7 +3184,8 @@ export default function ProductionPage() {
 
               {
                 selectedProforma
-                && (
+                &&
+                (
                   <div className="production-detail-section">
 
                     <div className="production-detail-section-header">
@@ -2628,53 +3259,55 @@ export default function ProductionPage() {
                         <tbody>
 
                           {
-                            selectedProforma
-                              .items
-                              .map(
-                                item => (
-                                  <tr
-                                    key={
-                                      item.id
+                            selectedProforma.items.map(
+                              item => (
+
+                                <tr
+                                  key={
+                                    item.id
+                                  }
+                                >
+
+                                  <td>
+
+                                    <strong>
+
+                                      {
+                                        item.description
+                                        ||
+                                        "-"
+                                      }
+
+                                    </strong>
+
+                                  </td>
+
+
+                                  <td>
+
+                                    {
+                                      formatNumber(
+                                        item.quantity
+                                      )
                                     }
-                                  >
 
-                                    <td>
-
-                                      <strong>
-
-                                        {
-                                          item.description
-                                          || "-"
-                                        }
-
-                                      </strong>
-
-                                    </td>
+                                  </td>
 
 
-                                    <td>
+                                  <td>
 
-                                      {
-                                        formatNumber(
-                                          item.quantity
-                                        )
-                                      }
+                                    {
+                                      item.unit
+                                      ||
+                                      "-"
+                                    }
 
-                                    </td>
+                                  </td>
 
+                                </tr>
 
-                                    <td>
-
-                                      {
-                                        item.unit
-                                        || "-"
-                                      }
-
-                                    </td>
-
-                                  </tr>
-                                )
                               )
+                            )
                           }
 
                         </tbody>
@@ -2692,12 +3325,16 @@ export default function ProductionPage() {
                 style={{
                   display:
                     "flex",
+
                   justifyContent:
                     "flex-end",
+
                   gap:
                     "10px",
+
                   padding:
                     "20px",
+
                   borderTop:
                     "1px solid #e8eef6",
                 }}
@@ -2713,7 +3350,9 @@ export default function ProductionPage() {
                     startingProduction
                   }
                 >
+
                   Cancel
+
                 </button>
 
 
@@ -2722,16 +3361,19 @@ export default function ProductionPage() {
                   className="production-refresh-button"
                   disabled={
                     selectedProformaId
-                      === null
+                    ===
+                    null
                     ||
                     startingProduction
                   }
-                  onClick={() =>
-                    void handleStartProduction()
+                  onClick={
+                    () =>
+                      void handleStartProduction()
                   }
                   style={{
                     background:
                       "#3478ed",
+
                     color:
                       "#ffffff",
                   }}
@@ -2740,28 +3382,28 @@ export default function ProductionPage() {
                   {
                     startingProduction
                       ? (
-                        <>
+                          <>
 
-                          <Loader2
-                            size={16}
-                            className="production-spin"
-                          />
+                            <Loader2
+                              size={16}
+                              className="production-spin"
+                            />
 
-                          Starting...
+                            Starting...
 
-                        </>
-                      )
+                          </>
+                        )
                       : (
-                        <>
+                          <>
 
-                          <Play
-                            size={16}
-                          />
+                            <Play
+                              size={16}
+                            />
 
-                          Start Production
+                            Start Production
 
-                        </>
-                      )
+                          </>
+                        )
                   }
 
                 </button>
@@ -2781,7 +3423,8 @@ export default function ProductionPage() {
 
       {
         selectedOrder
-        && (
+        &&
+        (
           <div className="production-modal-backdrop">
 
             <div className="production-modal">
@@ -2834,6 +3477,8 @@ export default function ProductionPage() {
                   }
                   disabled={
                     completingProduction
+                    ||
+                    reopeningProduction
                   }
                 >
 
@@ -2854,6 +3499,7 @@ export default function ProductionPage() {
                     Finished Product / Machine
                   </span>
 
+
                   <strong>
 
                     {
@@ -2872,6 +3518,7 @@ export default function ProductionPage() {
                     Quantity
                   </span>
 
+
                   <strong>
 
                     {
@@ -2880,9 +3527,9 @@ export default function ProductionPage() {
                           .quantity
                       )
                     }{" "}
+
                     {
-                      selectedOrder
-                        .unit
+                      selectedOrder.unit
                     }
 
                   </strong>
@@ -2896,11 +3543,11 @@ export default function ProductionPage() {
                     Status
                   </span>
 
+
                   <strong>
 
                     {
-                      selectedOrder
-                        .status
+                      selectedOrder.status
                     }
 
                   </strong>
@@ -2913,6 +3560,7 @@ export default function ProductionPage() {
                   <span>
                     Planned Start
                   </span>
+
 
                   <strong>
 
@@ -2934,6 +3582,7 @@ export default function ProductionPage() {
                     Actual Start
                   </span>
 
+
                   <strong>
 
                     {
@@ -2953,6 +3602,7 @@ export default function ProductionPage() {
                   <span>
                     Actual End
                   </span>
+
 
                   <strong>
 
@@ -3004,8 +3654,10 @@ export default function ProductionPage() {
                     style={{
                       display:
                         "flex",
+
                       alignItems:
                         "center",
+
                       gap:
                         "10px",
                     }}
@@ -3014,38 +3666,41 @@ export default function ProductionPage() {
                     <div className="production-detail-count">
 
                       {
-                        selectedOrder
-                          .operations
-                          .length
+                        selectedOrder.operations.length
                       } operations
 
                     </div>
 
 
                     {
-                      selectedOrder
-                        .status
+                      selectedOrder.status
                         .toLowerCase()
-                      !== "completed"
-                      && (
+                      !==
+                      "completed"
+                      &&
+                      (
                         <button
                           type="button"
                           className="production-refresh-button"
-                          onClick={() => {
+                          onClick={
+                            () => {
 
-                            setShowOperationForm(
-                              current =>
-                                !current
-                            );
+                              setShowOperationForm(
+                                current =>
+                                  !current
+                              );
 
-                            setOperationError(
-                              null
-                            );
 
-                          }}
+                              setOperationError(
+                                null
+                              );
+
+                            }
+                          }
                           style={{
                             background:
                               "#3478ed",
+
                             color:
                               "#ffffff",
                           }}
@@ -3068,7 +3723,8 @@ export default function ProductionPage() {
 
                 {
                   operationError
-                  && (
+                  &&
+                  (
                     <div
                       className="production-error"
                       style={{
@@ -3076,9 +3732,11 @@ export default function ProductionPage() {
                           "14px",
                       }}
                     >
+
                       {
                         operationError
                       }
+
                     </div>
                   )
                 }
@@ -3086,17 +3744,22 @@ export default function ProductionPage() {
 
                 {
                   showOperationForm
-                  && (
+                  &&
+                  (
                     <div
                       style={{
                         margin:
                           "16px",
+
                         padding:
                           "16px",
+
                         border:
                           "1px solid #dfe8f4",
+
                         borderRadius:
                           "12px",
+
                         background:
                           "#f9fbff",
                       }}
@@ -3106,15 +3769,20 @@ export default function ProductionPage() {
                         style={{
                           marginBottom:
                             "14px",
+
                           color:
                             "#203757",
+
                           fontSize:
                             "12px",
+
                           fontWeight:
                             800,
                         }}
                       >
+
                         New Operation
+
                       </div>
 
 
@@ -3122,8 +3790,10 @@ export default function ProductionPage() {
                         style={{
                           display:
                             "grid",
+
                           gridTemplateColumns:
                             "repeat(4, minmax(0, 1fr))",
+
                           gap:
                             "12px",
                         }}
@@ -3138,6 +3808,7 @@ export default function ProductionPage() {
                           <span>
                             Operation Name *
                           </span>
+
 
                           <input
                             style={
@@ -3155,9 +3826,7 @@ export default function ProductionPage() {
                                     ...current,
 
                                     operation_name:
-                                      event
-                                        .target
-                                        .value,
+                                      event.target.value,
                                   })
                                 )
                             }
@@ -3177,6 +3846,7 @@ export default function ProductionPage() {
                             Machine
                           </span>
 
+
                           <input
                             style={
                               inputStyle
@@ -3193,9 +3863,7 @@ export default function ProductionPage() {
                                     ...current,
 
                                     machine_name:
-                                      event
-                                        .target
-                                        .value,
+                                      event.target.value,
                                   })
                                 )
                             }
@@ -3215,6 +3883,7 @@ export default function ProductionPage() {
                             Hourly Rate (₹)
                           </span>
 
+
                           <input
                             style={
                               inputStyle
@@ -3233,9 +3902,7 @@ export default function ProductionPage() {
                                     ...current,
 
                                     hourly_rate:
-                                      event
-                                        .target
-                                        .value,
+                                      event.target.value,
                                   })
                                 )
                             }
@@ -3255,6 +3922,7 @@ export default function ProductionPage() {
                             Planned Hours
                           </span>
 
+
                           <input
                             style={
                               inputStyle
@@ -3273,9 +3941,7 @@ export default function ProductionPage() {
                                     ...current,
 
                                     planned_hours:
-                                      event
-                                        .target
-                                        .value,
+                                      event.target.value,
                                   })
                                 )
                             }
@@ -3294,6 +3960,7 @@ export default function ProductionPage() {
                           <span>
                             Actual Hours
                           </span>
+
 
                           <input
                             style={
@@ -3316,6 +3983,7 @@ export default function ProductionPage() {
                             Operation Cost
                           </span>
 
+
                           <input
                             style={
                               readOnlyInputStyle
@@ -3337,6 +4005,7 @@ export default function ProductionPage() {
                             Status
                           </span>
 
+
                           <input
                             style={
                               readOnlyInputStyle
@@ -3354,10 +4023,13 @@ export default function ProductionPage() {
                         style={{
                           display:
                             "flex",
+
                           justifyContent:
                             "flex-end",
+
                           gap:
                             "9px",
+
                           marginTop:
                             "15px",
                         }}
@@ -3366,31 +4038,38 @@ export default function ProductionPage() {
                         <button
                           type="button"
                           className="production-refresh-button"
-                          onClick={() => {
+                          onClick={
+                            () => {
 
-                            setShowOperationForm(
-                              false
-                            );
+                              setShowOperationForm(
+                                false
+                              );
 
-                            setOperationForm(
-                              EMPTY_OPERATION_FORM
-                            );
 
-                            setOperationError(
-                              null
-                            );
+                              setOperationForm(
+                                EMPTY_OPERATION_FORM
+                              );
 
-                          }}
+
+                              setOperationError(
+                                null
+                              );
+
+                            }
+                          }
                         >
+
                           Cancel
+
                         </button>
 
 
                         <button
                           type="button"
                           className="production-refresh-button"
-                          onClick={() =>
-                            void handleAddOperation()
+                          onClick={
+                            () =>
+                              void handleAddOperation()
                           }
                           disabled={
                             operationSaving
@@ -3398,6 +4077,7 @@ export default function ProductionPage() {
                           style={{
                             background:
                               "#3478ed",
+
                             color:
                               "#ffffff",
                           }}
@@ -3406,28 +4086,28 @@ export default function ProductionPage() {
                           {
                             operationSaving
                               ? (
-                                <>
+                                  <>
 
-                                  <Loader2
-                                    size={15}
-                                    className="production-spin"
-                                  />
+                                    <Loader2
+                                      size={15}
+                                      className="production-spin"
+                                    />
 
-                                  Saving...
+                                    Saving...
 
-                                </>
-                              )
+                                  </>
+                                )
                               : (
-                                <>
+                                  <>
 
-                                  <Plus
-                                    size={15}
-                                  />
+                                    <Plus
+                                      size={15}
+                                    />
 
-                                  Add Operation
+                                    Add Operation
 
-                                </>
-                              )
+                                  </>
+                                )
                           }
 
                         </button>
@@ -3440,87 +4120,86 @@ export default function ProductionPage() {
 
 
                 {
-                  selectedOrder
-                    .operations
-                    .length
-                  === 0
+                  selectedOrder.operations.length
+                  ===
+                  0
                     ? (
-                      <div className="production-detail-empty">
-                        No operations added.
-                      </div>
-                    )
+                        <div className="production-detail-empty">
+                          No operations added.
+                        </div>
+                      )
                     : (
-                      <div className="production-table-wrap">
+                        <div className="production-table-wrap">
 
-                        <table className="production-table production-detail-table">
+                          <table className="production-table production-detail-table">
 
-                          <thead>
+                            <thead>
 
-                            <tr>
+                              <tr>
 
-                              <th>
-                                Operation Name
-                              </th>
+                                <th>
+                                  Operation Name
+                                </th>
 
-                              <th>
-                                Machine
-                              </th>
+                                <th>
+                                  Machine
+                                </th>
 
-                              <th>
-                                Hourly Rate
-                              </th>
+                                <th>
+                                  Hourly Rate
+                                </th>
 
-                              <th>
-                                Planned Hours
-                              </th>
+                                <th>
+                                  Planned Hours
+                                </th>
 
-                              <th>
-                                Actual Hours
-                              </th>
+                                <th>
+                                  Actual Hours
+                                </th>
 
-                              <th>
-                                Operation Cost
-                              </th>
+                                <th>
+                                  Operation Cost
+                                </th>
 
-                              <th>
-                                Status
-                              </th>
+                                <th>
+                                  Status
+                                </th>
 
-                              <th>
-                                Action
-                              </th>
+                                <th>
+                                  Action
+                                </th>
 
-                            </tr>
+                              </tr>
 
-                          </thead>
+                            </thead>
 
 
-                          <tbody>
+                            <tbody>
 
-                            {
-                              selectedOrder
-                                .operations
-                                .map(
+                              {
+                                selectedOrder.operations.map(
                                   operation => {
 
                                     const status =
-                                      operation
-                                        .status
+                                      operation.status
                                         .toLowerCase();
 
 
                                     const isPending =
-                                      status ===
+                                      status
+                                      ===
                                       "pending";
 
 
                                     const isInProgress =
-                                      status ===
+                                      status
+                                      ===
                                       "in progress";
 
 
                                     const isCompleted =
-                                      status ===
+                                      status
+                                      ===
                                       "completed";
 
 
@@ -3550,7 +4229,8 @@ export default function ProductionPage() {
                                           {
                                             operation
                                               .machine_name
-                                            || "-"
+                                            ||
+                                            "-"
                                           }
 
                                         </td>
@@ -3586,37 +4266,39 @@ export default function ProductionPage() {
                                           {
                                             isInProgress
                                               ? (
-                                                <input
-                                                  type="number"
-                                                  min="0.01"
-                                                  step="0.01"
-                                                  value={
-                                                    actualHours[
-                                                      operation.id
-                                                    ]
-                                                    ?? ""
-                                                  }
-                                                  onChange={
-                                                    event =>
-                                                      setActualHours(
-                                                        current => ({
-                                                          ...current,
+                                                  <input
+                                                    type="number"
+                                                    min="0.01"
+                                                    step="0.01"
+                                                    value={
+                                                      actualHours[
+                                                        operation.id
+                                                      ]
+                                                      ??
+                                                      ""
+                                                    }
+                                                    onChange={
+                                                      event =>
+                                                        setActualHours(
+                                                          current => ({
+                                                            ...current,
 
-                                                          [operation.id]:
-                                                            event
-                                                              .target
-                                                              .value,
-                                                        })
-                                                      )
-                                                  }
-                                                  placeholder="Actual hours"
-                                                  style={{
-                                                    ...inputStyle,
-                                                    width:
-                                                      "105px",
-                                                  }}
-                                                />
-                                              )
+                                                            [operation.id]:
+                                                              event
+                                                                .target
+                                                                .value,
+                                                          })
+                                                        )
+                                                    }
+                                                    placeholder="Actual hours"
+                                                    style={{
+                                                      ...inputStyle,
+
+                                                      width:
+                                                        "105px",
+                                                    }}
+                                                  />
+                                                )
                                               : formatNumber(
                                                   operation
                                                     .actual_hours
@@ -3645,9 +4327,11 @@ export default function ProductionPage() {
                                         <td>
 
                                           <span
-                                            className={`production-status ${getStatusClass(
-                                              operation.status
-                                            )}`}
+                                            className={
+                                              `production-status ${getStatusClass(
+                                                operation.status
+                                              )}`
+                                            }
                                           >
 
                                             {
@@ -3663,18 +4347,21 @@ export default function ProductionPage() {
 
                                           {
                                             isPending
-                                            && (
+                                            &&
+                                            (
                                               <button
                                                 type="button"
                                                 className="production-view-button"
                                                 disabled={
                                                   operationActionId
-                                                  === operation.id
+                                                  ===
+                                                  operation.id
                                                 }
-                                                onClick={() =>
-                                                  void handleStartOperation(
-                                                    operation.id
-                                                  )
+                                                onClick={
+                                                  () =>
+                                                    void handleStartOperation(
+                                                      operation.id
+                                                    )
                                                 }
                                               >
 
@@ -3691,24 +4378,29 @@ export default function ProductionPage() {
 
                                           {
                                             isInProgress
-                                            && (
+                                            &&
+                                            (
                                               <button
                                                 type="button"
                                                 className="production-view-button"
                                                 disabled={
                                                   operationActionId
-                                                  === operation.id
+                                                  ===
+                                                  operation.id
                                                 }
-                                                onClick={() =>
-                                                  void handleCompleteOperation(
-                                                    operation.id
-                                                  )
+                                                onClick={
+                                                  () =>
+                                                    void handleCompleteOperation(
+                                                      operation.id
+                                                    )
                                                 }
                                                 style={{
                                                   background:
                                                     "#eaf8f0",
+
                                                   color:
                                                     "#198c56",
+
                                                   borderColor:
                                                     "#ccebdc",
                                                 }}
@@ -3727,13 +4419,16 @@ export default function ProductionPage() {
 
                                           {
                                             isCompleted
-                                            && (
+                                            &&
+                                            (
                                               <span
                                                 style={{
                                                   color:
                                                     "#198c56",
+
                                                   fontSize:
                                                     "10px",
+
                                                   fontWeight:
                                                     750,
                                                 }}
@@ -3750,14 +4445,14 @@ export default function ProductionPage() {
 
                                   }
                                 )
-                            }
+                              }
 
-                          </tbody>
+                            </tbody>
 
-                        </table>
+                          </table>
 
-                      </div>
-                    )
+                        </div>
+                      )
                 }
 
               </div>
@@ -3806,57 +4501,55 @@ export default function ProductionPage() {
 
 
                 {
-                  selectedOrder
-                    .materials
-                    .length
-                  === 0
+                  selectedOrder.materials.length
+                  ===
+                  0
                     ? (
-                      <div className="production-detail-empty">
-                        No materials have been issued
-                        from Store yet.
-                      </div>
-                    )
+                        <div className="production-detail-empty">
+                          No materials have been issued
+                          from Store yet.
+                        </div>
+                      )
                     : (
-                      <div className="production-table-wrap">
+                        <div className="production-table-wrap">
 
-                        <table className="production-table production-detail-table">
+                          <table className="production-table production-detail-table">
 
-                          <thead>
+                            <thead>
 
-                            <tr>
+                              <tr>
 
-                              <th>
-                                Material
-                              </th>
+                                <th>
+                                  Material
+                                </th>
 
-                              <th>
-                                Unit
-                              </th>
+                                <th>
+                                  Unit
+                                </th>
 
-                              <th>
-                                Quantity Issued
-                              </th>
+                                <th>
+                                  Quantity Issued
+                                </th>
 
-                              <th>
-                                Unit Cost
-                              </th>
+                                <th>
+                                  Unit Cost
+                                </th>
 
-                              <th>
-                                Material Cost
-                              </th>
+                                <th>
+                                  Material Cost
+                                </th>
 
-                            </tr>
+                              </tr>
 
-                          </thead>
+                            </thead>
 
 
-                          <tbody>
+                            <tbody>
 
-                            {
-                              selectedOrder
-                                .materials
-                                .map(
+                              {
+                                selectedOrder.materials.map(
                                   material => (
+
                                     <tr
                                       key={
                                         material.id
@@ -3880,9 +4573,9 @@ export default function ProductionPage() {
                                       <td>
 
                                         {
-                                          material
-                                            .unit
-                                          || "-"
+                                          material.unit
+                                          ||
+                                          "-"
                                         }
 
                                       </td>
@@ -3932,16 +4625,17 @@ export default function ProductionPage() {
                                       </td>
 
                                     </tr>
+
                                   )
                                 )
-                            }
+                              }
 
-                          </tbody>
+                            </tbody>
 
-                        </table>
+                          </table>
 
-                      </div>
-                    )
+                        </div>
+                      )
                 }
 
               </div>
@@ -3968,7 +4662,8 @@ export default function ProductionPage() {
 
                   {
                     selectedOrder.notes
-                    || "No production notes."
+                    ||
+                    "No production notes."
                   }
 
                 </div>
@@ -3977,12 +4672,13 @@ export default function ProductionPage() {
 
 
               {/* ==================================================
-                  COMPLETE PRODUCTION
+                  COMPLETE / REOPEN
               ================================================== */}
 
               {
                 completionError
-                && (
+                &&
+                (
                   <div
                     className="production-error"
                     style={{
@@ -3990,38 +4686,49 @@ export default function ProductionPage() {
                         "18px 0 0",
                     }}
                   >
+
                     {
                       completionError
                     }
+
                   </div>
                 )
               }
 
 
               {
-                selectedOrder
-                  .status
+                selectedOrder.status
                   .toLowerCase()
-                === "in progress"
-                && (
+                ===
+                "in progress"
+                &&
+                (
                   <div
                     style={{
                       display:
                         "flex",
+
                       justifyContent:
                         "space-between",
+
                       alignItems:
                         "center",
+
                       gap:
                         "20px",
+
                       marginTop:
                         "18px",
+
                       padding:
                         "18px",
+
                       border:
                         "1px solid #cde9d9",
+
                       borderRadius:
                         "14px",
+
                       background:
                         "#f2fbf6",
                     }}
@@ -4033,13 +4740,17 @@ export default function ProductionPage() {
                         style={{
                           color:
                             "#1d5940",
+
                           fontSize:
                             "12px",
+
                           fontWeight:
                             850,
                         }}
                       >
+
                         Production Finished?
+
                       </div>
 
 
@@ -4047,15 +4758,19 @@ export default function ProductionPage() {
                         style={{
                           marginTop:
                             "4px",
+
                           color:
                             "#648271",
+
                           fontSize:
                             "10px",
                         }}
                       >
+
                         Complete all operations
                         before moving this job
                         to Finished Products.
+
                       </div>
 
                     </div>
@@ -4067,16 +4782,20 @@ export default function ProductionPage() {
                       disabled={
                         completingProduction
                       }
-                      onClick={() =>
-                        void handleProductionCompleted()
+                      onClick={
+                        () =>
+                          void handleProductionCompleted()
                       }
                       style={{
                         minHeight:
                           "42px",
+
                         background:
                           "#159a5b",
+
                         borderColor:
                           "#159a5b",
+
                         color:
                           "#ffffff",
                       }}
@@ -4085,28 +4804,28 @@ export default function ProductionPage() {
                       {
                         completingProduction
                           ? (
-                            <>
+                              <>
 
-                              <Loader2
-                                size={16}
-                                className="production-spin"
-                              />
+                                <Loader2
+                                  size={16}
+                                  className="production-spin"
+                                />
 
-                              Completing...
+                                Completing...
 
-                            </>
-                          )
+                              </>
+                            )
                           : (
-                            <>
+                              <>
 
-                              <PackageCheck
-                                size={16}
-                              />
+                                <PackageCheck
+                                  size={16}
+                                />
 
-                              Production Completed
+                                Production Completed
 
-                            </>
-                          )
+                              </>
+                            )
                       }
 
                     </button>
@@ -4117,19 +4836,113 @@ export default function ProductionPage() {
 
 
               {
-                selectedOrder
-                  .status
+                selectedOrder.status
                   .toLowerCase()
-                === "completed"
-                && (
-                  <div className="production-complete-banner">
+                ===
+                "completed"
+                &&
+                (
+                  <div
+                    className="production-complete-banner"
+                    style={{
+                      display:
+                        "flex",
 
-                    <PackageCheck
-                      size={18}
-                    />
+                      alignItems:
+                        "center",
 
-                    This Production Order
-                    has been completed.
+                      justifyContent:
+                        "space-between",
+
+                      gap:
+                        "16px",
+                    }}
+                  >
+
+                    <div
+                      style={{
+                        display:
+                          "flex",
+
+                        alignItems:
+                          "center",
+
+                        gap:
+                          "9px",
+                      }}
+                    >
+
+                      <PackageCheck
+                        size={18}
+                      />
+
+                      <span>
+                        This Production Order
+                        has been completed.
+                      </span>
+
+                    </div>
+
+
+                    {
+                      canReopenProduction
+                      &&
+                      (
+                        <button
+                          type="button"
+                          className="production-refresh-button"
+                          disabled={
+                            reopeningProduction
+                          }
+                          onClick={
+                            () =>
+                              void handleReopenProduction()
+                          }
+                          style={{
+                            background:
+                              "#fff7e8",
+
+                            borderColor:
+                              "#f2c879",
+
+                            color:
+                              "#9a6500",
+
+                            flexShrink:
+                              0,
+                          }}
+                        >
+
+                          {
+                            reopeningProduction
+                              ? (
+                                  <>
+
+                                    <Loader2
+                                      size={16}
+                                      className="production-spin"
+                                    />
+
+                                    Reopening...
+
+                                  </>
+                                )
+                              : (
+                                  <>
+
+                                    <RotateCcw
+                                      size={16}
+                                    />
+
+                                    Reopen Production
+
+                                  </>
+                                )
+                          }
+
+                        </button>
+                      )
+                    }
 
                   </div>
                 )

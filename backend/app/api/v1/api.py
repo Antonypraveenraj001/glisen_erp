@@ -51,6 +51,9 @@ from app.api.v1.products import (
 from app.api.v1.production import (
     router as production_router,
 )
+from app.api.v1.production_reopen import (
+    router as production_reopen_router,
+)
 from app.api.v1.proformas import (
     router as proformas_router,
 )
@@ -195,6 +198,10 @@ api_router.include_router(
 
 api_router.include_router(
     production_router
+)
+
+api_router.include_router(
+    production_reopen_router
 )
 
 api_router.include_router(

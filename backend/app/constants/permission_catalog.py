@@ -363,6 +363,18 @@ PERMISSION_CATALOG = (
         "boss_only": False,
     },
 
+    {
+        "name": "production.reopen",
+        "module": "Production",
+        "label": "Reopen Production",
+        "description": (
+            "Boss-only recovery action to reopen "
+            "Completed Production before Final Billing."
+        ),
+        "depends_on": "production.view",
+        "boss_only": True,
+    },
+    
     # ============================================================
     # FINISHED PRODUCTS
     # ============================================================

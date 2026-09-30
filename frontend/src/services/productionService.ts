@@ -21,21 +21,27 @@ const API_BASE_URL =
 
 
 function getAuthHeaders() {
+
   const token =
     localStorage.getItem(
       "access_token"
     );
 
+
   if (!token) {
+
     throw new Error(
       "Authentication required."
     );
+
   }
+
 
   return {
     Authorization:
       `Bearer ${token}`,
   };
+
 }
 
 
@@ -57,13 +63,17 @@ Promise<ProductionOrder[]> {
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function getProductionOrderById(
-  productionOrderId: number
-): Promise<ProductionOrder> {
+  productionOrderId:
+    number
+):
+Promise<ProductionOrder> {
 
   const response =
     await axios.get<
@@ -76,13 +86,17 @@ export async function getProductionOrderById(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function getProductionOrderDetail(
-  productionOrderId: number
-): Promise<ProductionOrderDetail> {
+  productionOrderId:
+    number
+):
+Promise<ProductionOrderDetail> {
 
   const response =
     await axios.get<
@@ -95,13 +109,17 @@ export async function getProductionOrderDetail(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function getProductionOrderByNumber(
-  productionNumber: string
-): Promise<ProductionOrder> {
+  productionNumber:
+    string
+):
+Promise<ProductionOrder> {
 
   const response =
     await axios.get<
@@ -116,13 +134,17 @@ export async function getProductionOrderByNumber(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function getProductionOrdersByProforma(
-  proformaId: number
-): Promise<ProductionOrder[]> {
+  proformaId:
+    number
+):
+Promise<ProductionOrder[]> {
 
   const response =
     await axios.get<
@@ -135,14 +157,17 @@ export async function getProductionOrdersByProforma(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function createProductionOrder(
   payload:
     ProductionOrderCreatePayload
-): Promise<ProductionOrder> {
+):
+Promise<ProductionOrder> {
 
   const response =
     await axios.post<
@@ -156,13 +181,17 @@ export async function createProductionOrder(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function createProductionOrdersFromProforma(
-  proformaId: number
-): Promise<ProductionOrder[]> {
+  proformaId:
+    number
+):
+Promise<ProductionOrder[]> {
 
   const response =
     await axios.post<
@@ -176,15 +205,20 @@ export async function createProductionOrdersFromProforma(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function updateProductionOrder(
-  productionOrderId: number,
+  productionOrderId:
+    number,
+
   payload:
     ProductionOrderUpdatePayload
-): Promise<ProductionOrder> {
+):
+Promise<ProductionOrder> {
 
   const response =
     await axios.put<
@@ -198,14 +232,20 @@ export async function updateProductionOrder(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function updateProductionOrderStatus(
-  productionOrderId: number,
-  statusValue: string
-): Promise<ProductionOrder> {
+  productionOrderId:
+    number,
+
+  statusValue:
+    string
+):
+Promise<ProductionOrder> {
 
   const response =
     await axios.patch<
@@ -224,13 +264,21 @@ export async function updateProductionOrderStatus(
       }
     );
 
+
   return response.data;
+
 }
 
 
+/* =========================================================
+   COMPLETE PRODUCTION
+========================================================= */
+
 export async function completeProductionOrder(
-  productionOrderId: number
-): Promise<ProductionOrder> {
+  productionOrderId:
+    number
+):
+Promise<ProductionOrder> {
 
   const response =
     await axios.patch<
@@ -244,13 +292,50 @@ export async function completeProductionOrder(
       }
     );
 
+
   return response.data;
+
+}
+
+
+/* =========================================================
+   REOPEN PRODUCTION
+
+   Boss-only backend recovery action.
+
+   Finished Product / FGR are removed by the backend.
+   Issued materials and completed operations remain.
+========================================================= */
+
+export async function reopenProductionOrder(
+  productionOrderId:
+    number
+):
+Promise<ProductionOrder> {
+
+  const response =
+    await axios.patch<
+      ProductionOrder
+    >(
+      `${API_BASE_URL}/production/orders/${productionOrderId}/reopen`,
+      null,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+
+  return response.data;
+
 }
 
 
 export async function deleteProductionOrder(
-  productionOrderId: number
-): Promise<void> {
+  productionOrderId:
+    number
+):
+Promise<void> {
 
   await axios.delete(
     `${API_BASE_URL}/production/orders/${productionOrderId}`,
@@ -259,6 +344,7 @@ export async function deleteProductionOrder(
         getAuthHeaders(),
     }
   );
+
 }
 
 
@@ -267,8 +353,10 @@ export async function deleteProductionOrder(
 ========================================================= */
 
 export async function getProductionMaterials(
-  productionOrderId: number
-): Promise<ProductionMaterial[]> {
+  productionOrderId:
+    number
+):
+Promise<ProductionMaterial[]> {
 
   const response =
     await axios.get<
@@ -281,13 +369,17 @@ export async function getProductionMaterials(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function getProductionMaterialSummary(
-  productionOrderId: number
-): Promise<ProductionMaterialSummary> {
+  productionOrderId:
+    number
+):
+Promise<ProductionMaterialSummary> {
 
   const response =
     await axios.get<
@@ -300,15 +392,20 @@ export async function getProductionMaterialSummary(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function createProductionMaterial(
-  productionOrderId: number,
+  productionOrderId:
+    number,
+
   payload:
     ProductionMaterialCreatePayload
-): Promise<ProductionMaterial> {
+):
+Promise<ProductionMaterial> {
 
   const response =
     await axios.post<
@@ -322,15 +419,20 @@ export async function createProductionMaterial(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function updateProductionMaterial(
-  materialId: number,
+  materialId:
+    number,
+
   payload:
     ProductionMaterialUpdatePayload
-): Promise<ProductionMaterial> {
+):
+Promise<ProductionMaterial> {
 
   const response =
     await axios.put<
@@ -344,13 +446,17 @@ export async function updateProductionMaterial(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function deleteProductionMaterial(
-  materialId: number
-): Promise<void> {
+  materialId:
+    number
+):
+Promise<void> {
 
   await axios.delete(
     `${API_BASE_URL}/production/materials/${materialId}`,
@@ -359,6 +465,7 @@ export async function deleteProductionMaterial(
         getAuthHeaders(),
     }
   );
+
 }
 
 
@@ -367,8 +474,10 @@ export async function deleteProductionMaterial(
 ========================================================= */
 
 export async function getProductionOperations(
-  productionOrderId: number
-): Promise<ProductionOperation[]> {
+  productionOrderId:
+    number
+):
+Promise<ProductionOperation[]> {
 
   const response =
     await axios.get<
@@ -381,15 +490,20 @@ export async function getProductionOperations(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function createProductionOperation(
-  productionOrderId: number,
+  productionOrderId:
+    number,
+
   payload:
     ProductionOperationCreatePayload
-): Promise<ProductionOperation> {
+):
+Promise<ProductionOperation> {
 
   const response =
     await axios.post<
@@ -403,15 +517,20 @@ export async function createProductionOperation(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function updateProductionOperation(
-  operationId: number,
+  operationId:
+    number,
+
   payload:
     ProductionOperationUpdatePayload
-): Promise<ProductionOperation> {
+):
+Promise<ProductionOperation> {
 
   const response =
     await axios.put<
@@ -425,13 +544,17 @@ export async function updateProductionOperation(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function startProductionOperation(
-  operationId: number
-): Promise<ProductionOperation> {
+  operationId:
+    number
+):
+Promise<ProductionOperation> {
 
   const response =
     await axios.patch<
@@ -445,15 +568,20 @@ export async function startProductionOperation(
       }
     );
 
+
   return response.data;
+
 }
 
 
 export async function completeProductionOperation(
-  operationId: number,
+  operationId:
+    number,
+
   payload:
     ProductionOperationCompletePayload
-): Promise<ProductionOperation> {
+):
+Promise<ProductionOperation> {
 
   const response =
     await axios.patch<
@@ -467,5 +595,7 @@ export async function completeProductionOperation(
       }
     );
 
+
   return response.data;
+
 }
