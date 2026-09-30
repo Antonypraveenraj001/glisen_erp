@@ -620,7 +620,13 @@ export default function AppRouter() {
           <Route
             path="/production"
             element={
-              <ProductionPage />
+              <PermissionRoute
+                permission="production.view"
+              >
+
+                <ProductionPage />
+
+              </PermissionRoute>
             }
           />
 

@@ -142,6 +142,7 @@ export default function MainLayout() {
      Suppliers      -> suppliers.view
      Customers      -> customers.view
      Stock          -> stock.view
+     Production     -> production.view
 
      Remaining modules will be connected one by one.
   ============================================================== */
@@ -292,6 +293,9 @@ export default function MainLayout() {
 
         path:
           "/production",
+
+        permission:
+          "production.view",
 
         icon:
           <BarChart3

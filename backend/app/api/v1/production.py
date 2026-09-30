@@ -6,11 +6,11 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.dependencies.auth import (
-    get_current_user,
-    require_role,
-)
 from app.dependencies.database import get_db
+from app.dependencies.permissions import (
+    require_any_permission,
+    require_permission,
+)
 from app.models.user import User
 from app.schemas.production import (
     ProductionMaterialCreate,
@@ -36,13 +36,6 @@ router = APIRouter(
 )
 
 
-PRODUCTION_ROLES = (
-    "Boss",
-    "Admin",
-    "Production",
-)
-
-
 # ============================================================
 # PRODUCTION ORDERS
 # ============================================================
@@ -57,8 +50,8 @@ def create_production_orders_from_proforma(
     proforma_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.start"
         )
     ),
 ):
@@ -92,8 +85,8 @@ def create_production_order(
     production_order: ProductionOrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.start"
         )
     ),
 ):
@@ -117,6 +110,21 @@ def create_production_order(
         )
 
 
+# ============================================================
+# PRODUCTION ORDER LIST
+#
+# Shared endpoint:
+#
+# Production module:
+#     production.view
+#
+# Stock Material Issue:
+#     stock.issue
+#
+# Store users must be able to select an active Production Order
+# without being given access to the Production module itself.
+# ============================================================
+
 @router.get(
     "/orders",
     response_model=list[ProductionOrderResponse],
@@ -124,7 +132,10 @@ def create_production_order(
 def get_production_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_any_permission(
+            "production.view",
+            "stock.issue",
+        )
     ),
 ):
     service = ProductionService(
@@ -152,7 +163,9 @@ def get_production_order_by_number(
     production_number: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -184,7 +197,9 @@ def get_production_orders_by_proforma(
     proforma_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -211,7 +226,9 @@ def get_production_order_detail(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -237,6 +254,9 @@ def get_production_order_detail(
 
 # ============================================================
 # PRODUCTION ORDER STATUS WORKFLOW
+#
+# Starting Production changes a newly-created order into
+# "In Progress", so this belongs to production.start.
 # ============================================================
 
 
@@ -249,8 +269,8 @@ def update_production_order_status(
     status_value: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.start"
         )
     ),
 ):
@@ -297,6 +317,14 @@ def update_production_order_status(
         )
 
 
+# ============================================================
+# COMPLETE PRODUCTION
+#
+# Permission:
+#     production.complete
+# ============================================================
+
+
 @router.patch(
     "/orders/{production_order_id}/complete",
     response_model=ProductionOrderResponse,
@@ -305,8 +333,8 @@ def complete_production_order(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.complete"
         )
     ),
 ):
@@ -365,7 +393,9 @@ def get_production_order(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -398,8 +428,8 @@ def update_production_order(
     production_order: ProductionOrderUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.edit"
         )
     ),
 ):
@@ -446,8 +476,8 @@ def delete_production_order(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.edit"
         )
     ),
 ):
@@ -500,8 +530,8 @@ def create_production_material(
     material: ProductionMaterialCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.edit"
         )
     ),
 ):
@@ -550,7 +580,9 @@ def get_production_materials(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -586,7 +618,9 @@ def get_production_material_summary(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -623,8 +657,8 @@ def update_production_material(
     material: ProductionMaterialUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.edit"
         )
     ),
 ):
@@ -671,8 +705,8 @@ def delete_production_material(
     material_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.edit"
         )
     ),
 ):
@@ -725,8 +759,8 @@ def create_production_operation(
     operation: ProductionOperationCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.operations"
         )
     ),
 ):
@@ -775,7 +809,9 @@ def get_production_operations(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -811,7 +847,9 @@ def get_production_operation_summary(
     production_order_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        get_current_user
+        require_permission(
+            "production.view"
+        )
     ),
 ):
     service = ProductionService(
@@ -848,8 +886,8 @@ def update_production_operation(
     operation: ProductionOperationUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.operations"
         )
     ),
 ):
@@ -896,8 +934,8 @@ def start_production_operation(
     operation_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.operations"
         )
     ),
 ):
@@ -944,8 +982,8 @@ def complete_production_operation(
     completion: ProductionOperationComplete,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.operations"
         )
     ),
 ):
@@ -992,8 +1030,8 @@ def delete_production_operation(
     operation_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(
-        require_role(
-            *PRODUCTION_ROLES
+        require_permission(
+            "production.operations"
         )
     ),
 ):

@@ -12,6 +12,7 @@ from app.dependencies.database import (
     get_db,
 )
 from app.dependencies.permissions import (
+    require_any_permission,
     require_permission,
 )
 from app.models.user import User
@@ -42,8 +43,20 @@ router = APIRouter(
 # Draft / Sent / Rejected
 #     -> proformas.edit
 #
-# Confirmed / Order Confirmed
+# Confirmed
 #     -> proformas.confirm
+#
+# Order Confirmed
+#     -> proformas.confirm
+#
+# Production Start workflow exception:
+#
+# A user with production.start may move only:
+#
+#     Confirmed -> Order Confirmed
+#
+# This allows the Production module to start manufacturing without
+# granting general Proforma edit / confirm / cancel access.
 #
 # Cancelled
 #     -> proformas.cancel
@@ -51,10 +64,37 @@ router = APIRouter(
 # Boss bypasses permission lookup.
 # ================================================================
 
+def role_has_permission(
+    db: Session,
+    current_user: User,
+    permission_name: str,
+) -> bool:
+
+    if (
+        current_user.role.name
+        == "Boss"
+    ):
+        return True
+
+    return (
+        PermissionRepository
+        .role_has_permission(
+            db=db,
+            role_id=(
+                current_user.role_id
+            ),
+            permission_name=(
+                permission_name
+            ),
+        )
+    )
+
+
 def require_status_permission(
     db: Session,
     current_user: User,
     status_value: str,
+    current_status: str | None = None,
 ) -> None:
 
     if (
@@ -68,10 +108,73 @@ def require_status_permission(
         or ""
     ).strip().lower()
 
-    if normalized_status in {
-        "confirmed",
-        "order confirmed",
-    }:
+    normalized_current_status = (
+        current_status
+        or ""
+    ).strip().lower()
+
+
+    # ------------------------------------------------------------
+    # PRODUCTION WORKFLOW EXCEPTION
+    #
+    # production.start may perform only:
+    #
+    #     Confirmed -> Order Confirmed
+    #
+    # Normal Proforma users with proformas.confirm retain their
+    # existing ability to set Order Confirmed.
+    # ------------------------------------------------------------
+
+    if (
+        normalized_status
+        == "order confirmed"
+    ):
+
+        if (
+            role_has_permission(
+                db=db,
+                current_user=current_user,
+                permission_name=(
+                    "proformas.confirm"
+                ),
+            )
+        ):
+            return
+
+        if (
+            normalized_current_status
+            == "confirmed"
+            and
+            role_has_permission(
+                db=db,
+                current_user=current_user,
+                permission_name=(
+                    "production.start"
+                ),
+            )
+        ):
+            return
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_403_FORBIDDEN
+            ),
+            detail=(
+                "You do not have permission "
+                "to move this Proforma to "
+                "Order Confirmed."
+            ),
+        )
+
+
+    # ------------------------------------------------------------
+    # NORMAL PROFORMA STATUS PERMISSIONS
+    # ------------------------------------------------------------
+
+    if (
+        normalized_status
+        == "confirmed"
+    ):
 
         permission_name = (
             "proformas.confirm"
@@ -107,20 +210,16 @@ def require_status_permission(
             "to change Proforma status."
         )
 
-    has_permission = (
-        PermissionRepository
-        .role_has_permission(
+
+    if (
+        not role_has_permission(
             db=db,
-            role_id=(
-                current_user.role_id
-            ),
+            current_user=current_user,
             permission_name=(
                 permission_name
             ),
         )
-    )
-
-    if not has_permission:
+    ):
 
         raise HTTPException(
             status_code=(
@@ -204,6 +303,11 @@ def create_proforma(
 
 # ================================================================
 # GET ALL PROFORMAS
+#
+# Shared access:
+#
+# - proformas.view    -> Proforma module
+# - production.start -> Start Production selector
 # ================================================================
 
 @router.get(
@@ -243,8 +347,9 @@ def get_proformas(
         get_db
     ),
     current_user: User = Depends(
-        require_permission(
-            "proformas.view"
+        require_any_permission(
+            "proformas.view",
+            "production.start",
         )
     ),
 ):
@@ -480,6 +585,9 @@ def update_proforma(
                 status_value=(
                     requested_status
                 ),
+                current_status=(
+                    existing_proforma.status
+                ),
             )
 
     try:
@@ -519,14 +627,20 @@ def update_proforma(
 # ================================================================
 # UPDATE PROFORMA STATUS
 #
-# The user must first have View permission because the status action
-# belongs to a Proforma they are allowed to access.
+# Shared entry access:
 #
-# Specific action:
+# - proformas.view
+# - production.start
+#
+# The status helper then enforces the exact action:
 #
 # Draft / Sent / Rejected -> proformas.edit
 # Confirmed               -> proformas.confirm
 # Cancelled               -> proformas.cancel
+#
+# production.start may only perform:
+#
+# Confirmed -> Order Confirmed
 # ================================================================
 
 @router.patch(
@@ -546,8 +660,9 @@ def update_proforma_status(
         get_db
     ),
     current_user: User = Depends(
-        require_permission(
-            "proformas.view"
+        require_any_permission(
+            "proformas.view",
+            "production.start",
         )
     ),
 ):
@@ -594,6 +709,9 @@ def update_proforma_status(
             db=db,
             current_user=current_user,
             status_value=status_value,
+            current_status=(
+                existing_proforma.status
+            ),
         )
 
     try:
