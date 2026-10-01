@@ -8,6 +8,7 @@ import {
   Boxes,
   Building2,
   ClipboardList,
+  CircleDollarSign,
   Factory,
   FileText,
   Loader2,
@@ -477,6 +478,68 @@ export default function FinishedProductDetailPage() {
 
 
   /* ==============================================================
+     ACTUAL PROFIT
+
+     Actual Profit =
+         Effective Invoice Taxable Value
+         -
+         Frozen Total Production Cost
+
+     This becomes available only after the effective invoice
+     has been Issued.
+  ============================================================== */
+
+
+  const effectiveIssuedInvoice =
+    (
+      billing.effective_invoice
+      &&
+      billing.effective_invoice
+        .status
+        .trim()
+        .toLowerCase()
+      ===
+      "issued"
+    )
+      ? billing.effective_invoice
+      : null;
+
+
+  const billedTaxableValue =
+    effectiveIssuedInvoice
+      ? (
+          Number(
+            effectiveIssuedInvoice
+              .taxable_amount
+          )
+          ||
+          0
+        )
+      : null;
+
+
+  const totalProductionCost =
+    Number(
+      cost_summary
+        .actual_production_cost
+    )
+    ||
+    0;
+
+
+  const actualProfit =
+    billedTaxableValue
+    !==
+    null
+      ? (
+          billedTaxableValue
+          -
+          totalProductionCost
+        )
+      : null;
+
+
+  /* ==============================================================
      UI
   ============================================================== */
 
@@ -597,6 +660,258 @@ export default function FinishedProductDetailPage() {
         </div>
 
       </section>
+
+
+      {/* ======================================================
+          ACTUAL PROFIT
+
+          Visible only after the Final Bill is Issued.
+
+          Formula:
+              Taxable Value
+              -
+              Total Production Cost
+              =
+              Actual Profit
+      ====================================================== */}
+
+
+      {
+        effectiveIssuedInvoice
+        &&
+        billedTaxableValue
+        !==
+        null
+        &&
+        actualProfit
+        !==
+        null
+        &&
+        (
+          <section className="fp-detail-kpi-grid">
+
+
+            {/* TAXABLE VALUE */}
+
+
+            <div className="fp-detail-kpi-card">
+
+              <div className="fp-detail-kpi-icon blue">
+
+                <ReceiptText
+                  size={18}
+                />
+
+              </div>
+
+
+              <div>
+
+                <span>
+                  Taxable Value
+                </span>
+
+
+                <strong>
+
+                  {
+                    formatCurrency(
+                      billedTaxableValue
+                    )
+                  }
+
+                </strong>
+
+
+                <small
+                  style={{
+                    display:
+                      "block",
+
+                    marginTop:
+                      "5px",
+
+                    color:
+                      "#8a99ae",
+
+                    fontSize:
+                      "8px",
+                  }}
+                >
+
+                  {
+                    effectiveIssuedInvoice
+                      .invoice_number
+                  }
+
+                </small>
+
+              </div>
+
+            </div>
+
+
+            {/* TOTAL PRODUCTION COST */}
+
+
+            <div className="fp-detail-kpi-card">
+
+              <div className="fp-detail-kpi-icon amber">
+
+                <Factory
+                  size={18}
+                />
+
+              </div>
+
+
+              <div>
+
+                <span>
+                  Total Production Cost
+                </span>
+
+
+                <strong>
+
+                  {
+                    formatCurrency(
+                      totalProductionCost
+                    )
+                  }
+
+                </strong>
+
+
+                <small
+                  style={{
+                    display:
+                      "block",
+
+                    marginTop:
+                      "5px",
+
+                    color:
+                      "#8a99ae",
+
+                    fontSize:
+                      "8px",
+                  }}
+                >
+                  Frozen production cost
+                </small>
+
+              </div>
+
+            </div>
+
+
+            {/* ACTUAL PROFIT */}
+
+
+            <div
+              className="fp-detail-kpi-card highlight"
+              style={{
+                borderColor:
+                  actualProfit
+                  >=
+                  0
+                    ? "#bfe4d0"
+                    : "#f0c9ce",
+
+                background:
+                  actualProfit
+                  >=
+                  0
+                    ? "#f1fbf6"
+                    : "#fff6f7",
+              }}
+            >
+
+              <div
+                className="fp-detail-kpi-icon"
+                style={{
+                  background:
+                    actualProfit
+                    >=
+                    0
+                      ? "#e6f7ee"
+                      : "#fdebed",
+
+                  color:
+                    actualProfit
+                    >=
+                    0
+                      ? "#159a5b"
+                      : "#c84655",
+                }}
+              >
+
+                <CircleDollarSign
+                  size={18}
+                />
+
+              </div>
+
+
+              <div>
+
+                <span>
+                  Actual Profit
+                </span>
+
+
+                <strong
+                  style={{
+                    color:
+                      actualProfit
+                      >=
+                      0
+                        ? "#159a5b"
+                        : "#c84655",
+
+                    fontSize:
+                      "18px",
+                  }}
+                >
+
+                  {
+                    formatCurrency(
+                      actualProfit
+                    )
+                  }
+
+                </strong>
+
+
+                <small
+                  style={{
+                    display:
+                      "block",
+
+                    marginTop:
+                      "5px",
+
+                    color:
+                      "#7083a3",
+
+                    fontSize:
+                      "8px",
+
+                    fontWeight:
+                      700,
+                  }}
+                >
+                  Taxable Value − Production Cost
+                </small>
+
+              </div>
+
+            </div>
+
+          </section>
+        )
+      }
 
 
       {/* ======================================================
