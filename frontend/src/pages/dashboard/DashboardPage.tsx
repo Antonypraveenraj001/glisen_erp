@@ -4,16 +4,22 @@ import {
   useState,
 } from "react";
 
+import axios from "axios";
+
 import {
   Activity,
   BarChart3,
   CalendarDays,
+  CheckCircle2,
   Clock3,
+  CreditCard,
   Factory,
   IndianRupee,
   Loader2,
   PackageOpen,
   ReceiptText,
+  WalletCards,
+  X,
 } from "lucide-react";
 
 import {
@@ -24,10 +30,21 @@ import {
   getDashboardSummary,
 } from "../../services/dashboardService";
 
+import {
+  getPurchaseBillPaymentSummary,
+  recordPurchaseBillPayment,
+} from "../../services/purchaseBillService";
+
 import type {
   DashboardQuarterPerformance,
   DashboardSummary,
+  DashboardUnpaidPurchaseBill,
 } from "../../types/dashboard";
+
+import type {
+  PurchaseBillPaymentCreate,
+  PurchaseBillPaymentSummary,
+} from "../../types/purchaseBill";
 
 import "./DashboardPage.css";
 
@@ -43,10 +60,12 @@ function formatCurrency(
     | null
     | undefined
 ) {
+
   const numericValue =
     Number(
       value ?? 0
     );
+
 
   if (
     Number.isNaN(
@@ -56,17 +75,26 @@ function formatCurrency(
     return "₹0.00";
   }
 
+
   return new Intl.NumberFormat(
     "en-IN",
     {
-      style: "currency",
-      currency: "INR",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      style:
+        "currency",
+
+      currency:
+        "INR",
+
+      minimumFractionDigits:
+        2,
+
+      maximumFractionDigits:
+        2,
     }
   ).format(
     numericValue
   );
+
 }
 
 
@@ -76,12 +104,17 @@ function formatDate(
     | null
     | undefined
 ) {
+
   if (!value) {
     return "—";
   }
 
+
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
+
 
   if (
     Number.isNaN(
@@ -90,25 +123,37 @@ function formatDate(
   ) {
     return value;
   }
+
 
   return new Intl.DateTimeFormat(
     "en-IN",
     {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
+      day:
+        "2-digit",
+
+      month:
+        "short",
+
+      year:
+        "numeric",
     }
   ).format(
     date
   );
+
 }
 
 
 function formatIndiaTime(
-  value: string
+  value:
+    string
 ) {
+
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
+
 
   if (
     Number.isNaN(
@@ -117,6 +162,7 @@ function formatIndiaTime(
   ) {
     return value;
   }
+
 
   const datePart =
     new Intl.DateTimeFormat(
@@ -124,14 +170,23 @@ function formatIndiaTime(
       {
         timeZone:
           "Asia/Kolkata",
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
+
+        weekday:
+          "short",
+
+        day:
+          "2-digit",
+
+        month:
+          "short",
+
+        year:
+          "numeric",
       }
     ).format(
       date
     );
+
 
   const timePart =
     new Intl.DateTimeFormat(
@@ -139,18 +194,103 @@ function formatIndiaTime(
       {
         timeZone:
           "Asia/Kolkata",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
+
+        hour:
+          "2-digit",
+
+        minute:
+          "2-digit",
+
+        hour12:
+          true,
       }
     ).format(
       date
     );
 
+
   return (
-    `${datePart} | ` +
+    `${datePart} | `
+    +
     `${timePart} IST`
   );
+
+}
+
+
+function getCurrentDateTimeInputValue() {
+
+  const now =
+    new Date();
+
+
+  const offset =
+    now.getTimezoneOffset();
+
+
+  const local =
+    new Date(
+      now.getTime()
+      -
+      offset
+      *
+      60
+      *
+      1000
+    );
+
+
+  return local
+    .toISOString()
+    .slice(
+      0,
+      16
+    );
+
+}
+
+
+function getErrorMessage(
+  error:
+    unknown,
+
+  fallback:
+    string
+) {
+
+  if (
+    axios.isAxiosError(
+      error
+    )
+  ) {
+
+    const detail =
+      error.response
+        ?.data
+        ?.detail;
+
+
+    if (
+      typeof detail
+      ===
+      "string"
+    ) {
+      return detail;
+    }
+
+  }
+
+
+  if (
+    error
+    instanceof Error
+  ) {
+    return error.message;
+  }
+
+
+  return fallback;
+
 }
 
 
@@ -159,23 +299,32 @@ function formatIndiaTime(
 ================================================================ */
 
 interface QuarterMetricRowProps {
-  label: string;
+
+  label:
+    string;
 
   current:
     string
-    | number;
+    |
+    number;
 
   previous:
     string
-    | number;
+    |
+    number;
+
 }
 
 
-function QuarterMetricRow({
-  label,
-  current,
-  previous,
-}: QuarterMetricRowProps) {
+function QuarterMetricRow(
+  {
+    label,
+    current,
+    previous,
+  }:
+  QuarterMetricRowProps
+) {
+
   return (
     <div className="dashboard-quarter-row">
 
@@ -183,20 +332,31 @@ function QuarterMetricRow({
         {label}
       </div>
 
-      <div className="dashboard-quarter-value">
-        {formatCurrency(
-          current
-        )}
-      </div>
 
       <div className="dashboard-quarter-value">
-        {formatCurrency(
-          previous
-        )}
+
+        {
+          formatCurrency(
+            current
+          )
+        }
+
+      </div>
+
+
+      <div className="dashboard-quarter-value">
+
+        {
+          formatCurrency(
+            previous
+          )
+        }
+
       </div>
 
     </div>
   );
+
 }
 
 
@@ -205,38 +365,52 @@ function QuarterMetricRow({
 ================================================================ */
 
 interface QuarterComparisonProps {
+
   current:
     DashboardQuarterPerformance;
 
   previous:
     DashboardQuarterPerformance;
+
 }
 
 
-function QuarterComparison({
-  current,
-  previous,
-}: QuarterComparisonProps) {
+function QuarterComparison(
+  {
+    current,
+    previous,
+  }:
+  QuarterComparisonProps
+) {
+
   return (
     <div className="dashboard-section-card dashboard-quarter-card">
 
       <div className="dashboard-section-header">
 
         <div>
+
           <div className="dashboard-section-title">
             Quarter-to-Quarter Performance
           </div>
 
+
           <div className="dashboard-section-subtitle">
+
             Current financial quarter compared
             with the previous quarter
+
           </div>
+
         </div>
 
+
         <div className="dashboard-section-icon lavender">
+
           <BarChart3
             size={18}
           />
+
         </div>
 
       </div>
@@ -250,36 +424,60 @@ function QuarterComparison({
             Metric
           </div>
 
+
           <div>
+
             <strong>
               {current.label}
             </strong>
 
+
             <span>
-              {formatDate(
-                current.start_date
-              )}
+
+              {
+                formatDate(
+                  current.start_date
+                )
+              }
+
               {" – "}
-              {formatDate(
-                current.end_date
-              )}
+
+              {
+                formatDate(
+                  current.end_date
+                )
+              }
+
             </span>
+
           </div>
 
+
           <div>
+
             <strong>
               {previous.label}
             </strong>
 
+
             <span>
-              {formatDate(
-                previous.start_date
-              )}
+
+              {
+                formatDate(
+                  previous.start_date
+                )
+              }
+
               {" – "}
-              {formatDate(
-                previous.end_date
-              )}
+
+              {
+                formatDate(
+                  previous.end_date
+                )
+              }
+
             </span>
+
           </div>
 
         </div>
@@ -295,6 +493,7 @@ function QuarterComparison({
           }
         />
 
+
         <QuarterMetricRow
           label="Production Cost"
           current={
@@ -305,6 +504,7 @@ function QuarterComparison({
           }
         />
 
+
         <QuarterMetricRow
           label="Company Expenses"
           current={
@@ -314,6 +514,7 @@ function QuarterComparison({
             previous.company_expenses
           }
         />
+
 
         <QuarterMetricRow
           label="Net Profit / Loss"
@@ -329,6 +530,7 @@ function QuarterComparison({
 
     </div>
   );
+
 }
 
 
@@ -340,16 +542,25 @@ export default function DashboardPage() {
 
   const {
     user,
-  } = useAuth();
+  } =
+    useAuth();
 
+
+  /* ==============================================================
+     CORE DASHBOARD
+  ============================================================== */
 
   const [
     dashboard,
     setDashboard,
   ] =
     useState<
-      DashboardSummary | null
-    >(null);
+      DashboardSummary
+      |
+      null
+    >(
+      null
+    );
 
 
   const [
@@ -366,7 +577,137 @@ export default function DashboardPage() {
     setError,
   ] =
     useState<
-      string | null
+      string
+      |
+      null
+    >(
+      null
+    );
+
+
+  /* ==============================================================
+     PURCHASE BILL PAYMENT MODAL
+  ============================================================== */
+
+  const [
+    paymentOpen,
+    setPaymentOpen,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    paymentBill,
+    setPaymentBill,
+  ] =
+    useState<
+      DashboardUnpaidPurchaseBill
+      |
+      null
+    >(
+      null
+    );
+
+
+  const [
+    paymentSummary,
+    setPaymentSummary,
+  ] =
+    useState<
+      PurchaseBillPaymentSummary
+      |
+      null
+    >(
+      null
+    );
+
+
+  const [
+    paymentLoading,
+    setPaymentLoading,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    paymentAmount,
+    setPaymentAmount,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    paymentDate,
+    setPaymentDate,
+  ] =
+    useState(
+      getCurrentDateTimeInputValue()
+    );
+
+
+  const [
+    paymentMode,
+    setPaymentMode,
+  ] =
+    useState(
+      "Bank Transfer"
+    );
+
+
+  const [
+    paymentReference,
+    setPaymentReference,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    paymentNotes,
+    setPaymentNotes,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    paymentSubmitting,
+    setPaymentSubmitting,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    paymentError,
+    setPaymentError,
+  ] =
+    useState<
+      string
+      |
+      null
+    >(
+      null
+    );
+
+
+  const [
+    paymentSuccess,
+    setPaymentSuccess,
+  ] =
+    useState<
+      string
+      |
+      null
     >(
       null
     );
@@ -377,19 +718,60 @@ export default function DashboardPage() {
   ============================================================== */
 
   const isBoss =
-    user?.role ===
+    user?.role
+    ===
     "Boss";
 
 
+  /*
+   * Existing Dashboard visibility:
+   *
+   * Boss
+   * Accounts
+   * Purchase
+   *
+   * may view supplier outstanding bills.
+   */
   const canViewPurchasePayments =
     user?.role === "Boss"
-    || user?.role === "Accounts"
-    || user?.role === "Purchase";
+    ||
+    user?.role === "Accounts"
+    ||
+    user?.role === "Purchase";
+
+
+  /*
+   * IMPORTANT:
+   *
+   * This intentionally matches the existing
+   * PurchaseBillDetails payment rule.
+   *
+   * Purchase users can see outstanding bills,
+   * but supplier payments are financial actions
+   * for Boss / Accounts.
+   */
+  const canRecordPurchasePayment =
+    user?.role === "Boss"
+    ||
+    user?.role === "Accounts";
 
 
   /* ==============================================================
      LOAD DASHBOARD
   ============================================================== */
+
+  async function refreshDashboard() {
+
+    const data =
+      await getDashboardSummary();
+
+
+    setDashboard(
+      data
+    );
+
+  }
+
 
   useEffect(
     () => {
@@ -406,6 +788,7 @@ export default function DashboardPage() {
             true
           );
 
+
           setError(
             null
           );
@@ -418,12 +801,16 @@ export default function DashboardPage() {
           if (
             isMounted
           ) {
+
             setDashboard(
               data
             );
+
           }
 
-        } catch (err) {
+        } catch (
+          err
+        ) {
 
           console.error(
             "Dashboard load failed:",
@@ -434,9 +821,11 @@ export default function DashboardPage() {
           if (
             isMounted
           ) {
+
             setError(
               "Unable to load dashboard data."
             );
+
           }
 
         } finally {
@@ -444,9 +833,11 @@ export default function DashboardPage() {
           if (
             isMounted
           ) {
+
             setLoading(
               false
             );
+
           }
 
         }
@@ -458,13 +849,381 @@ export default function DashboardPage() {
 
 
       return () => {
+
         isMounted =
           false;
+
       };
 
     },
     []
   );
+
+
+  /* ==============================================================
+     PURCHASE BILL PAYMENT
+  ============================================================== */
+
+  async function openPurchasePayment(
+    bill:
+      DashboardUnpaidPurchaseBill
+  ) {
+
+    setPaymentBill(
+      bill
+    );
+
+
+    setPaymentSummary(
+      null
+    );
+
+
+    setPaymentAmount(
+      ""
+    );
+
+
+    setPaymentDate(
+      getCurrentDateTimeInputValue()
+    );
+
+
+    setPaymentMode(
+      "Bank Transfer"
+    );
+
+
+    setPaymentReference(
+      ""
+    );
+
+
+    setPaymentNotes(
+      ""
+    );
+
+
+    setPaymentError(
+      null
+    );
+
+
+    setPaymentSuccess(
+      null
+    );
+
+
+    setPaymentOpen(
+      true
+    );
+
+
+    try {
+
+      setPaymentLoading(
+        true
+      );
+
+
+      const summary =
+        await getPurchaseBillPaymentSummary(
+          bill.purchase_bill_id
+        );
+
+
+      setPaymentSummary(
+        summary
+      );
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        "Unable to load Purchase Bill payment summary:",
+        err
+      );
+
+
+      setPaymentError(
+        getErrorMessage(
+          err,
+          "Unable to load Purchase Bill payment details."
+        )
+      );
+
+    } finally {
+
+      setPaymentLoading(
+        false
+      );
+
+    }
+
+  }
+
+
+  function closePurchasePayment() {
+
+    if (
+      paymentSubmitting
+    ) {
+      return;
+    }
+
+
+    setPaymentOpen(
+      false
+    );
+
+
+    setPaymentBill(
+      null
+    );
+
+
+    setPaymentSummary(
+      null
+    );
+
+
+    setPaymentError(
+      null
+    );
+
+  }
+
+
+  async function handlePurchasePayment() {
+
+    if (
+      !paymentBill
+      ||
+      !paymentSummary
+    ) {
+      return;
+    }
+
+
+    setPaymentError(
+      null
+    );
+
+
+    const amount =
+      Number(
+        paymentAmount
+      );
+
+
+    const outstandingBalance =
+      Number(
+        paymentSummary.balance_amount
+      );
+
+
+    if (
+      Number.isNaN(
+        amount
+      )
+      ||
+      amount <= 0
+    ) {
+
+      setPaymentError(
+        "Enter a valid payment amount greater than zero."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      amount
+      >
+      outstandingBalance
+    ) {
+
+      setPaymentError(
+        `Payment cannot exceed the outstanding balance of ${formatCurrency(
+          outstandingBalance
+        )}.`
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !paymentDate
+    ) {
+
+      setPaymentError(
+        "Payment date is required."
+      );
+
+      return;
+
+    }
+
+
+    const billDate =
+      new Date(
+        paymentBill.bill_date
+      );
+
+
+    const selectedPaymentDate =
+      new Date(
+        paymentDate
+      );
+
+
+    if (
+      !Number.isNaN(
+        billDate.getTime()
+      )
+      &&
+      !Number.isNaN(
+        selectedPaymentDate.getTime()
+      )
+      &&
+      selectedPaymentDate
+      <
+      billDate
+    ) {
+
+      setPaymentError(
+        "Payment date cannot be earlier than the Purchase Bill date."
+      );
+
+      return;
+
+    }
+
+
+    const payload:
+      PurchaseBillPaymentCreate =
+      {
+
+        payment_date:
+          paymentDate,
+
+        amount,
+
+        payment_mode:
+          paymentMode
+          ||
+          null,
+
+        reference_number:
+          paymentReference
+            .trim()
+          ||
+          null,
+
+        notes:
+          paymentNotes
+            .trim()
+          ||
+          null,
+
+      };
+
+
+    try {
+
+      setPaymentSubmitting(
+        true
+      );
+
+
+      await recordPurchaseBillPayment(
+        paymentBill.purchase_bill_id,
+        payload
+      );
+
+
+      /*
+       * Refresh dashboard after payment.
+       *
+       * Partial:
+       * balance reduces.
+       *
+       * Full:
+       * bill disappears from unpaid list.
+       */
+      await refreshDashboard();
+
+
+      setPaymentSuccess(
+        `Payment recorded successfully for ${paymentBill.bill_number}.`
+      );
+
+
+      setPaymentOpen(
+        false
+      );
+
+
+      setPaymentBill(
+        null
+      );
+
+
+      setPaymentSummary(
+        null
+      );
+
+
+      setPaymentAmount(
+        ""
+      );
+
+
+      setPaymentReference(
+        ""
+      );
+
+
+      setPaymentNotes(
+        ""
+      );
+
+
+      setPaymentDate(
+        getCurrentDateTimeInputValue()
+      );
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        "Dashboard supplier payment failed:",
+        err
+      );
+
+
+      setPaymentError(
+        getErrorMessage(
+          err,
+          "Unable to record supplier payment."
+        )
+      );
+
+    } finally {
+
+      setPaymentSubmitting(
+        false
+      );
+
+    }
+
+  }
 
 
   /* ==============================================================
@@ -486,11 +1245,11 @@ export default function DashboardPage() {
           dashboard
             .monthly_sales
             .filter(
-              (item) =>
+              item =>
                 !item.is_future
             )
             .map(
-              (item) =>
+              item =>
                 Math.abs(
                   Number(
                     item.net_sales
@@ -518,6 +1277,7 @@ export default function DashboardPage() {
   if (
     loading
   ) {
+
     return (
       <div className="dashboard-loading">
 
@@ -530,28 +1290,34 @@ export default function DashboardPage() {
 
       </div>
     );
+
   }
 
 
   /* ==============================================================
-     EMPTY / ERROR STATE
+     EMPTY / ERROR
   ============================================================== */
 
   if (
     !dashboard
   ) {
+
     return (
       <div className="dashboard-page">
 
         <div className="dashboard-error">
+
           {
             error
-            ?? "Dashboard data is unavailable."
+            ??
+            "Dashboard data is unavailable."
           }
+
         </div>
 
       </div>
     );
+
   }
 
 
@@ -574,12 +1340,19 @@ export default function DashboardPage() {
             Dashboard
           </h1>
 
+
           <p className="dashboard-subtitle">
+
             Operational and management
-            overview for {
+            overview for{" "}
+
+            {
               dashboard
                 .financial_year_label
-            }.
+            }
+
+            .
+
           </p>
 
         </div>
@@ -591,10 +1364,15 @@ export default function DashboardPage() {
             size={15}
           />
 
+
           <span>
-            {formatIndiaTime(
-              dashboard.as_of
-            )}
+
+            {
+              formatIndiaTime(
+                dashboard.as_of
+              )
+            }
+
           </span>
 
         </div>
@@ -602,31 +1380,74 @@ export default function DashboardPage() {
       </div>
 
 
-      {error && (
-        <div className="dashboard-error">
-          {error}
-        </div>
-      )}
+      {
+        error
+        &&
+        (
+          <div className="dashboard-error">
+            {error}
+          </div>
+        )
+      }
+
+
+      {
+        paymentSuccess
+        &&
+        (
+          <div className="dashboard-success">
+
+            <CheckCircle2
+              size={16}
+            />
+
+
+            <span>
+              {paymentSuccess}
+            </span>
+
+
+            <button
+              type="button"
+              onClick={
+                () =>
+                  setPaymentSuccess(
+                    null
+                  )
+              }
+            >
+
+              <X
+                size={15}
+              />
+
+            </button>
+
+          </div>
+        )
+      }
 
 
       {/* ==========================================================
-          BOSS-ONLY KPI CARDS
-
-          These are not merely blank for other users.
-          They are not rendered at all.
+          BOSS KPI CARDS
       ========================================================== */}
 
       {
         isBoss
-        && (
+        &&
+        (
           dashboard.open_enquiries
-          !== null
+          !==
+          null
         )
-        && (
+        &&
+        (
           dashboard.current_fy_net_profit
-          !== null
+          !==
+          null
         )
-        && (
+        &&
+        (
           <div className="dashboard-management-kpis">
 
             {/* OPEN ENQUIRIES */}
@@ -639,12 +1460,16 @@ export default function DashboardPage() {
                   Open Enquiries
                 </div>
 
+
                 <div className="dashboard-management-value">
+
                   {
                     dashboard
                       .open_enquiries
                   }
+
                 </div>
+
 
                 <div className="dashboard-kpi-note">
                   Active enquiry pipeline
@@ -654,9 +1479,11 @@ export default function DashboardPage() {
 
 
               <div className="dashboard-kpi-icon blue">
+
                 <Activity
                   size={21}
                 />
+
               </div>
 
             </div>
@@ -672,36 +1499,48 @@ export default function DashboardPage() {
                   Current FY Profit / Loss
                 </div>
 
+
                 <div
                   className={
                     Number(
                       dashboard
                         .current_fy_net_profit
-                    ) >= 0
+                    )
+                    >=
+                    0
                       ? "dashboard-management-value profit"
                       : "dashboard-management-value loss"
                   }
                 >
-                  {formatCurrency(
-                    dashboard
-                      .current_fy_net_profit
-                  )}
+
+                  {
+                    formatCurrency(
+                      dashboard
+                        .current_fy_net_profit
+                    )
+                  }
+
                 </div>
 
+
                 <div className="dashboard-kpi-note">
+
                   {
                     dashboard
                       .financial_year_label
                   }
+
                 </div>
 
               </div>
 
 
               <div className="dashboard-kpi-icon green">
+
                 <IndianRupee
                   size={21}
                 />
+
               </div>
 
             </div>
@@ -725,18 +1564,23 @@ export default function DashboardPage() {
               Live Production Status
             </div>
 
+
             <div className="dashboard-section-subtitle">
+
               Active production orders
               and current operations
+
             </div>
 
           </div>
 
 
           <div className="dashboard-section-icon blue">
+
             <Factory
               size={18}
             />
+
           </div>
 
         </div>
@@ -745,197 +1589,229 @@ export default function DashboardPage() {
         {
           dashboard
             .live_production
-            .length > 0
+            .length
+          >
+          0
             ? (
-              <div className="dashboard-table-wrap">
+                <div className="dashboard-table-wrap">
 
-                <table className="dashboard-live-table">
+                  <table className="dashboard-live-table">
 
-                  <thead>
+                    <thead>
 
-                    <tr>
-                      <th>
-                        Production
-                      </th>
+                      <tr>
 
-                      <th>
-                        Customer
-                      </th>
+                        <th>
+                          Production
+                        </th>
 
-                      <th>
-                        Product
-                      </th>
+                        <th>
+                          Customer
+                        </th>
 
-                      <th>
-                        Qty
-                      </th>
+                        <th>
+                          Product
+                        </th>
 
-                      <th>
-                        Current Operation
-                      </th>
+                        <th>
+                          Qty
+                        </th>
 
-                      <th>
-                        Machine
-                      </th>
+                        <th>
+                          Current Operation
+                        </th>
 
-                      <th>
-                        Status
-                      </th>
-                    </tr>
+                        <th>
+                          Machine
+                        </th>
 
-                  </thead>
+                        <th>
+                          Status
+                        </th>
 
+                      </tr>
 
-                  <tbody>
-
-                    {
-                      dashboard
-                        .live_production
-                        .map(
-                          (
-                            item
-                          ) => (
-
-                            <tr
-                              key={
-                                item
-                                  .production_order_id
-                              }
-                            >
-
-                              <td>
-
-                                <div className="dashboard-table-primary">
-                                  {
-                                    item
-                                      .production_number
-                                  }
-                                </div>
-
-                                <div className="dashboard-table-secondary">
-                                  {
-                                    item
-                                      .proforma_number
-                                  }
-                                </div>
-
-                              </td>
+                    </thead>
 
 
-                              <td>
-                                {
+                    <tbody>
+
+                      {
+                        dashboard
+                          .live_production
+                          .map(
+                            item => (
+
+                              <tr
+                                key={
                                   item
-                                    .company_name
+                                    .production_order_id
                                 }
-                              </td>
+                              >
+
+                                <td>
+
+                                  <div className="dashboard-table-primary">
+
+                                    {
+                                      item
+                                        .production_number
+                                    }
+
+                                  </div>
 
 
-                              <td>
+                                  <div className="dashboard-table-secondary">
 
-                                <div className="dashboard-table-primary">
+                                    {
+                                      item
+                                        .proforma_number
+                                    }
+
+                                  </div>
+
+                                </td>
+
+
+                                <td>
+
                                   {
                                     item
-                                      .product_name
+                                      .company_name
                                   }
-                                </div>
 
-                                <div className="dashboard-table-secondary">
+                                </td>
+
+
+                                <td>
+
+                                  <div className="dashboard-table-primary">
+
+                                    {
+                                      item
+                                        .product_name
+                                    }
+
+                                  </div>
+
+
+                                  <div className="dashboard-table-secondary">
+
+                                    {
+                                      item
+                                        .product_code
+                                    }
+
+                                  </div>
+
+                                </td>
+
+
+                                <td>
+
                                   {
                                     item
-                                      .product_code
+                                      .quantity
                                   }
-                                </div>
 
-                              </td>
-
-
-                              <td>
-                                {
-                                  item
-                                    .quantity
-                                }
-                              </td>
+                                </td>
 
 
-                              <td>
-                                {
-                                  item
-                                    .current_operation
-                                  ?? "—"
-                                }
-                              </td>
+                                <td>
 
-
-                              <td>
-                                {
-                                  item
-                                    .machine_name
-                                  ?? "—"
-                                }
-                              </td>
-
-
-                              <td>
-
-                                <span className="dashboard-production-status">
                                   {
                                     item
-                                      .operation_status
-                                    ?? item
-                                      .status
+                                      .current_operation
+                                    ??
+                                    "—"
                                   }
-                                </span>
 
-                              </td>
+                                </td>
 
-                            </tr>
 
+                                <td>
+
+                                  {
+                                    item
+                                      .machine_name
+                                    ??
+                                    "—"
+                                  }
+
+                                </td>
+
+
+                                <td>
+
+                                  <span className="dashboard-production-status">
+
+                                    {
+                                      item
+                                        .operation_status
+                                      ??
+                                      item
+                                        .status
+                                    }
+
+                                  </span>
+
+                                </td>
+
+                              </tr>
+
+                            )
                           )
-                        )
-                    }
+                      }
 
-                  </tbody>
+                    </tbody>
 
-                </table>
-
-              </div>
-            )
-            : (
-              <div className="dashboard-empty-state">
-
-                <Factory
-                  size={24}
-                />
-
-                <div>
-
-                  <strong>
-                    No live production
-                  </strong>
-
-                  <span>
-                    There are currently no
-                    active production orders.
-                  </span>
+                  </table>
 
                 </div>
+              )
+            : (
+                <div className="dashboard-empty-state">
 
-              </div>
-            )
+                  <Factory
+                    size={24}
+                  />
+
+
+                  <div>
+
+                    <strong>
+                      No live production
+                    </strong>
+
+
+                    <span>
+
+                      There are currently no
+                      active production orders.
+
+                    </span>
+
+                  </div>
+
+                </div>
+              )
         }
 
       </div>
 
 
       {/* ==========================================================
-          BOSS-ONLY QUARTER COMPARISON
+          BOSS QUARTER COMPARISON
       ========================================================== */}
 
       {
         isBoss
-        && dashboard.current_quarter
-        && dashboard.previous_quarter
-        && (
+        &&
+        dashboard.current_quarter
+        &&
+        dashboard.previous_quarter
+        &&
+        (
           <QuarterComparison
             current={
               dashboard
@@ -951,17 +1827,21 @@ export default function DashboardPage() {
 
 
       {/* ==========================================================
-          BOSS-ONLY FY MONTHLY SALES
+          BOSS FY MONTHLY SALES
       ========================================================== */}
 
       {
         isBoss
-        && (
+        &&
+        (
           dashboard
             .monthly_sales
-            .length > 0
+            .length
+          >
+          0
         )
-        && (
+        &&
+        (
           <div className="dashboard-section-card">
 
             <div className="dashboard-section-header">
@@ -972,18 +1852,23 @@ export default function DashboardPage() {
                   Financial Year Monthly Sales
                 </div>
 
+
                 <div className="dashboard-section-subtitle">
+
                   Net taxable sales,
                   excluding GST · April to March
+
                 </div>
 
               </div>
 
 
               <div className="dashboard-section-icon lavender">
+
                 <BarChart3
                   size={18}
                 />
+
               </div>
 
             </div>
@@ -997,9 +1882,7 @@ export default function DashboardPage() {
                   dashboard
                     .monthly_sales
                     .map(
-                      (
-                        item
-                      ) => {
+                      item => {
 
                         const numericValue =
                           Number(
@@ -1019,12 +1902,15 @@ export default function DashboardPage() {
                             ? 8
                             : Math.max(
                                 8,
+
                                 Math.round(
                                   (
                                     absoluteValue
-                                    / monthlySalesMax
+                                    /
+                                    monthlySalesMax
                                   )
-                                  * 124
+                                  *
+                                  124
                                 )
                               );
 
@@ -1039,6 +1925,7 @@ export default function DashboardPage() {
                           >
 
                             <div className="dashboard-sales-value">
+
                               {
                                 item.is_future
                                   ? "—"
@@ -1047,6 +1934,7 @@ export default function DashboardPage() {
                                         .net_sales
                                     )
                               }
+
                             </div>
 
 
@@ -1082,10 +1970,12 @@ export default function DashboardPage() {
 
 
                             <div className="dashboard-sales-label">
+
                               {
                                 item
                                   .month_label
                               }
+
                             </div>
 
                           </div>
@@ -1104,6 +1994,7 @@ export default function DashboardPage() {
                   size={13}
                 />
 
+
                 Future financial-year
                 months remain blank until
                 actual sales are recorded.
@@ -1120,12 +2011,20 @@ export default function DashboardPage() {
       {/* ==========================================================
           UNPAID PURCHASE BILLS
 
-          Boss / Accounts / Purchase only.
+          Visible:
+              Boss
+              Accounts
+              Purchase
+
+          Record Payment:
+              Boss
+              Accounts
       ========================================================== */}
 
       {
         canViewPurchasePayments
-        && (
+        &&
+        (
           <div className="dashboard-section-card">
 
             <div className="dashboard-section-header">
@@ -1136,19 +2035,24 @@ export default function DashboardPage() {
                   Unpaid Purchase Bills
                 </div>
 
+
                 <div className="dashboard-section-subtitle">
+
                   Supplier bills with tracked
                   outstanding balances · oldest
                   unpaid first
+
                 </div>
 
               </div>
 
 
               <div className="dashboard-section-icon rose">
+
                 <ReceiptText
                   size={18}
                 />
+
               </div>
 
             </div>
@@ -1157,187 +2061,259 @@ export default function DashboardPage() {
             {
               dashboard
                 .unpaid_purchase_bills
-                .length > 0
+                .length
+              >
+              0
                 ? (
-                  <div className="dashboard-table-wrap">
+                    <div className="dashboard-table-wrap">
 
-                    <table className="dashboard-live-table dashboard-purchase-table">
+                      <table className="dashboard-live-table dashboard-purchase-table">
 
-                      <thead>
+                        <thead>
 
-                        <tr>
-                          <th>
-                            Supplier
-                          </th>
+                          <tr>
 
-                          <th>
-                            Bill
-                          </th>
+                            <th>
+                              Supplier
+                            </th>
 
-                          <th>
-                            Bill Date
-                          </th>
+                            <th>
+                              Bill
+                            </th>
 
-                          <th>
-                            Due Date
-                          </th>
+                            <th>
+                              Bill Date
+                            </th>
 
-                          <th>
-                            Balance
-                          </th>
+                            <th>
+                              Due Date
+                            </th>
 
-                          <th>
-                            Days Unpaid
-                          </th>
+                            <th>
+                              Balance
+                            </th>
 
-                          <th>
-                            Status
-                          </th>
-                        </tr>
+                            <th>
+                              Days Unpaid
+                            </th>
 
-                      </thead>
+                            <th>
+                              Status
+                            </th>
 
 
-                      <tbody>
-
-                        {
-                          dashboard
-                            .unpaid_purchase_bills
-                            .map(
+                            {
+                              canRecordPurchasePayment
+                              &&
                               (
-                                bill
-                              ) => (
-
-                                <tr
-                                  key={
-                                    bill
-                                      .purchase_bill_id
-                                  }
-                                >
-
-                                  <td>
-
-                                    <div className="dashboard-table-primary">
-                                      {
-                                        bill
-                                          .supplier_name
-                                      }
-                                    </div>
-
-                                  </td>
-
-
-                                  <td>
-                                    {
-                                      bill
-                                        .bill_number
-                                    }
-                                  </td>
-
-
-                                  <td>
-                                    {formatDate(
-                                      bill
-                                        .bill_date
-                                    )}
-                                  </td>
-
-
-                                  <td>
-                                    {formatDate(
-                                      bill
-                                        .due_date
-                                    )}
-                                  </td>
-
-
-                                  <td>
-
-                                    <strong>
-                                      {formatCurrency(
-                                        bill
-                                          .balance_amount
-                                      )}
-                                    </strong>
-
-                                  </td>
-
-
-                                  <td>
-
-                                    <span
-                                      className={
-                                        bill
-                                          .is_overdue
-                                          ? "dashboard-aging overdue"
-                                          : "dashboard-aging"
-                                      }
-                                    >
-                                      {
-                                        bill
-                                          .days_unpaid
-                                      } days
-                                    </span>
-
-                                  </td>
-
-
-                                  <td>
-
-                                    <span
-                                      className={
-                                        bill
-                                          .is_overdue
-                                          ? "dashboard-payment-status overdue"
-                                          : "dashboard-payment-status"
-                                      }
-                                    >
-                                      {
-                                        bill
-                                          .is_overdue
-                                          ? `${bill.overdue_days} days overdue`
-                                          : bill.payment_status
-                                      }
-                                    </span>
-
-                                  </td>
-
-                                </tr>
-
+                                <th>
+                                  Action
+                                </th>
                               )
-                            )
-                        }
+                            }
 
-                      </tbody>
+                          </tr>
 
-                    </table>
+                        </thead>
 
-                  </div>
-                )
-                : (
-                  <div className="dashboard-empty-state">
 
-                    <PackageOpen
-                      size={24}
-                    />
+                        <tbody>
 
-                    <div>
+                          {
+                            dashboard
+                              .unpaid_purchase_bills
+                              .map(
+                                bill => (
 
-                      <strong>
-                        No tracked unpaid bills
-                      </strong>
+                                  <tr
+                                    key={
+                                      bill
+                                        .purchase_bill_id
+                                    }
+                                  >
 
-                      <span>
-                        No purchase bills with
-                        tracked outstanding
-                        balances are currently
-                        available.
-                      </span>
+                                    <td>
+
+                                      <div className="dashboard-table-primary">
+
+                                        {
+                                          bill
+                                            .supplier_name
+                                        }
+
+                                      </div>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        bill
+                                          .bill_number
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        formatDate(
+                                          bill
+                                            .bill_date
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        formatDate(
+                                          bill
+                                            .due_date
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <strong>
+
+                                        {
+                                          formatCurrency(
+                                            bill
+                                              .balance_amount
+                                          )
+                                        }
+
+                                      </strong>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <span
+                                        className={
+                                          bill
+                                            .is_overdue
+                                            ? "dashboard-aging overdue"
+                                            : "dashboard-aging"
+                                        }
+                                      >
+
+                                        {
+                                          bill
+                                            .days_unpaid
+                                        }
+
+                                        {" days"}
+
+                                      </span>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <span
+                                        className={
+                                          bill
+                                            .is_overdue
+                                            ? "dashboard-payment-status overdue"
+                                            : "dashboard-payment-status"
+                                        }
+                                      >
+
+                                        {
+                                          bill
+                                            .is_overdue
+                                            ? (
+                                                `${bill.overdue_days} days overdue`
+                                              )
+                                            : bill
+                                                .payment_status
+                                        }
+
+                                      </span>
+
+                                    </td>
+
+
+                                    {
+                                      canRecordPurchasePayment
+                                      &&
+                                      (
+                                        <td>
+
+                                          <button
+                                            type="button"
+                                            className="dashboard-record-payment"
+                                            onClick={
+                                              () =>
+                                                void openPurchasePayment(
+                                                  bill
+                                                )
+                                            }
+                                          >
+
+                                            <CreditCard
+                                              size={14}
+                                            />
+
+                                            Record Payment
+
+                                          </button>
+
+                                        </td>
+                                      )
+                                    }
+
+                                  </tr>
+
+                                )
+                              )
+                          }
+
+                        </tbody>
+
+                      </table>
 
                     </div>
+                  )
+                : (
+                    <div className="dashboard-empty-state">
 
-                  </div>
-                )
+                      <PackageOpen
+                        size={24}
+                      />
+
+
+                      <div>
+
+                        <strong>
+                          No tracked unpaid bills
+                        </strong>
+
+
+                        <span>
+
+                          No purchase bills with
+                          tracked outstanding
+                          balances are currently
+                          available.
+
+                        </span>
+
+                      </div>
+
+                    </div>
+                  )
             }
 
           </div>
@@ -1347,19 +2323,18 @@ export default function DashboardPage() {
 
       {/* ==========================================================
           NON-BOSS OPERATIONAL NOTE
-
-          No enquiry count, sales, profit/loss or
-          Financial Analyzer-derived information is rendered.
       ========================================================== */}
 
       {
         !isBoss
-        && (
+        &&
+        (
           <div className="dashboard-operational-note">
 
             <Activity
               size={16}
             />
+
 
             <div>
 
@@ -1367,11 +2342,493 @@ export default function DashboardPage() {
                 Operational Dashboard
               </strong>
 
+
               <span>
+
                 Production information is
                 shown according to your
                 application access.
+
               </span>
+
+            </div>
+
+          </div>
+        )
+      }
+
+
+      {/* ==========================================================
+          PURCHASE BILL PAYMENT MODAL
+      ========================================================== */}
+
+      {
+        paymentOpen
+        &&
+        paymentBill
+        &&
+        (
+          <div className="dashboard-payment-backdrop">
+
+            <div className="dashboard-payment-modal">
+
+              {/* HEADER */}
+
+              <div className="dashboard-payment-modal-header">
+
+                <div className="dashboard-payment-modal-heading">
+
+                  <div className="dashboard-payment-modal-icon">
+
+                    <WalletCards
+                      size={19}
+                    />
+
+                  </div>
+
+
+                  <div>
+
+                    <div className="dashboard-payment-eyebrow">
+                      SUPPLIER PAYMENT
+                    </div>
+
+
+                    <h2>
+                      Record Purchase Bill Payment
+                    </h2>
+
+
+                    <p>
+
+                      {
+                        paymentBill
+                          .supplier_name
+                      }
+
+                      {" • "}
+
+                      {
+                        paymentBill
+                          .bill_number
+                      }
+
+                    </p>
+
+                  </div>
+
+                </div>
+
+
+                <button
+                  type="button"
+                  className="dashboard-payment-close"
+                  disabled={
+                    paymentSubmitting
+                  }
+                  onClick={
+                    closePurchasePayment
+                  }
+                >
+
+                  <X
+                    size={18}
+                  />
+
+                </button>
+
+              </div>
+
+
+              {/* ERROR */}
+
+              {
+                paymentError
+                &&
+                (
+                  <div className="dashboard-payment-error">
+
+                    {paymentError}
+
+                  </div>
+                )
+              }
+
+
+              {/* LOADING */}
+
+              {
+                paymentLoading
+                  ? (
+                      <div className="dashboard-payment-loading">
+
+                        <Loader2
+                          size={20}
+                          className="dashboard-spin"
+                        />
+
+                        Loading payment details...
+
+                      </div>
+                    )
+                  : paymentSummary
+                    ? (
+                        <>
+
+                          {/* ================================
+                              PAYMENT SUMMARY
+                          ================================ */}
+
+                          <div className="dashboard-payment-summary">
+
+                            <div>
+
+                              <span>
+                                Grand Total
+                              </span>
+
+
+                              <strong>
+
+                                {
+                                  formatCurrency(
+                                    paymentSummary
+                                      .grand_total
+                                  )
+                                }
+
+                              </strong>
+
+                            </div>
+
+
+                            <div>
+
+                              <span>
+                                Already Paid
+                              </span>
+
+
+                              <strong className="paid">
+
+                                {
+                                  formatCurrency(
+                                    paymentSummary
+                                      .paid_amount
+                                  )
+                                }
+
+                              </strong>
+
+                            </div>
+
+
+                            <div>
+
+                              <span>
+                                Outstanding Balance
+                              </span>
+
+
+                              <strong className="balance">
+
+                                {
+                                  formatCurrency(
+                                    paymentSummary
+                                      .balance_amount
+                                  )
+                                }
+
+                              </strong>
+
+                            </div>
+
+                          </div>
+
+
+                          {/* ================================
+                              PAYMENT FORM
+                          ================================ */}
+
+                          <form
+                            onSubmit={
+                              event => {
+
+                                event.preventDefault();
+
+
+                                void handlePurchasePayment();
+
+                              }
+                            }
+                          >
+
+                            <div className="dashboard-payment-fields">
+
+                              {/* AMOUNT */}
+
+                              <label>
+
+                                <span>
+                                  Payment Amount *
+                                </span>
+
+
+                                <input
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  max={
+                                    Number(
+                                      paymentSummary
+                                        .balance_amount
+                                    )
+                                  }
+                                  value={
+                                    paymentAmount
+                                  }
+                                  onChange={
+                                    event =>
+                                      setPaymentAmount(
+                                        event.target.value
+                                      )
+                                  }
+                                  placeholder="0.00"
+                                  required
+                                />
+
+                              </label>
+
+
+                              {/* DATE */}
+
+                              <label>
+
+                                <span>
+                                  Payment Date *
+                                </span>
+
+
+                                <input
+                                  type="datetime-local"
+                                  value={
+                                    paymentDate
+                                  }
+                                  onChange={
+                                    event =>
+                                      setPaymentDate(
+                                        event.target.value
+                                      )
+                                  }
+                                  required
+                                />
+
+                              </label>
+
+
+                              {/* MODE */}
+
+                              <label>
+
+                                <span>
+                                  Payment Mode
+                                </span>
+
+
+                                <select
+                                  value={
+                                    paymentMode
+                                  }
+                                  onChange={
+                                    event =>
+                                      setPaymentMode(
+                                        event.target.value
+                                      )
+                                  }
+                                >
+
+                                  {
+                                    [
+                                      "Bank Transfer",
+                                      "NEFT",
+                                      "RTGS",
+                                      "IMPS",
+                                      "UPI",
+                                      "Cheque",
+                                      "Cash",
+                                      "Other",
+                                    ].map(
+                                      mode => (
+
+                                        <option
+                                          key={
+                                            mode
+                                          }
+                                          value={
+                                            mode
+                                          }
+                                        >
+                                          {mode}
+                                        </option>
+
+                                      )
+                                    )
+                                  }
+
+                                </select>
+
+                              </label>
+
+
+                              {/* REFERENCE */}
+
+                              <label>
+
+                                <span>
+                                  Reference Number
+                                </span>
+
+
+                                <input
+                                  type="text"
+                                  value={
+                                    paymentReference
+                                  }
+                                  onChange={
+                                    event =>
+                                      setPaymentReference(
+                                        event.target.value
+                                      )
+                                  }
+                                  placeholder="Transaction / cheque reference"
+                                />
+
+                              </label>
+
+
+                              {/* NOTES */}
+
+                              <label className="dashboard-payment-notes">
+
+                                <span>
+                                  Notes
+                                </span>
+
+
+                                <textarea
+                                  rows={3}
+                                  value={
+                                    paymentNotes
+                                  }
+                                  onChange={
+                                    event =>
+                                      setPaymentNotes(
+                                        event.target.value
+                                      )
+                                  }
+                                  placeholder="Optional payment remarks"
+                                />
+
+                              </label>
+
+                            </div>
+
+
+                            {/* ================================
+                                FOOTER
+                            ================================ */}
+
+                            <div className="dashboard-payment-footer">
+
+                              <button
+                                type="button"
+                                className="dashboard-payment-full"
+                                disabled={
+                                  paymentSubmitting
+                                }
+                                onClick={
+                                  () =>
+                                    setPaymentAmount(
+                                      String(
+                                        paymentSummary
+                                          .balance_amount
+                                      )
+                                    )
+                                }
+                              >
+
+                                <IndianRupee
+                                  size={14}
+                                />
+
+                                Use Full Balance
+
+                              </button>
+
+
+                              <div>
+
+                                <button
+                                  type="button"
+                                  className="dashboard-payment-cancel"
+                                  disabled={
+                                    paymentSubmitting
+                                  }
+                                  onClick={
+                                    closePurchasePayment
+                                  }
+                                >
+                                  Cancel
+                                </button>
+
+
+                                <button
+                                  type="submit"
+                                  className="dashboard-payment-submit"
+                                  disabled={
+                                    paymentSubmitting
+                                  }
+                                >
+
+                                  {
+                                    paymentSubmitting
+                                      ? (
+                                          <>
+
+                                            <Loader2
+                                              size={15}
+                                              className="dashboard-spin"
+                                            />
+
+                                            Recording...
+
+                                          </>
+                                        )
+                                      : (
+                                          <>
+
+                                            <CreditCard
+                                              size={15}
+                                            />
+
+                                            Record Payment
+
+                                          </>
+                                        )
+                                  }
+
+                                </button>
+
+                              </div>
+
+                            </div>
+
+                          </form>
+
+                        </>
+                      )
+                    : null
+              }
 
             </div>
 
@@ -1381,4 +2838,5 @@ export default function DashboardPage() {
 
     </div>
   );
+
 }
