@@ -42,6 +42,10 @@ import {
 } from "../../services/finalBillService";
 
 import {
+  downloadPdfFromHtml,
+} from "../../services/pdfDocumentService";
+
+import {
   getProductionOrders,
 } from "../../services/productionService";
 
@@ -2888,7 +2892,7 @@ export default function FinalBillingPage() {
     setPaymentType,
   ] =
     useState(
-      "Advance"
+      "Part Payment"
     );
 
 
@@ -3939,10 +3943,16 @@ export default function FinalBillingPage() {
 
 
   /* ==============================================================
-     DOWNLOAD FINAL BILL
+     DOWNLOAD FINAL BILL PDF
 
-     Uses the same Company Header / Letterhead settings as Print.
-     The generated file is Word-compatible.
+     Uses the exact same A4 HTML and Document Settings as Print.
+
+     Company Header mode:
+         Generated company header is included.
+
+     Letterhead mode:
+         Generated company header is removed and configured
+         top blank space is preserved.
   ============================================================== */
 
   async function handleDownloadBill() {
@@ -3986,59 +3996,9 @@ export default function FinalBillingPage() {
         );
 
 
-      const blob =
-        new Blob(
-          [
-            "\ufeff",
-            html,
-          ],
-          {
-            type:
-              "application/msword;charset=utf-8",
-          }
-        );
-
-
-      const url =
-        URL.createObjectURL(
-          blob
-        );
-
-
-      const link =
-        document.createElement(
-          "a"
-        );
-
-
-      link.href =
-        url;
-
-
-      link.download =
-        `${bill.invoice_number}.doc`;
-
-
-      document.body.appendChild(
-        link
-      );
-
-
-      link.click();
-
-
-      link.remove();
-
-
-      window.setTimeout(
-        () => {
-
-          URL.revokeObjectURL(
-            url
-          );
-
-        },
-        1000
+      await downloadPdfFromHtml(
+        html,
+        `${bill.invoice_number}.pdf`
       );
 
     } catch (
@@ -4053,7 +4013,7 @@ export default function FinalBillingPage() {
       setDetailError(
         getApiErrorMessage(
           err,
-          "Unable to download the invoice."
+          "Unable to download the invoice PDF."
         )
       );
 
@@ -6024,13 +5984,7 @@ export default function FinalBillingPage() {
 
 
       setPaymentType(
-        Number(
-          summary.paid_amount
-        )
-        >
-        0
-          ? "Part Payment"
-          : "Advance"
+        "Part Payment"
       );
 
 
@@ -8855,7 +8809,7 @@ export default function FinalBillingPage() {
 
 
                         <div className="final-billing-section-subtitle">
-                          Advance, partial and final customer payments.
+                          Proforma advance plus payments received after Final Bill issue.
                         </div>
 
                       </div>
@@ -8889,7 +8843,7 @@ export default function FinalBillingPage() {
                           "grid",
 
                         gridTemplateColumns:
-                          "repeat(3, minmax(0, 1fr))",
+                          "repeat(auto-fit, minmax(150px, 1fr))",
 
                         gap:
                           "12px",
@@ -8921,7 +8875,55 @@ export default function FinalBillingPage() {
                       <div className="final-billing-info-card">
 
                         <div className="final-billing-info-title">
-                          Received
+                          Proforma Advance
+                        </div>
+
+                        <strong
+                          style={{
+                            color:
+                              "#3478ed",
+                          }}
+                        >
+
+                          {
+                            formatCurrency(
+                              selectedPaymentSummary.proforma_advance_amount
+                            )
+                          }
+
+                        </strong>
+
+                      </div>
+
+
+                      <div className="final-billing-info-card">
+
+                        <div className="final-billing-info-title">
+                          Post-Invoice Payments
+                        </div>
+
+                        <strong
+                          style={{
+                            color:
+                              "#6c5ce7",
+                          }}
+                        >
+
+                          {
+                            formatCurrency(
+                              selectedPaymentSummary.invoice_payment_amount
+                            )
+                          }
+
+                        </strong>
+
+                      </div>
+
+
+                      <div className="final-billing-info-card">
+
+                        <div className="final-billing-info-title">
+                          Total Received
                         </div>
 
                         <strong
@@ -8945,7 +8947,7 @@ export default function FinalBillingPage() {
                       <div className="final-billing-info-card">
 
                         <div className="final-billing-info-title">
-                          Balance
+                          Balance Payable
                         </div>
 
                         <strong
@@ -8971,6 +8973,40 @@ export default function FinalBillingPage() {
 
                       </div>
 
+                    </div>
+
+
+                    <div
+                      style={{
+                        margin:
+                          "0 16px 16px",
+
+                        padding:
+                          "10px 12px",
+
+                        border:
+                          "1px solid #d8e4f5",
+
+                        borderRadius:
+                          "8px",
+
+                        background:
+                          "#f7faff",
+
+                        color:
+                          "#526783",
+
+                        fontSize:
+                          "9px",
+
+                        lineHeight:
+                          1.55,
+                      }}
+                    >
+                      Proforma Advance is carried automatically
+                      from the linked Proforma. The payment history
+                      below contains only payments recorded after
+                      the Final Bill was issued.
                     </div>
 
 
@@ -9179,7 +9215,7 @@ export default function FinalBillingPage() {
                         )
                   }
 
-                  Download Word
+                  Download PDF
 
                 </button>
 
@@ -11075,7 +11111,7 @@ export default function FinalBillingPage() {
                     "grid",
 
                   gridTemplateColumns:
-                    "repeat(3, minmax(0, 1fr))",
+                    "repeat(auto-fit, minmax(140px, 1fr))",
 
                   gap:
                     "12px",
@@ -11088,7 +11124,7 @@ export default function FinalBillingPage() {
                 <div className="final-billing-info-card">
 
                   <div className="final-billing-info-title">
-                    Invoice Total
+                    Receivable
                   </div>
 
                   <strong>
@@ -11107,7 +11143,55 @@ export default function FinalBillingPage() {
                 <div className="final-billing-info-card">
 
                   <div className="final-billing-info-title">
-                    Received
+                    Proforma Advance
+                  </div>
+
+                  <strong
+                    style={{
+                      color:
+                        "#3478ed",
+                    }}
+                  >
+
+                    {
+                      formatCurrency(
+                        paymentSummary.proforma_advance_amount
+                      )
+                    }
+
+                  </strong>
+
+                </div>
+
+
+                <div className="final-billing-info-card">
+
+                  <div className="final-billing-info-title">
+                    Post-Invoice Paid
+                  </div>
+
+                  <strong
+                    style={{
+                      color:
+                        "#6c5ce7",
+                    }}
+                  >
+
+                    {
+                      formatCurrency(
+                        paymentSummary.invoice_payment_amount
+                      )
+                    }
+
+                  </strong>
+
+                </div>
+
+
+                <div className="final-billing-info-card">
+
+                  <div className="final-billing-info-title">
+                    Total Received
                   </div>
 
                   <strong
@@ -11137,7 +11221,13 @@ export default function FinalBillingPage() {
                   <strong
                     style={{
                       color:
-                        "#d66523",
+                        Number(
+                          paymentSummary.balance_amount
+                        )
+                        >
+                        0
+                          ? "#d66523"
+                          : "#159a5b",
                     }}
                   >
 
@@ -11151,6 +11241,39 @@ export default function FinalBillingPage() {
 
                 </div>
 
+              </div>
+
+
+              <div
+                style={{
+                  margin:
+                    "0 20px 18px",
+
+                  padding:
+                    "10px 12px",
+
+                  border:
+                    "1px solid #d8e4f5",
+
+                  borderRadius:
+                    "8px",
+
+                  background:
+                    "#f7faff",
+
+                  color:
+                    "#526783",
+
+                  fontSize:
+                    "9px",
+
+                  lineHeight:
+                    1.55,
+                }}
+              >
+                The Proforma Advance is already included in
+                Total Received. Enter only money received after
+                this Final Bill was issued.
               </div>
 
 
@@ -11252,10 +11375,6 @@ export default function FinalBillingPage() {
                         )
                     }
                   >
-
-                    <option value="Advance">
-                      Advance
-                    </option>
 
                     <option value="Part Payment">
                       Part Payment

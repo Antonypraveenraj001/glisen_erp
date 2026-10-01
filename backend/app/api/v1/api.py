@@ -3,84 +3,119 @@ from fastapi import APIRouter
 from app.api.v1.auth import (
     router as auth_router,
 )
+
 from app.api.v1.business_settings import (
     router as business_settings_router,
 )
+
 from app.api.v1.company_settings import (
     router as company_settings_router,
 )
+
 from app.api.v1.customers import (
     router as customers_router,
 )
+
 from app.api.v1.dashboard import (
     router as dashboard_router,
 )
+
 from app.api.v1.direct_stock_issues import (
     router as direct_stock_issues_router,
 )
+
 from app.api.v1.document_settings import (
     router as document_settings_router,
 )
+
 from app.api.v1.enquiries import (
     router as enquiries_router,
 )
+
 from app.api.v1.expenses import (
     router as expenses_router,
 )
+
 from app.api.v1.final_bills import (
     router as final_bills_router,
 )
+
 from app.api.v1.financial_analyzer import (
     router as financial_analyzer_router,
 )
+
 from app.api.v1.finished_goods_receipts import (
     router as finished_goods_receipts_router,
 )
+
 from app.api.v1.finished_products import (
     router as finished_products_router,
 )
+
 from app.api.v1.gst_report import (
     router as gst_report_router,
 )
+
 from app.api.v1.health import (
     router as health_router,
 )
+
+from app.api.v1.pdf_documents import (
+    router as pdf_documents_router,
+)
+
 from app.api.v1.products import (
     router as products_router,
 )
+
 from app.api.v1.production import (
     router as production_router,
 )
+
 from app.api.v1.production_reopen import (
     router as production_reopen_router,
 )
+
+from app.api.v1.proforma_payments import (
+    router as proforma_payments_router,
+)
+
 from app.api.v1.proformas import (
     router as proformas_router,
 )
+
 from app.api.v1.purchase_bill_ai import (
     router as purchase_bill_ai_router,
 )
+
 from app.api.v1.purchase_bills import (
     router as purchase_bills_router,
 )
+
 from app.api.v1.role_permissions import (
     router as role_permissions_router,
 )
+
 from app.api.v1.security import (
     router as security_router,
 )
+
 from app.api.v1.shop_floor_issues import (
     router as shop_floor_issues_router,
 )
+
 from app.api.v1.staff import (
     router as staff_router,
 )
+
 from app.api.v1.stock_report import (
     router as stock_report_router,
 )
+
 from app.api.v1.suppliers import (
     router as suppliers_router,
 )
+
 from app.api.v1.users import (
     router as users_router,
 )
@@ -138,6 +173,15 @@ api_router.include_router(
 
 
 # ================================================================
+# SHARED DOCUMENT RENDERING
+# ================================================================
+
+api_router.include_router(
+    pdf_documents_router
+)
+
+
+# ================================================================
 # CUSTOMER / SALES WORKFLOW
 # ================================================================
 
@@ -151,6 +195,10 @@ api_router.include_router(
 
 api_router.include_router(
     proformas_router
+)
+
+api_router.include_router(
+    proforma_payments_router
 )
 
 
@@ -168,21 +216,6 @@ api_router.include_router(
 #
 # Purchase Bill AI routes must be registered BEFORE the normal
 # Purchase Bill router.
-#
-# Reason:
-#
-# Normal Purchase Bill router contains:
-#
-#     GET /purchase-bills/{purchase_bill_id}
-#
-# AI router contains static paths such as:
-#
-#     GET /purchase-bills/ai-drafts
-#     GET /purchase-bills/ai-drafts/{draft_id}
-#     GET /purchase-bills/ai-batches/{batch_id}
-#
-# Registering the AI router first ensures static AI paths are
-# matched before the dynamic Purchase Bill ID route.
 # ================================================================
 
 api_router.include_router(

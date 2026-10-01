@@ -1,4 +1,5 @@
 import {
+  type FormEvent,
   useEffect,
   useMemo,
   useState,
@@ -24,6 +25,7 @@ import {
   Save,
   Search,
   Trash2,
+  WalletCards,
   X,
 } from "lucide-react";
 
@@ -34,7 +36,10 @@ import {
 } from "react-router-dom";
 
 import {
+  createProformaAdvancePayment,
+  createProformaAdvanceRefund,
   deleteProforma,
+  getProformaAdvanceSummary,
   getProformaById,
   getProformas,
   updateProforma,
@@ -42,6 +47,11 @@ import {
 } from "../../services/proformaService";
 
 import {
+  downloadPdfFromHtml,
+} from "../../services/pdfDocumentService";
+
+import {
+  getBusinessSettings,
   getCompanyLogoBlob,
   getCompanySettings,
   getDocumentSettings,
@@ -51,6 +61,7 @@ import type {
   Proforma,
   ProformaCreate,
   ProformaItemCreate,
+  ProformaPaymentSummary,
 } from "../../types/proforma";
 
 import type {
@@ -112,6 +123,31 @@ interface PrintAssets {
 }
 
 
+interface AdvanceTransaction {
+  key: string;
+
+  date: string;
+
+  transactionType:
+    "Advance Received"
+    |
+    "Advance Refund";
+
+  mode: string | null;
+
+  reference: string | null;
+
+  notes: string | null;
+
+  amount: number;
+
+  direction:
+    "credit"
+    |
+    "refund";
+}
+
+
 /* ================================================================
    CONSTANTS
 ================================================================ */
@@ -120,7 +156,7 @@ const API_BASE_URL =
   "http://127.0.0.1:8000/api/v1";
 
 
-const PAGE_SIZE =
+const FALLBACK_PAGE_SIZE =
   10;
 
 
@@ -131,6 +167,30 @@ const USER_STATUS_OPTIONS = [
   "Rejected",
   "Cancelled",
 ];
+
+
+const PRODUCTION_LOCKED_STATUSES =
+  new Set([
+    "production started",
+    "production completed",
+    "final bill generated",
+    "payment pending",
+    "payment received",
+    "completed",
+  ]);
+
+
+const PRODUCTION_OR_CLOSED_STATUSES =
+  new Set([
+    "production started",
+    "production completed",
+    "final bill generated",
+    "payment pending",
+    "payment received",
+    "completed",
+    "rejected",
+    "cancelled",
+  ]);
 
 
 const EMPTY_ITEM:
@@ -172,9 +232,11 @@ function getAuthHeaders() {
 
 
   if (!token) {
+
     throw new Error(
       "Authentication required."
     );
+
   }
 
 
@@ -187,13 +249,15 @@ function getAuthHeaders() {
 
 function money(
   value:
-    string
-    | number
+    string |
+    number
 ) {
 
   const amount =
     Number(
-      value || 0
+      value
+      ||
+      0
     );
 
 
@@ -207,6 +271,7 @@ function money(
         2,
     }
   );
+
 }
 
 
@@ -248,6 +313,81 @@ function formatDate(
         "numeric",
     }
   );
+
+}
+
+
+function formatDateTime(
+  value:
+    string
+) {
+
+  if (!value) {
+    return "-";
+  }
+
+
+  const date =
+    new Date(
+      value
+    );
+
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return value;
+  }
+
+
+  return date.toLocaleString(
+    "en-IN",
+    {
+      day:
+        "2-digit",
+
+      month:
+        "short",
+
+      year:
+        "numeric",
+
+      hour:
+        "2-digit",
+
+      minute:
+        "2-digit",
+    }
+  );
+
+}
+
+
+function getLocalDateTime() {
+
+  const now =
+    new Date();
+
+
+  const local =
+    new Date(
+      now.getTime()
+      -
+      now.getTimezoneOffset()
+      *
+      60_000
+    );
+
+
+  return local
+    .toISOString()
+    .slice(
+      0,
+      16
+    );
+
 }
 
 
@@ -262,6 +402,25 @@ function statusClass(
       /\s+/g,
       "-"
     );
+
+}
+
+
+function normalizeStatus(
+  value:
+    string |
+    null |
+    undefined
+) {
+
+  return (
+    value
+    ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
 }
 
 
@@ -284,7 +443,8 @@ function getApiError(
 
     if (
       typeof detail
-      === "string"
+      ===
+      "string"
     ) {
       return detail;
     }
@@ -305,6 +465,7 @@ function getApiError(
     +
     "Please try again."
   );
+
 }
 
 
@@ -317,28 +478,32 @@ function calculateItem(
     Number(
       item.quantity
     )
-    || 0;
+    ||
+    0;
 
 
   const unitPrice =
     Number(
       item.unit_price
     )
-    || 0;
+    ||
+    0;
 
 
   const discountPercent =
     Number(
       item.discount_percent
     )
-    || 0;
+    ||
+    0;
 
 
   const taxPercent =
     Number(
       item.tax_percent
     )
-    || 0;
+    ||
+    0;
 
 
   const gross =
@@ -386,13 +551,14 @@ function calculateItem(
     tax,
     total,
   };
+
 }
 
 
 function buildAddress(
   enquiry:
-    EnquiryLite
-    | null
+    EnquiryLite |
+    null
 ) {
 
   if (!enquiry) {
@@ -412,6 +578,7 @@ function buildAddress(
     .join(
       ", "
     );
+
 }
 
 
@@ -437,43 +604,51 @@ ProformaCreate {
 
     contact_person:
       proforma.contact_person
-      || "",
+      ||
+      "",
 
     phone:
       proforma.phone
-      || "",
+      ||
+      "",
 
     email:
       proforma.email
-      || "",
+      ||
+      "",
 
     billing_address:
       proforma.billing_address
-      || "",
+      ||
+      "",
 
     shipping_address:
       proforma.shipping_address
-      || "",
+      ||
+      "",
 
     validity_days:
       proforma.validity_days,
 
     payment_terms:
       proforma.payment_terms
-      || "",
+      ||
+      "",
 
     delivery_terms:
       proforma.delivery_terms
-      || "",
+      ||
+      "",
 
     notes:
       proforma.notes
-      || "",
+      ||
+      "",
 
     terms_and_conditions:
-      proforma
-        .terms_and_conditions
-      || "",
+      proforma.terms_and_conditions
+      ||
+      "",
 
     status:
       proforma.status,
@@ -487,7 +662,8 @@ ProformaCreate {
 
           description:
             item.description
-            || "",
+            ||
+            "",
 
           quantity:
             Number(
@@ -496,7 +672,8 @@ ProformaCreate {
 
           unit:
             item.unit
-            || "Nos",
+            ||
+            "Nos",
 
           unit_price:
             Number(
@@ -515,11 +692,12 @@ ProformaCreate {
         })
       ),
   };
+
 }
 
 
 /* ================================================================
-   PRINT / DOWNLOAD HELPERS
+   DOCUMENT HELPERS
 ================================================================ */
 
 function escapeHtml(
@@ -528,7 +706,9 @@ function escapeHtml(
 ) {
 
   return String(
-    value ?? ""
+    value
+    ??
+    ""
   )
     .replace(
       /&/g,
@@ -550,6 +730,7 @@ function escapeHtml(
       /'/g,
       "&#039;"
     );
+
 }
 
 
@@ -560,11 +741,11 @@ function htmlText(
 
   return escapeHtml(
     value
-  )
-    .replace(
-      /\r?\n/g,
-      "<br />"
-    );
+  ).replace(
+    /\r?\n/g,
+    "<br />"
+  );
+
 }
 
 
@@ -616,6 +797,7 @@ Promise<string> {
 
     }
   );
+
 }
 
 
@@ -635,6 +817,7 @@ function buildCompanyContactLine(
     .join(
       " | "
     );
+
 }
 
 
@@ -653,16 +836,24 @@ function buildCompanyAddress(
     .join(
       ", "
     );
+
 }
 
+
+/* ================================================================
+   PROFORMA DOCUMENT
+
+   IMPORTANT:
+   Both Print and Download PDF use this exact same HTML.
+================================================================ */
 
 function buildProformaDocumentHtml(
   proforma:
     Proforma,
 
   enquiry:
-    EnquiryLite
-    | null,
+    EnquiryLite |
+    null,
 
   assets:
     PrintAssets
@@ -677,8 +868,7 @@ function buildProformaDocumentHtml(
 
 
   const letterheadMode =
-    document
-      .default_print_mode
+    document.default_print_mode
     ===
     "letterhead";
 
@@ -687,10 +877,10 @@ function buildProformaDocumentHtml(
     Math.max(
       0,
       Number(
-        document
-          .letterhead_top_space_mm
+        document.letterhead_top_space_mm
       )
-      || 0
+      ||
+      0
     );
 
 
@@ -707,86 +897,90 @@ function buildProformaDocumentHtml(
 
 
   const customerGst =
-    enquiry
-      ?.gst_number
-    || "";
+    enquiry?.gst_number
+    ||
+    "";
 
 
-  const itemRows =
+  const rows =
     proforma.items
       .map(
         (
           item,
           index
-        ) => {
+        ) => `
+          <tr>
 
-          return `
-            <tr>
-              <td class="center">${index + 1}</td>
+            <td class="center">
+              ${index + 1}
+            </td>
 
-              <td>
-                ${htmlText(
-                  item.description
-                  || "-"
-                )}
-              </td>
+            <td>
+              ${htmlText(
+                item.description
+                ||
+                "-"
+              )}
+            </td>
 
-              <td class="right">
-                ${escapeHtml(
-                  item.quantity
-                )}
-              </td>
+            <td class="right">
+              ${escapeHtml(
+                item.quantity
+              )}
+            </td>
 
-              <td>
-                ${escapeHtml(
-                  item.unit
-                  || "Nos"
-                )}
-              </td>
+            <td>
+              ${escapeHtml(
+                item.unit
+                ||
+                "Nos"
+              )}
+            </td>
 
-              <td class="right">
-                ₹${money(
-                  item.unit_price
-                )}
-              </td>
+            <td class="right">
+              ₹${money(
+                item.unit_price
+              )}
+            </td>
 
-              <td class="right">
-                ${escapeHtml(
-                  item.discount_percent
-                )}%
-              </td>
+            <td class="right">
+              ${escapeHtml(
+                item.discount_percent
+              )}%
+            </td>
 
-              <td class="right">
-                ${escapeHtml(
-                  item.tax_percent
-                )}%
-              </td>
+            <td class="right">
+              ${escapeHtml(
+                item.tax_percent
+              )}%
+            </td>
 
-              <td class="right">
-                ₹${money(
-                  item.line_total
-                )}
-              </td>
-            </tr>
-          `;
+            <td class="right">
+              ₹${money(
+                item.line_total
+              )}
+            </td>
 
-        }
+          </tr>
+        `
       )
       .join(
         ""
       );
 
 
-  const companyHeader =
+  const header =
     letterheadMode
       ? `
           <div
             class="letterhead-space"
-            style="height: ${topSpace}mm;"
+            style="
+              height:${topSpace}mm;
+            "
           ></div>
         `
       : `
-          <header class="company-header">
+          <div class="company-header">
 
             ${
               document.show_logo
@@ -794,10 +988,12 @@ function buildProformaDocumentHtml(
               logoDataUrl
                 ? `
                     <div class="company-logo-box">
+
                       <img
                         src="${logoDataUrl}"
                         alt="Company Logo"
                       />
+
                     </div>
                   `
                 : ""
@@ -843,6 +1039,7 @@ function buildProformaDocumentHtml(
                 company.gst_number
                   ? `
                       <div class="company-tax">
+
                         GSTIN:
                         <strong>
                           ${escapeHtml(
@@ -863,6 +1060,7 @@ function buildProformaDocumentHtml(
                               `
                             : ""
                         }
+
                       </div>
                     `
                   : ""
@@ -870,15 +1068,14 @@ function buildProformaDocumentHtml(
 
             </div>
 
-          </header>
+          </div>
         `;
 
 
   const bankSection =
-    document
-      .show_bank_details_on_proforma
+    document.show_bank_details_on_proforma
       ? `
-          <section class="bottom-block">
+          <section class="block">
 
             <h3>
               Bank Details
@@ -887,63 +1084,99 @@ function buildProformaDocumentHtml(
             <div class="bank-grid">
 
               <div>
-                <span>Account Name</span>
+
+                <span>
+                  Account Name
+                </span>
+
                 <strong>
                   ${escapeHtml(
                     company.bank_account_name
-                    || "-"
+                    ||
+                    "-"
                   )}
                 </strong>
+
               </div>
 
               <div>
-                <span>Bank</span>
+
+                <span>
+                  Bank
+                </span>
+
                 <strong>
                   ${escapeHtml(
                     company.bank_name
-                    || "-"
+                    ||
+                    "-"
                   )}
                 </strong>
+
               </div>
 
               <div>
-                <span>Account Number</span>
+
+                <span>
+                  Account No.
+                </span>
+
                 <strong>
                   ${escapeHtml(
                     company.bank_account_number
-                    || "-"
+                    ||
+                    "-"
                   )}
                 </strong>
+
               </div>
 
               <div>
-                <span>IFSC</span>
+
+                <span>
+                  IFSC
+                </span>
+
                 <strong>
                   ${escapeHtml(
                     company.bank_ifsc_code
-                    || "-"
+                    ||
+                    "-"
                   )}
                 </strong>
+
               </div>
 
               <div>
-                <span>Branch</span>
+
+                <span>
+                  Branch
+                </span>
+
                 <strong>
                   ${escapeHtml(
                     company.bank_branch
-                    || "-"
+                    ||
+                    "-"
                   )}
                 </strong>
+
               </div>
 
               <div>
-                <span>UPI ID</span>
+
+                <span>
+                  UPI
+                </span>
+
                 <strong>
                   ${escapeHtml(
                     company.upi_id
-                    || "-"
+                    ||
+                    "-"
                   )}
                 </strong>
+
               </div>
 
             </div>
@@ -953,9 +1186,8 @@ function buildProformaDocumentHtml(
       : "";
 
 
-  const signatureSection =
-    document
-      .show_authorized_signature
+  const signature =
+    document.show_authorized_signature
       ? `
           <section class="signature">
 
@@ -967,20 +1199,18 @@ function buildProformaDocumentHtml(
 
               <strong>
                 ${escapeHtml(
-                  document
-                    .authorized_signatory_name
-                  || "Authorized Signatory"
+                  document.authorized_signatory_name
+                  ||
+                  "Authorized Signatory"
                 )}
               </strong>
 
               ${
-                document
-                  .authorized_signatory_designation
+                document.authorized_signatory_designation
                   ? `
                       <span>
                         ${escapeHtml(
-                          document
-                            .authorized_signatory_designation
+                          document.authorized_signatory_designation
                         )}
                       </span>
                     `
@@ -1032,6 +1262,7 @@ function buildProformaDocumentHtml(
 
     @page {
       size: A4 portrait;
+
       margin:
         12mm
         12mm
@@ -1082,6 +1313,9 @@ function buildProformaDocumentHtml(
     }
 
     .document {
+      position:
+        relative;
+
       width:
         100%;
 
@@ -1177,7 +1411,7 @@ function buildProformaDocumentHtml(
         #111827 !important;
     }
 
-    .document-title-row {
+    .title-row {
       display:
         flex;
 
@@ -1194,7 +1428,7 @@ function buildProformaDocumentHtml(
         6mm;
     }
 
-    .document-title {
+    .title-row h2 {
       margin:
         0;
 
@@ -1208,21 +1442,38 @@ function buildProformaDocumentHtml(
         0.04em;
     }
 
-    .document-meta {
+    .document-eyebrow {
+      margin-bottom:
+        4px;
+
+      color:
+        #1d4ed8;
+
+      font-size:
+        8px;
+
+      font-weight:
+        700;
+
+      letter-spacing:
+        0.1em;
+    }
+
+    .meta {
       min-width:
-        220px;
+        225px;
+
+      overflow:
+        hidden;
 
       border:
         1px solid #cbd5e1;
 
       border-radius:
         5px;
-
-      overflow:
-        hidden;
     }
 
-    .document-meta-row {
+    .meta-row {
       display:
         grid;
 
@@ -1234,18 +1485,18 @@ function buildProformaDocumentHtml(
         1px solid #e2e8f0;
     }
 
-    .document-meta-row:last-child {
+    .meta-row:last-child {
       border-bottom:
         0;
     }
 
-    .document-meta-row span,
-    .document-meta-row strong {
+    .meta-row span,
+    .meta-row strong {
       padding:
         6px 8px;
     }
 
-    .document-meta-row span {
+    .meta-row span {
       background:
         #f8fafc;
 
@@ -1275,7 +1526,7 @@ function buildProformaDocumentHtml(
 
     .party-card {
       min-height:
-        38mm;
+        36mm;
 
       padding:
         4mm;
@@ -1288,7 +1539,7 @@ function buildProformaDocumentHtml(
     }
 
     .party-card h3,
-    .bottom-block h3 {
+    .block h3 {
       margin:
         0 0 3mm;
 
@@ -1298,30 +1549,21 @@ function buildProformaDocumentHtml(
       font-size:
         10px;
 
-      text-transform:
-        uppercase;
-
       letter-spacing:
         0.08em;
+
+      text-transform:
+        uppercase;
     }
 
-    .party-company {
-      margin-bottom:
-        2mm;
-
-      color:
-        #111827;
-
+    .party-card strong {
       font-size:
-        13px;
+        12px;
     }
 
-    .party-line {
+    .party-card div {
       margin-top:
-        1.2mm;
-
-      color:
-        #475569;
+        1mm;
     }
 
     table {
@@ -1331,25 +1573,41 @@ function buildProformaDocumentHtml(
       border-collapse:
         collapse;
 
-      table-layout:
-        fixed;
+      page-break-inside:
+        auto;
+    }
+
+    thead {
+      display:
+        table-header-group;
+    }
+
+    tr {
+      page-break-inside:
+        avoid;
+
+      page-break-after:
+        auto;
     }
 
     th {
       padding:
-        6px;
+        7px 6px;
 
       border:
         1px solid #cbd5e1;
 
       background:
-        #eff6ff;
+        #eef4ff;
 
       color:
-        #1e3a8a;
+        #334155;
 
       font-size:
         8px;
+
+      text-align:
+        left;
 
       text-transform:
         uppercase;
@@ -1357,54 +1615,13 @@ function buildProformaDocumentHtml(
 
     td {
       padding:
-        7px
-        6px;
+        7px 6px;
 
       border:
-        1px solid #dbe3ed;
+        1px solid #cbd5e1;
 
       vertical-align:
         top;
-    }
-
-    th:nth-child(1) {
-      width:
-        5%;
-    }
-
-    th:nth-child(2) {
-      width:
-        31%;
-    }
-
-    th:nth-child(3) {
-      width:
-        8%;
-    }
-
-    th:nth-child(4) {
-      width:
-        8%;
-    }
-
-    th:nth-child(5) {
-      width:
-        14%;
-    }
-
-    th:nth-child(6) {
-      width:
-        10%;
-    }
-
-    th:nth-child(7) {
-      width:
-        9%;
-    }
-
-    th:nth-child(8) {
-      width:
-        15%;
     }
 
     .right {
@@ -1417,92 +1634,127 @@ function buildProformaDocumentHtml(
         center;
     }
 
-    .totals-layout {
+    .bottom-grid {
       display:
         grid;
 
       grid-template-columns:
-        minmax(
-          0,
-          1fr
-        )
-        260px;
+        1fr
+        75mm;
 
       gap:
-        7mm;
+        6mm;
 
       margin-top:
-        5mm;
+        6mm;
     }
 
-    .terms-box {
+    .terms {
       padding:
         4mm;
 
       border:
-        1px solid #dbe3ed;
+        1px solid #cbd5e1;
 
       border-radius:
         5px;
     }
 
-    .terms-box h3 {
-      margin:
-        0 0 3mm;
+    .terms-title {
+      margin-bottom:
+        3mm;
 
       color:
         #1d4ed8;
 
       font-size:
         10px;
+
+      font-weight:
+        700;
+
+      text-transform:
+        uppercase;
     }
 
-    .terms-row {
-      display:
-        grid;
-
-      grid-template-columns:
-        100px
-        1fr;
-
-      gap:
-        8px;
-
+    .term-row {
       margin-top:
         2mm;
     }
 
-    .terms-row span {
+    .term-row span {
+      display:
+        block;
+
+      margin-bottom:
+        1mm;
+
       color:
         #64748b;
-    }
 
-    .totals-table td {
-      padding:
-        6px
+      font-size:
         8px;
+
+      text-transform:
+        uppercase;
     }
 
-    .totals-table td:first-child {
+    .totals {
+      overflow:
+        hidden;
+
+      border:
+        1px solid #cbd5e1;
+
+      border-radius:
+        5px;
+    }
+
+    .total-row {
+      display:
+        grid;
+
+      grid-template-columns:
+        1fr
+        35mm;
+
+      border-bottom:
+        1px solid #e2e8f0;
+    }
+
+    .total-row:last-child {
+      border-bottom:
+        0;
+    }
+
+    .total-row span,
+    .total-row strong {
+      padding:
+        6px 8px;
+    }
+
+    .total-row span {
       color:
         #64748b;
     }
 
-    .grand-total td {
+    .total-row strong {
+      text-align:
+        right;
+    }
+
+    .total-row.grand {
       background:
-        #eff6ff;
+        #eef4ff;
 
       color:
-        #111827 !important;
+        #0f172a;
 
       font-size:
         12px;
-
-      font-weight:
-        700;
     }
 
-    .bottom-block {
+    .block {
       margin-top:
         6mm;
 
@@ -1510,13 +1762,10 @@ function buildProformaDocumentHtml(
         4mm;
 
       border:
-        1px solid #dbe3ed;
+        1px solid #cbd5e1;
 
       border-radius:
         5px;
-
-      break-inside:
-        avoid;
     }
 
     .bank-grid {
@@ -1536,7 +1785,7 @@ function buildProformaDocumentHtml(
         3mm;
     }
 
-    .bank-grid > div {
+    .bank-grid div {
       display:
         flex;
 
@@ -1544,7 +1793,7 @@ function buildProformaDocumentHtml(
         column;
 
       gap:
-        2px;
+        1mm;
     }
 
     .bank-grid span {
@@ -1553,6 +1802,9 @@ function buildProformaDocumentHtml(
 
       font-size:
         8px;
+
+      text-transform:
+        uppercase;
     }
 
     .signature {
@@ -1561,13 +1813,10 @@ function buildProformaDocumentHtml(
 
       grid-template-columns:
         1fr
-        65mm;
+        58mm;
 
       margin-top:
-        10mm;
-
-      break-inside:
-        avoid;
+        7mm;
     }
 
     .signature-box {
@@ -1577,16 +1826,30 @@ function buildProformaDocumentHtml(
 
     .signature-space {
       height:
-        18mm;
+        20mm;
+
+      margin-bottom:
+        2mm;
+
+      border-bottom:
+        1px solid #94a3b8;
     }
 
     .signature-box strong,
     .signature-box span {
       display:
         block;
+    }
 
+    .signature-box span {
       margin-top:
-        2px;
+        1mm;
+
+      color:
+        #64748b;
+
+      font-size:
+        9px;
     }
 
     footer {
@@ -1594,7 +1857,7 @@ function buildProformaDocumentHtml(
         8mm;
 
       padding-top:
-        3mm;
+        4mm;
 
       border-top:
         1px solid #cbd5e1;
@@ -1602,16 +1865,11 @@ function buildProformaDocumentHtml(
       color:
         #64748b;
 
-      text-align:
-        center;
-
       font-size:
         8px;
-    }
 
-    tr {
-      page-break-inside:
-        avoid;
+      text-align:
+        center;
     }
 
   </style>
@@ -1620,40 +1878,32 @@ function buildProformaDocumentHtml(
 
 <body>
 
-  <main class="document">
+  <div class="document">
 
-    ${companyHeader}
+    ${header}
 
 
-    <section class="document-title-row">
+    <section class="title-row">
 
       <div>
 
-        <div
-          style="
-            color:#1d4ed8;
-            font-size:8px;
-            font-weight:700;
-            letter-spacing:.1em;
-            margin-bottom:4px;
-          "
-        >
+        <div class="document-eyebrow">
           SALES DOCUMENT
         </div>
 
-        <h2 class="document-title">
+        <h2>
           PROFORMA INVOICE
         </h2>
 
       </div>
 
 
-      <div class="document-meta">
+      <div class="meta">
 
-        <div class="document-meta-row">
+        <div class="meta-row">
 
           <span>
-            Proforma No.
+            Proforma
           </span>
 
           <strong>
@@ -1665,7 +1915,7 @@ function buildProformaDocumentHtml(
         </div>
 
 
-        <div class="document-meta-row">
+        <div class="meta-row">
 
           <span>
             Date
@@ -1682,7 +1932,7 @@ function buildProformaDocumentHtml(
         </div>
 
 
-        <div class="document-meta-row">
+        <div class="meta-row">
 
           <span>
             Enquiry
@@ -1690,31 +1940,25 @@ function buildProformaDocumentHtml(
 
           <strong>
             ${escapeHtml(
-              enquiry
-                ?.enquiry_number
-              || "-"
+              enquiry?.enquiry_number
+              ||
+              "-"
             )}
           </strong>
 
         </div>
 
 
-        <div class="document-meta-row">
+        <div class="meta-row">
 
           <span>
-            Validity
+            Status
           </span>
 
           <strong>
             ${escapeHtml(
-              proforma.validity_days
-              ?? "-"
+              proforma.status
             )}
-            ${
-              proforma.validity_days
-              ? " days"
-              : ""
-            }
           </strong>
 
         </div>
@@ -1732,19 +1976,16 @@ function buildProformaDocumentHtml(
           Bill To
         </h3>
 
-        <div class="party-company">
-          <strong>
-            ${escapeHtml(
-              proforma.company_name
-            )}
-          </strong>
-        </div>
+        <strong>
+          ${escapeHtml(
+            proforma.company_name
+          )}
+        </strong>
 
         ${
           proforma.contact_person
             ? `
-                <div class="party-line">
-                  Contact:
+                <div>
                   ${escapeHtml(
                     proforma.contact_person
                   )}
@@ -1754,37 +1995,9 @@ function buildProformaDocumentHtml(
         }
 
         ${
-          proforma.billing_address
-            ? `
-                <div class="party-line">
-                  ${htmlText(
-                    proforma.billing_address
-                  )}
-                </div>
-              `
-            : ""
-        }
-
-        ${
-          customerGst
-            ? `
-                <div class="party-line">
-                  GSTIN:
-                  <strong>
-                    ${escapeHtml(
-                      customerGst
-                    )}
-                  </strong>
-                </div>
-              `
-            : ""
-        }
-
-        ${
           proforma.phone
             ? `
-                <div class="party-line">
-                  Phone:
+                <div>
                   ${escapeHtml(
                     proforma.phone
                   )}
@@ -1796,11 +2009,40 @@ function buildProformaDocumentHtml(
         ${
           proforma.email
             ? `
-                <div class="party-line">
-                  Email:
+                <div>
                   ${escapeHtml(
                     proforma.email
                   )}
+                </div>
+              `
+            : ""
+        }
+
+        ${
+          proforma.billing_address
+            ? `
+                <div>
+                  ${htmlText(
+                    proforma.billing_address
+                  )}
+                </div>
+              `
+            : ""
+        }
+
+        ${
+          customerGst
+            ? `
+                <div>
+
+                  GSTIN:
+
+                  <strong>
+                    ${escapeHtml(
+                      customerGst
+                    )}
+                  </strong>
+
                 </div>
               `
             : ""
@@ -1815,24 +2057,20 @@ function buildProformaDocumentHtml(
           Ship To
         </h3>
 
-        <div class="party-company">
-          <strong>
-            ${escapeHtml(
-              proforma.company_name
-            )}
-          </strong>
-        </div>
+        <strong>
+          ${escapeHtml(
+            proforma.company_name
+          )}
+        </strong>
 
-        <div class="party-line">
-          ${
-            htmlText(
-              proforma.shipping_address
-              ||
-              proforma.billing_address
-              ||
-              "-"
-            )
-          }
+        <div>
+          ${htmlText(
+            proforma.shipping_address
+            ||
+            proforma.billing_address
+            ||
+            "-"
+          )}
         </div>
 
       </div>
@@ -1845,79 +2083,120 @@ function buildProformaDocumentHtml(
       <thead>
 
         <tr>
+
           <th>#</th>
-          <th>Description</th>
-          <th>Qty</th>
-          <th>Unit</th>
-          <th>Unit Price</th>
-          <th>Disc.</th>
-          <th>GST</th>
-          <th>Amount</th>
+
+          <th>
+            Description
+          </th>
+
+          <th>
+            Qty
+          </th>
+
+          <th>
+            Unit
+          </th>
+
+          <th>
+            Unit Price
+          </th>
+
+          <th>
+            Disc.
+          </th>
+
+          <th>
+            GST
+          </th>
+
+          <th>
+            Total
+          </th>
+
         </tr>
 
       </thead>
 
+
       <tbody>
-        ${itemRows}
+        ${rows}
       </tbody>
 
     </table>
 
 
-    <section class="totals-layout">
+    <section class="bottom-grid">
 
-      <div class="terms-box">
+      <div class="terms">
 
-        <h3>
+        <div class="terms-title">
           Commercial Terms
-        </h3>
+        </div>
 
-        <div class="terms-row">
+
+        <div class="term-row">
 
           <span>
             Payment
           </span>
 
-          <strong>
-            ${htmlText(
-              proforma.payment_terms
-              || "-"
-            )}
-          </strong>
+          ${htmlText(
+            proforma.payment_terms
+            ||
+            "-"
+          )}
 
         </div>
 
 
-        <div class="terms-row">
+        <div class="term-row">
 
           <span>
             Delivery
           </span>
 
-          <strong>
-            ${htmlText(
-              proforma.delivery_terms
-              || "-"
-            )}
-          </strong>
+          ${htmlText(
+            proforma.delivery_terms
+            ||
+            "-"
+          )}
 
         </div>
 
 
         ${
+          proforma.validity_days
+            ? `
+                <div class="term-row">
+
+                  <span>
+                    Validity
+                  </span>
+
+                  ${escapeHtml(
+                    proforma.validity_days
+                  )}
+                  days
+
+                </div>
+              `
+            : ""
+        }
+
+
+        ${
           proforma.notes
             ? `
-                <div class="terms-row">
+                <div class="term-row">
 
                   <span>
                     Notes
                   </span>
 
-                  <strong>
-                    ${htmlText(
-                      proforma.notes
-                    )}
-                  </strong>
+                  ${htmlText(
+                    proforma.notes
+                  )}
 
                 </div>
               `
@@ -1928,18 +2207,15 @@ function buildProformaDocumentHtml(
         ${
           proforma.terms_and_conditions
             ? `
-                <div class="terms-row">
+                <div class="term-row">
 
                   <span>
-                    Terms
+                    Terms & Conditions
                   </span>
 
-                  <strong>
-                    ${htmlText(
-                      proforma
-                        .terms_and_conditions
-                    )}
-                  </strong>
+                  ${htmlText(
+                    proforma.terms_and_conditions
+                  )}
 
                 </div>
               `
@@ -1949,103 +2225,85 @@ function buildProformaDocumentHtml(
       </div>
 
 
-      <table class="totals-table">
+      <div class="totals">
 
-        <tbody>
+        <div class="total-row">
 
-          <tr>
+          <span>
+            Subtotal
+          </span>
 
-            <td>
-              Subtotal
-            </td>
+          <strong>
+            ₹${money(
+              proforma.subtotal
+            )}
+          </strong>
 
-            <td class="right">
-              ₹${money(
-                proforma.subtotal
-              )}
-            </td>
-
-          </tr>
+        </div>
 
 
-          <tr>
+        <div class="total-row">
 
-            <td>
-              Discount
-            </td>
+          <span>
+            Discount
+          </span>
 
-            <td class="right">
-              − ₹${money(
-                proforma.discount_amount
-              )}
-            </td>
+          <strong>
+            − ₹${money(
+              proforma.discount_amount
+            )}
+          </strong>
 
-          </tr>
-
-
-          <tr>
-
-            <td>
-              Taxable Amount
-            </td>
-
-            <td class="right">
-              ₹${money(
-                proforma.taxable_amount
-              )}
-            </td>
-
-          </tr>
+        </div>
 
 
-          <tr>
+        <div class="total-row">
 
-            <td>
-              GST / Tax
-            </td>
+          <span>
+            GST / Tax
+          </span>
 
-            <td class="right">
-              ₹${money(
-                proforma.tax_amount
-              )}
-            </td>
+          <strong>
+            ₹${money(
+              proforma.tax_amount
+            )}
+          </strong>
 
-          </tr>
+        </div>
 
 
-          <tr class="grand-total">
+        <div class="total-row grand">
 
-            <td>
-              Grand Total
-            </td>
+          <span>
+            Grand Total
+          </span>
 
-            <td class="right">
-              ₹${money(
-                proforma.grand_total
-              )}
-            </td>
+          <strong>
+            ₹${money(
+              proforma.grand_total
+            )}
+          </strong>
 
-          </tr>
+        </div>
 
-        </tbody>
-
-      </table>
+      </div>
 
     </section>
 
 
     ${bankSection}
 
-    ${signatureSection}
+    ${signature}
 
     ${footer}
 
-  </main>
+  </div>
 
 </body>
 
 </html>
   `;
+
 }
 
 
@@ -2074,10 +2332,6 @@ export default function ProformaPage() {
   ] =
     useSearchParams();
 
-
-  /* ==============================================================
-     PERMISSIONS
-  ============================================================== */
 
   const {
     hasPermission,
@@ -2130,7 +2384,7 @@ export default function ProformaPage() {
 
 
   /* ==============================================================
-     STATE
+     CORE STATE
   ============================================================== */
 
   const [
@@ -2139,9 +2393,7 @@ export default function ProformaPage() {
   ] =
     useState<
       Proforma[]
-    >(
-      []
-    );
+    >([]);
 
 
   const [
@@ -2149,8 +2401,8 @@ export default function ProformaPage() {
     setSelectedProforma,
   ] =
     useState<
-      Proforma
-      | null
+      Proforma |
+      null
     >(
       null
     );
@@ -2161,8 +2413,8 @@ export default function ProformaPage() {
     setSelectedEnquiry,
   ] =
     useState<
-      EnquiryLite
-      | null
+      EnquiryLite |
+      null
     >(
       null
     );
@@ -2173,8 +2425,8 @@ export default function ProformaPage() {
     setForm,
   ] =
     useState<
-      ProformaCreate
-      | null
+      ProformaCreate |
+      null
     >(
       null
     );
@@ -2199,11 +2451,29 @@ export default function ProformaPage() {
 
 
   const [
-    page,
-    setPage,
+    salesPage,
+    setSalesPage,
   ] =
     useState(
       1
+    );
+
+
+  const [
+    productionPage,
+    setProductionPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    pageSize,
+    setPageSize,
+  ] =
+    useState(
+      FALLBACK_PAGE_SIZE
     );
 
 
@@ -2262,8 +2532,177 @@ export default function ProformaPage() {
 
 
   /* ==============================================================
-     EDIT MODE
+     ADVANCE STATE
   ============================================================== */
+
+  const [
+    advanceSummary,
+    setAdvanceSummary,
+  ] =
+    useState<
+      ProformaPaymentSummary |
+      null
+    >(
+      null
+    );
+
+
+  const [
+    advanceLoading,
+    setAdvanceLoading,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    advanceError,
+    setAdvanceError,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    advanceModalOpen,
+    setAdvanceModalOpen,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    advanceSaving,
+    setAdvanceSaving,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    advanceDate,
+    setAdvanceDate,
+  ] =
+    useState(
+      getLocalDateTime()
+    );
+
+
+  const [
+    advanceAmount,
+    setAdvanceAmount,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    advanceMode,
+    setAdvanceMode,
+  ] =
+    useState(
+      "Bank Transfer"
+    );
+
+
+  const [
+    advanceReference,
+    setAdvanceReference,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    advanceNotes,
+    setAdvanceNotes,
+  ] =
+    useState(
+      ""
+    );
+
+
+  /* ==============================================================
+     REFUND STATE
+  ============================================================== */
+
+  const [
+    refundModalOpen,
+    setRefundModalOpen,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    refundSaving,
+    setRefundSaving,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    refundError,
+    setRefundError,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    refundDate,
+    setRefundDate,
+  ] =
+    useState(
+      getLocalDateTime()
+    );
+
+
+  const [
+    refundAmount,
+    setRefundAmount,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    refundMode,
+    setRefundMode,
+  ] =
+    useState(
+      "Bank Transfer"
+    );
+
+
+  const [
+    refundReference,
+    setRefundReference,
+  ] =
+    useState(
+      ""
+    );
+
+
+  const [
+    refundNotes,
+    setRefundNotes,
+  ] =
+    useState(
+      ""
+    );
+
 
   const editingRequested =
     searchParams.get(
@@ -2273,10 +2712,123 @@ export default function ProformaPage() {
     "true";
 
 
-  const editing =
-    editingRequested
-    &&
-    canEditProforma;
+  /* ==============================================================
+     PAGE SIZE
+  ============================================================== */
+
+  useEffect(
+    () => {
+
+      async function loadPageSize() {
+
+        try {
+
+          const settings =
+            await getBusinessSettings();
+
+
+          const configured =
+            Number(
+              settings.default_page_size
+            );
+
+
+          if (
+            Number.isInteger(
+              configured
+            )
+            &&
+            configured >= 5
+            &&
+            configured <= 100
+          ) {
+
+            setPageSize(
+              configured
+            );
+
+          } else {
+
+            setPageSize(
+              FALLBACK_PAGE_SIZE
+            );
+
+          }
+
+        } catch {
+
+          setPageSize(
+            FALLBACK_PAGE_SIZE
+          );
+
+        }
+
+      }
+
+
+      void loadPageSize();
+
+    },
+    []
+  );
+
+
+  /* ==============================================================
+     ADVANCE SUMMARY
+  ============================================================== */
+
+  async function loadAdvanceSummary(
+    proformaId:
+      number
+  ) {
+
+    try {
+
+      setAdvanceLoading(
+        true
+      );
+
+
+      setAdvanceError(
+        ""
+      );
+
+
+      const summary =
+        await getProformaAdvanceSummary(
+          proformaId
+        );
+
+
+      setAdvanceSummary(
+        summary
+      );
+
+
+      return summary;
+
+    } catch (
+      err
+    ) {
+
+      setAdvanceError(
+        getApiError(
+          err
+        )
+      );
+
+
+      return null;
+
+    } finally {
+
+      setAdvanceLoading(
+        false
+      );
+
+    }
+
+  }
 
 
   /* ==============================================================
@@ -2298,12 +2850,7 @@ export default function ProformaPage() {
 
 
       const data =
-        await getProformas({
-          status:
-            statusFilter
-            ||
-            undefined,
-        });
+        await getProformas();
 
 
       setProformas(
@@ -2332,7 +2879,7 @@ export default function ProformaPage() {
 
 
   /* ==============================================================
-     LOAD DETAILS
+     LOAD DETAIL
   ============================================================== */
 
   async function loadDetails(
@@ -2352,55 +2899,57 @@ export default function ProformaPage() {
       );
 
 
-      const data =
-        await getProformaById(
-          proformaId
-        );
+      const [
+        proformaData,
+        paymentSummary,
+      ] =
+        await Promise.all([
+          getProformaById(
+            proformaId
+          ),
+
+          getProformaAdvanceSummary(
+            proformaId
+          ),
+        ]);
 
 
       setSelectedProforma(
-        data
+        proformaData
       );
 
 
       setForm(
         formFromProforma(
-          data
+          proformaData
         )
       );
 
 
-      if (
-        data.enquiry_id
-      ) {
-
-        try {
-
-          const response =
-            await axios.get<
-              EnquiryLite
-            >(
-              `${API_BASE_URL}/enquiries/${data.enquiry_id}`,
-              {
-                headers:
-                  getAuthHeaders(),
-              }
-            );
+      setAdvanceSummary(
+        paymentSummary
+      );
 
 
-          setSelectedEnquiry(
-            response.data
+      try {
+
+        const response =
+          await axios.get<
+            EnquiryLite
+          >(
+            `${API_BASE_URL}/enquiries/${proformaData.enquiry_id}`,
+            {
+              headers:
+                getAuthHeaders(),
+            }
           );
 
-        } catch {
 
-          setSelectedEnquiry(
-            null
-          );
+        setSelectedEnquiry(
+          response.data
+        );
 
-        }
-
-      } else {
+      } catch {
 
         setSelectedEnquiry(
           null
@@ -2456,13 +3005,12 @@ export default function ProformaPage() {
     [
       isDetails,
       id,
-      statusFilter,
     ]
   );
 
 
   /* ==============================================================
-     FILTER + PAGINATION
+     FILTER
   ============================================================== */
 
   const filteredProformas =
@@ -2475,36 +3023,45 @@ export default function ProformaPage() {
             .toLowerCase();
 
 
-        if (!query) {
-          return proformas;
-        }
-
-
         return proformas.filter(
           proforma => {
+
+            if (
+              statusFilter
+              &&
+              normalizeStatus(
+                proforma.status
+              )
+              !==
+              normalizeStatus(
+                statusFilter
+              )
+            ) {
+              return false;
+            }
+
+
+            if (!query) {
+              return true;
+            }
+
 
             const firstItem =
               proforma.items[
                 0
               ]?.description
-              || "";
+              ||
+              "";
 
 
             return [
-              proforma
-                .proforma_number,
-
-              proforma
-                .company_name,
-
-              proforma
-                .contact_person,
-
+              proforma.proforma_number,
+              proforma.company_name,
+              proforma.contact_person,
               proforma.phone,
-
               proforma.email,
-
               firstItem,
+              proforma.status,
             ]
               .filter(
                 Boolean
@@ -2527,46 +3084,47 @@ export default function ProformaPage() {
       [
         proformas,
         search,
+        statusFilter,
       ]
     );
 
 
-  const totalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        filteredProformas.length
-        /
-        PAGE_SIZE
-      )
+  /* ==============================================================
+     TRACKING GROUPS
+  ============================================================== */
+
+  const salesTrackingProformas =
+    useMemo(
+      () =>
+        filteredProformas.filter(
+          proforma =>
+            !PRODUCTION_OR_CLOSED_STATUSES
+              .has(
+                normalizeStatus(
+                  proforma.status
+                )
+              )
+        ),
+      [
+        filteredProformas,
+      ]
     );
 
 
-  const paginatedProformas =
+  const productionTrackingProformas =
     useMemo(
-      () => {
-
-        const start =
-          (
-            page
-            -
-            1
-          )
-          *
-          PAGE_SIZE;
-
-
-        return filteredProformas.slice(
-          start,
-          start
-          +
-          PAGE_SIZE
-        );
-
-      },
+      () =>
+        filteredProformas.filter(
+          proforma =>
+            PRODUCTION_OR_CLOSED_STATUSES
+              .has(
+                normalizeStatus(
+                  proforma.status
+                )
+              )
+        ),
       [
         filteredProformas,
-        page,
       ]
     );
 
@@ -2574,7 +3132,12 @@ export default function ProformaPage() {
   useEffect(
     () => {
 
-      setPage(
+      setSalesPage(
+        1
+      );
+
+
+      setProductionPage(
         1
       );
 
@@ -2582,6 +3145,52 @@ export default function ProformaPage() {
     [
       search,
       statusFilter,
+      pageSize,
+    ]
+  );
+
+
+  const salesTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        salesTrackingProformas.length
+        /
+        pageSize
+      )
+    );
+
+
+  const productionTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        productionTrackingProformas.length
+        /
+        pageSize
+      )
+    );
+
+
+  useEffect(
+    () => {
+
+      if (
+        salesPage
+        >
+        salesTotalPages
+      ) {
+
+        setSalesPage(
+          salesTotalPages
+        );
+
+      }
+
+    },
+    [
+      salesPage,
+      salesTotalPages,
     ]
   );
 
@@ -2590,23 +3199,83 @@ export default function ProformaPage() {
     () => {
 
       if (
-        page
+        productionPage
         >
-        totalPages
+        productionTotalPages
       ) {
 
-        setPage(
-          totalPages
+        setProductionPage(
+          productionTotalPages
         );
 
       }
 
     },
     [
-      page,
-      totalPages,
+      productionPage,
+      productionTotalPages,
     ]
   );
+
+
+  const paginatedSalesProformas =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            salesPage
+            -
+            1
+          )
+          *
+          pageSize;
+
+
+        return salesTrackingProformas.slice(
+          start,
+          start
+          +
+          pageSize
+        );
+
+      },
+      [
+        salesTrackingProformas,
+        salesPage,
+        pageSize,
+      ]
+    );
+
+
+  const paginatedProductionProformas =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            productionPage
+            -
+            1
+          )
+          *
+          pageSize;
+
+
+        return productionTrackingProformas.slice(
+          start,
+          start
+          +
+          pageSize
+        );
+
+      },
+      [
+        productionTrackingProformas,
+        productionPage,
+        pageSize,
+      ]
+    );
 
 
   /* ==============================================================
@@ -2639,48 +3308,54 @@ export default function ProformaPage() {
         }
 
 
-        let subtotal = 0;
-        let discount = 0;
-        let taxable = 0;
-        let tax = 0;
-        let total = 0;
+        return form.items.reduce(
+          (
+            result,
+            item
+          ) => {
 
-
-        form.items.forEach(
-          item => {
-
-            const result =
+            const calculated =
               calculateItem(
                 item
               );
 
 
-            subtotal +=
-              result.gross;
+            result.subtotal +=
+              calculated.gross;
 
-            discount +=
-              result.discount;
+            result.discount +=
+              calculated.discount;
 
-            taxable +=
-              result.taxable;
+            result.taxable +=
+              calculated.taxable;
 
-            tax +=
-              result.tax;
+            result.tax +=
+              calculated.tax;
 
-            total +=
-              result.total;
+            result.total +=
+              calculated.total;
 
+
+            return result;
+
+          },
+          {
+            subtotal:
+              0,
+
+            discount:
+              0,
+
+            taxable:
+              0,
+
+            tax:
+              0,
+
+            total:
+              0,
           }
         );
-
-
-        return {
-          subtotal,
-          discount,
-          taxable,
-          tax,
-          total,
-        };
 
       },
       [
@@ -2690,50 +3365,215 @@ export default function ProformaPage() {
 
 
   /* ==============================================================
-     WORKFLOW LOCK
+     ADVANCE TRANSACTION HISTORY
+  ============================================================== */
+
+  const advanceTransactions =
+    useMemo<
+      AdvanceTransaction[]
+    >(
+      () => {
+
+        if (
+          !advanceSummary
+        ) {
+          return [];
+        }
+
+
+        const received:
+          AdvanceTransaction[] =
+          advanceSummary.payments.map(
+            payment => ({
+              key:
+                `payment-${payment.id}`,
+
+              date:
+                payment.payment_date,
+
+              transactionType:
+                "Advance Received",
+
+              mode:
+                payment.payment_mode,
+
+              reference:
+                payment.reference_number,
+
+              notes:
+                payment.notes,
+
+              amount:
+                Number(
+                  payment.amount
+                ),
+
+              direction:
+                "credit",
+            })
+          );
+
+
+        const refunded:
+          AdvanceTransaction[] =
+          advanceSummary.refunds.map(
+            refund => ({
+              key:
+                `refund-${refund.id}`,
+
+              date:
+                refund.refund_date,
+
+              transactionType:
+                "Advance Refund",
+
+              mode:
+                refund.refund_mode,
+
+              reference:
+                refund.reference_number,
+
+              notes:
+                refund.notes,
+
+              amount:
+                Number(
+                  refund.amount
+                ),
+
+              direction:
+                "refund",
+            })
+          );
+
+
+        return [
+          ...received,
+          ...refunded,
+        ].sort(
+          (
+            left,
+            right
+          ) =>
+            new Date(
+              left.date
+            ).getTime()
+            -
+            new Date(
+              right.date
+            ).getTime()
+        );
+
+      },
+      [
+        advanceSummary,
+      ]
+    );
+
+
+  /* ==============================================================
+     LOCK / MONEY STATE
   ============================================================== */
 
   const workflowLocked =
     useMemo(
-      () => {
-
-        const status =
-          (
-            selectedProforma
-              ?.status
-            || ""
-          )
-            .trim()
-            .toLowerCase();
-
-
-        return [
-          "order confirmed",
-          "confirmed",
-          "production started",
-          "production completed",
-          "final bill generated",
-          "payment pending",
-          "payment received",
-          "completed",
-        ].includes(
-          status
-        );
-
-      },
+      () =>
+        PRODUCTION_LOCKED_STATUSES
+          .has(
+            normalizeStatus(
+              selectedProforma
+                ?.status
+            )
+          ),
       [
         selectedProforma,
       ]
     );
 
 
+  const grossAdvanceReceived =
+    Number(
+      advanceSummary
+        ?.advance_received
+      ||
+      0
+    );
+
+
+  const advanceRefunded =
+    Number(
+      advanceSummary
+        ?.advance_refunded
+      ||
+      0
+    );
+
+
+  const netAdvanceHeld =
+    Number(
+      advanceSummary
+        ?.net_advance_held
+      ||
+      0
+    );
+
+
+  const hasNetAdvance =
+    netAdvanceHeld
+    >
+    0;
+
+
+  const hasFinancialHistory =
+    (
+      advanceSummary
+        ?.payment_count
+      ||
+      0
+    )
+    >
+    0
+    ||
+    (
+      advanceSummary
+        ?.refund_count
+      ||
+      0
+    )
+    >
+    0;
+
+
+  const deleteLocked =
+    workflowLocked
+    ||
+    [
+      "confirmed",
+      "order confirmed",
+    ].includes(
+      normalizeStatus(
+        selectedProforma
+          ?.status
+      )
+    )
+    ||
+    hasFinancialHistory;
+
+
+  const editing =
+    editingRequested
+    &&
+    canEditProforma
+    &&
+    !workflowLocked;
+
+
   /* ==============================================================
-     FORM
+     FORM UPDATE
   ============================================================== */
 
   function updateField<
-    K extends keyof
-      ProformaCreate
+    K extends keyof ProformaCreate
   >(
     field:
       K,
@@ -2743,21 +3583,15 @@ export default function ProformaPage() {
   ) {
 
     setForm(
-      current => {
+      current =>
+        current
+          ? {
+              ...current,
 
-        if (!current) {
-          return current;
-        }
-
-
-        return {
-          ...current,
-
-          [field]:
-            value,
-        };
-
-      }
+              [field]:
+                value,
+            }
+          : current
     );
 
   }
@@ -2768,14 +3602,11 @@ export default function ProformaPage() {
       number,
 
     field:
-      keyof
-        ProformaItemCreate,
+      keyof ProformaItemCreate,
 
     value:
-      string
-      |
-      number
-      |
+      string |
+      number |
       null
   ) {
 
@@ -2797,7 +3628,8 @@ export default function ProformaPage() {
                 itemIndex
               ) =>
                 itemIndex
-                === index
+                ===
+                index
                   ? {
                       ...item,
 
@@ -2817,26 +3649,20 @@ export default function ProformaPage() {
   function addItem() {
 
     setForm(
-      current => {
+      current =>
+        current
+          ? {
+              ...current,
 
-        if (!current) {
-          return current;
-        }
+              items: [
+                ...current.items,
 
-
-        return {
-          ...current,
-
-          items: [
-            ...current.items,
-
-            {
-              ...EMPTY_ITEM,
-            },
-          ],
-        };
-
-      }
+                {
+                  ...EMPTY_ITEM,
+                },
+              ],
+            }
+          : current
     );
 
   }
@@ -2854,7 +3680,8 @@ export default function ProformaPage() {
           !current
           ||
           current.items.length
-          === 1
+          ===
+          1
         ) {
           return current;
         }
@@ -2870,7 +3697,8 @@ export default function ProformaPage() {
                 itemIndex
               ) =>
                 itemIndex
-                !== index
+                !==
+                index
             ),
         };
 
@@ -2880,30 +3708,24 @@ export default function ProformaPage() {
   }
 
 
+  /* ==============================================================
+     VALIDATE
+  ============================================================== */
+
   function validateForm() {
 
     if (!form) {
-      return (
-        "Proforma data is not loaded."
-      );
+      return "Proforma is not loaded.";
     }
 
 
-    if (
-      !form.proforma_date
-    ) {
-      return (
-        "Proforma date is required."
-      );
+    if (!form.proforma_date) {
+      return "Proforma date is required.";
     }
 
 
-    if (
-      !form.items.length
-    ) {
-      return (
-        "At least one item is required."
-      );
+    if (!form.items.length) {
+      return "At least one item is required.";
     }
 
 
@@ -2927,9 +3749,7 @@ export default function ProformaPage() {
         return (
           `Item ${index + 1}: `
           +
-          "Finished Product / Machine "
-          +
-          "name is required."
+          "Finished Product / Machine name is required."
         );
 
       }
@@ -2939,7 +3759,8 @@ export default function ProformaPage() {
         Number(
           item.quantity
         )
-        <= 0
+        <=
+        0
       ) {
 
         return (
@@ -2955,7 +3776,8 @@ export default function ProformaPage() {
         Number(
           item.unit_price
         )
-        < 0
+        <
+        0
       ) {
 
         return (
@@ -2966,47 +3788,26 @@ export default function ProformaPage() {
 
       }
 
-
-      if (
-        Number(
-          item.discount_percent
-        )
-        < 0
-        ||
-        Number(
-          item.discount_percent
-        )
-        > 100
-      ) {
-
-        return (
-          `Item ${index + 1}: `
-          +
-          "Discount must be between 0 and 100."
-        );
-
-      }
+    }
 
 
-      if (
-        Number(
-          item.tax_percent
-        )
-        < 0
-        ||
-        Number(
-          item.tax_percent
-        )
-        > 100
-      ) {
+    if (
+      netAdvanceHeld
+      >
+      0
+      &&
+      totals.total
+      <
+      netAdvanceHeld
+    ) {
 
-        return (
-          `Item ${index + 1}: `
-          +
-          "GST must be between 0 and 100."
-        );
-
-      }
+      return (
+        "The Proforma total cannot be reduced below "
+        +
+        `the net advance still held (₹${money(
+          netAdvanceHeld
+        )}).`
+      );
 
     }
 
@@ -3022,7 +3823,7 @@ export default function ProformaPage() {
 
   async function handleSave(
     event:
-      React.FormEvent
+      FormEvent
   ) {
 
     event.preventDefault();
@@ -3038,28 +3839,13 @@ export default function ProformaPage() {
 
 
     if (
-      !canEditProforma
-    ) {
-
-      setFormError(
-        "You do not have permission to edit Proformas."
-      );
-
-      return;
-
-    }
-
-
-    if (
       workflowLocked
     ) {
 
       setFormError(
-        "This Proforma has already entered "
+        "Production has already started. "
         +
-        "the confirmed production workflow "
-        +
-        "and can no longer be edited."
+        "This Proforma is locked."
       );
 
       return;
@@ -3096,81 +3882,70 @@ export default function ProformaPage() {
       );
 
 
-      const payload:
-        ProformaCreate = {
-
-        ...form,
-
-        enquiry_id:
-          selectedProforma
-            .enquiry_id,
-
-        customer_id:
-          selectedProforma
-            .customer_id,
-
-        company_name:
-          selectedProforma
-            .company_name,
-
-        contact_person:
-          selectedProforma
-            .contact_person,
-
-        phone:
-          selectedProforma
-            .phone,
-
-        email:
-          selectedProforma
-            .email,
-
-        items:
-          form.items.map(
-            item => ({
-
-              product_id:
-                null,
-
-              description:
-                item.description
-                  .trim(),
-
-              quantity:
-                Number(
-                  item.quantity
-                ),
-
-              unit:
-                (
-                  item.unit
-                  || "Nos"
-                )
-                  .trim(),
-
-              unit_price:
-                Number(
-                  item.unit_price
-                ),
-
-              discount_percent:
-                Number(
-                  item.discount_percent
-                ),
-
-              tax_percent:
-                Number(
-                  item.tax_percent
-                ),
-            })
-          ),
-      };
-
-
       const updated =
         await updateProforma(
           selectedProforma.id,
-          payload
+          {
+            ...form,
+
+            enquiry_id:
+              selectedProforma.enquiry_id,
+
+            customer_id:
+              selectedProforma.customer_id,
+
+            company_name:
+              selectedProforma.company_name,
+
+            contact_person:
+              selectedProforma.contact_person,
+
+            phone:
+              selectedProforma.phone,
+
+            email:
+              selectedProforma.email,
+
+            items:
+              form.items.map(
+                item => ({
+
+                  product_id:
+                    null,
+
+                  description:
+                    item.description
+                      .trim(),
+
+                  quantity:
+                    Number(
+                      item.quantity
+                    ),
+
+                  unit:
+                    (
+                      item.unit
+                      ||
+                      "Nos"
+                    ).trim(),
+
+                  unit_price:
+                    Number(
+                      item.unit_price
+                    ),
+
+                  discount_percent:
+                    Number(
+                      item.discount_percent
+                    ),
+
+                  tax_percent:
+                    Number(
+                      item.tax_percent
+                    ),
+                })
+              ),
+          }
         );
 
 
@@ -3183,6 +3958,11 @@ export default function ProformaPage() {
         formFromProforma(
           updated
         )
+      );
+
+
+      await loadAdvanceSummary(
+        updated.id
       );
 
 
@@ -3227,84 +4007,143 @@ export default function ProformaPage() {
     }
 
 
-    const normalizedStatus =
-      (
+    if (
+      workflowLocked
+    ) {
+
+      setError(
+        "Production has already started. "
+        +
+        "This Proforma workflow is locked."
+      );
+
+      return;
+
+    }
+
+
+    const next =
+      normalizeStatus(
         newStatus
-        || ""
-      )
-        .trim()
-        .toLowerCase();
+      );
 
 
-    const currentStatus =
-      (
-        selectedProforma
-          .status
-        || ""
-      )
-        .trim()
-        .toLowerCase();
+    const current =
+      normalizeStatus(
+        selectedProforma.status
+      );
 
 
     if (
-      normalizedStatus
-      !== currentStatus
+      next
+      ===
+      current
+    ) {
+      return;
+    }
+
+
+    if (
+      next
+      ===
+      "order confirmed"
+      &&
+      !canConfirmProforma
     ) {
 
-      if (
-        [
-          "confirmed",
-          "order confirmed",
-        ].includes(
-          normalizedStatus
-        )
-        &&
-        !canConfirmProforma
-      ) {
+      setError(
+        "You do not have permission to confirm Proformas."
+      );
 
-        setError(
-          "You do not have permission to confirm Proformas."
+      return;
+
+    }
+
+
+    if (
+      next
+      ===
+      "cancelled"
+      &&
+      !canCancelProforma
+    ) {
+
+      setError(
+        "You do not have permission to cancel Proformas."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      ![
+        "order confirmed",
+        "cancelled",
+      ].includes(
+        next
+      )
+      &&
+      !canEditProforma
+    ) {
+
+      setError(
+        "You do not have permission to change Proforma status."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      hasNetAdvance
+      &&
+      [
+        "draft",
+        "sent",
+        "rejected",
+        "cancelled",
+      ].includes(
+        next
+      )
+    ) {
+
+      const isCancelling =
+        next
+        ===
+        "cancelled";
+
+
+      const confirmed =
+        window.confirm(
+          `₹${money(
+            netAdvanceHeld
+          )} of customer advance is still held against this Proforma.\n\n`
+          +
+          (
+            isCancelling
+              ? (
+                  "After cancellation you can use Refund Advance "
+                  +
+                  "to settle the customer money."
+                )
+              : (
+                  "Changing the workflow status will NOT delete "
+                  +
+                  "the payment record."
+                )
+          )
+          +
+          "\n\nContinue?"
         );
 
-        return;
-
-      }
-
 
       if (
-        normalizedStatus
-        === "cancelled"
-        &&
-        !canCancelProforma
+        !confirmed
       ) {
-
-        setError(
-          "You do not have permission to cancel Proformas."
-        );
-
         return;
-
-      }
-
-
-      if (
-        ![
-          "confirmed",
-          "order confirmed",
-          "cancelled",
-        ].includes(
-          normalizedStatus
-        )
-        &&
-        !canEditProforma
-      ) {
-
-        setError(
-          "You do not have permission to change Proforma status."
-        );
-
-        return;
-
       }
 
     }
@@ -3338,6 +4177,11 @@ export default function ProformaPage() {
         formFromProforma(
           updated
         )
+      );
+
+
+      await loadAdvanceSummary(
+        updated.id
       );
 
     } catch (
@@ -3375,11 +4219,13 @@ export default function ProformaPage() {
 
 
     if (
-      !canDeleteProforma
+      hasFinancialHistory
     ) {
 
       setError(
-        "You do not have permission to delete Proformas."
+        "This Proforma contains customer payment history "
+        +
+        "and cannot be deleted."
       );
 
       return;
@@ -3388,11 +4234,11 @@ export default function ProformaPage() {
 
 
     if (
-      workflowLocked
+      deleteLocked
     ) {
 
       setError(
-        "A confirmed/production Proforma cannot be deleted."
+        "A confirmed or production Proforma cannot be deleted."
       );
 
       return;
@@ -3400,15 +4246,11 @@ export default function ProformaPage() {
     }
 
 
-    const confirmed =
-      window.confirm(
-        `Delete ${selectedProforma.proforma_number}? `
-        +
-        "This action cannot be undone."
-      );
-
-
-    if (!confirmed) {
+    if (
+      !window.confirm(
+        `Delete ${selectedProforma.proforma_number}?`
+      )
+    ) {
       return;
     }
 
@@ -3451,6 +4293,464 @@ export default function ProformaPage() {
 
 
   /* ==============================================================
+     RECORD ADVANCE
+  ============================================================== */
+
+  function openAdvanceModal() {
+
+    if (
+      !selectedProforma
+      ||
+      !advanceSummary
+    ) {
+      return;
+    }
+
+
+    if (
+      !advanceSummary.can_record_advance
+    ) {
+
+      setAdvanceError(
+        advanceSummary.advance_recording_message
+        ||
+        "Advance cannot be recorded at this stage."
+      );
+
+      return;
+
+    }
+
+
+    setAdvanceDate(
+      getLocalDateTime()
+    );
+
+
+    setAdvanceAmount(
+      ""
+    );
+
+
+    setAdvanceMode(
+      "Bank Transfer"
+    );
+
+
+    setAdvanceReference(
+      ""
+    );
+
+
+    setAdvanceNotes(
+      ""
+    );
+
+
+    setAdvanceError(
+      ""
+    );
+
+
+    setAdvanceModalOpen(
+      true
+    );
+
+  }
+
+
+  function closeAdvanceModal() {
+
+    if (
+      advanceSaving
+    ) {
+      return;
+    }
+
+
+    setAdvanceModalOpen(
+      false
+    );
+
+
+    setAdvanceError(
+      ""
+    );
+
+  }
+
+
+  async function handleRecordAdvance() {
+
+    if (
+      !selectedProforma
+      ||
+      !advanceSummary
+    ) {
+      return;
+    }
+
+
+    const amount =
+      Number(
+        advanceAmount
+      );
+
+
+    const balance =
+      Number(
+        advanceSummary.balance_after_advance
+      );
+
+
+    if (
+      Number.isNaN(
+        amount
+      )
+      ||
+      amount <= 0
+    ) {
+
+      setAdvanceError(
+        "Enter an advance amount greater than zero."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      amount
+      >
+      balance
+    ) {
+
+      setAdvanceError(
+        `Advance cannot exceed ₹${money(
+          balance
+        )}.`
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setAdvanceSaving(
+        true
+      );
+
+
+      setAdvanceError(
+        ""
+      );
+
+
+      await createProformaAdvancePayment(
+        selectedProforma.id,
+        {
+          payment_date:
+            advanceDate,
+
+          amount,
+
+          payment_mode:
+            advanceMode
+              .trim()
+            ||
+            null,
+
+          reference_number:
+            advanceReference
+              .trim()
+            ||
+            null,
+
+          notes:
+            advanceNotes
+              .trim()
+            ||
+            null,
+        }
+      );
+
+
+      await loadAdvanceSummary(
+        selectedProforma.id
+      );
+
+
+      setAdvanceModalOpen(
+        false
+      );
+
+    } catch (
+      err
+    ) {
+
+      setAdvanceError(
+        getApiError(
+          err
+        )
+      );
+
+    } finally {
+
+      setAdvanceSaving(
+        false
+      );
+
+    }
+
+  }
+
+
+  /* ==============================================================
+     REFUND ADVANCE
+  ============================================================== */
+
+  function openRefundModal() {
+
+    if (
+      !selectedProforma
+      ||
+      !advanceSummary
+    ) {
+      return;
+    }
+
+
+    if (
+      !canCancelProforma
+    ) {
+
+      setRefundError(
+        "You do not have permission to refund cancelled Proforma advances."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !advanceSummary.can_record_refund
+    ) {
+
+      setRefundError(
+        advanceSummary.refund_recording_message
+        ||
+        "Advance refund cannot be recorded at this stage."
+      );
+
+      return;
+
+    }
+
+
+    setRefundDate(
+      getLocalDateTime()
+    );
+
+
+    setRefundAmount(
+      ""
+    );
+
+
+    setRefundMode(
+      "Bank Transfer"
+    );
+
+
+    setRefundReference(
+      ""
+    );
+
+
+    setRefundNotes(
+      ""
+    );
+
+
+    setRefundError(
+      ""
+    );
+
+
+    setRefundModalOpen(
+      true
+    );
+
+  }
+
+
+  function closeRefundModal() {
+
+    if (
+      refundSaving
+    ) {
+      return;
+    }
+
+
+    setRefundModalOpen(
+      false
+    );
+
+
+    setRefundError(
+      ""
+    );
+
+  }
+
+
+  async function handleRecordRefund() {
+
+    if (
+      !selectedProforma
+      ||
+      !advanceSummary
+    ) {
+      return;
+    }
+
+
+    const amount =
+      Number(
+        refundAmount
+      );
+
+
+    const refundable =
+      Number(
+        advanceSummary.net_advance_held
+      );
+
+
+    if (
+      Number.isNaN(
+        amount
+      )
+      ||
+      amount <= 0
+    ) {
+
+      setRefundError(
+        "Enter a refund amount greater than zero."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      amount
+      >
+      refundable
+    ) {
+
+      setRefundError(
+        `Refund cannot exceed the available advance balance of ₹${money(
+          refundable
+        )}.`
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !refundDate
+    ) {
+
+      setRefundError(
+        "Refund date is required."
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setRefundSaving(
+        true
+      );
+
+
+      setRefundError(
+        ""
+      );
+
+
+      await createProformaAdvanceRefund(
+        selectedProforma.id,
+        {
+          refund_date:
+            refundDate,
+
+          amount,
+
+          refund_mode:
+            refundMode
+              .trim()
+            ||
+            null,
+
+          reference_number:
+            refundReference
+              .trim()
+            ||
+            null,
+
+          notes:
+            refundNotes
+              .trim()
+            ||
+            null,
+        }
+      );
+
+
+      await loadAdvanceSummary(
+        selectedProforma.id
+      );
+
+
+      setRefundModalOpen(
+        false
+      );
+
+    } catch (
+      err
+    ) {
+
+      setRefundError(
+        getApiError(
+          err
+        )
+      );
+
+    } finally {
+
+      setRefundSaving(
+        false
+      );
+
+    }
+
+  }
+
+
+  /* ==============================================================
      DOCUMENT SETTINGS
   ============================================================== */
 
@@ -3468,7 +4768,8 @@ export default function ProformaPage() {
 
 
     let logoDataUrl:
-      string | null =
+      string |
+      null =
       null;
 
 
@@ -3480,13 +4781,9 @@ export default function ProformaPage() {
 
       try {
 
-        const logoBlob =
-          await getCompanyLogoBlob();
-
-
         logoDataUrl =
           await blobToDataUrl(
-            logoBlob
+            await getCompanyLogoBlob()
           );
 
       } catch {
@@ -3510,6 +4807,16 @@ export default function ProformaPage() {
 
   /* ==============================================================
      PRINT
+
+     Uses:
+     - Company Header mode
+     - Letterhead mode
+     - Letterhead top spacing
+     - Logo
+     - GST / contact options
+     - Proforma bank-detail option
+     - Signature
+     - Footer
   ============================================================== */
 
   async function handlePrint() {
@@ -3521,10 +4828,6 @@ export default function ProformaPage() {
     }
 
 
-    /*
-     * Open immediately before awaiting API calls.
-     * This prevents browsers from blocking the new window.
-     */
     const printWindow =
       window.open(
         "",
@@ -3590,9 +4893,11 @@ export default function ProformaPage() {
 
       printWindow.document.open();
 
+
       printWindow.document.write(
         html
       );
+
 
       printWindow.document.close();
 
@@ -3618,7 +4923,8 @@ export default function ProformaPage() {
       if (
         printWindow.document
           .readyState
-        === "complete"
+        ===
+        "complete"
       ) {
 
         printDocument();
@@ -3655,9 +4961,19 @@ export default function ProformaPage() {
 
 
   /* ==============================================================
-     DOWNLOAD
+     DOWNLOAD PDF
 
-     Downloads a Word-compatible document.
+     IMPORTANT:
+     The PDF is generated from the SAME HTML as Print.
+
+     Therefore:
+     - Company Header mode matches Print
+     - Letterhead mode matches Print
+     - Blank top space matches Print
+     - Logo matches Print
+     - Bank details match Print
+     - Signature matches Print
+     - Footer matches Print
   ============================================================== */
 
   async function handleDownload() {
@@ -3693,59 +5009,9 @@ export default function ProformaPage() {
         );
 
 
-      const blob =
-        new Blob(
-          [
-            "\ufeff",
-            html,
-          ],
-          {
-            type:
-              "application/msword;charset=utf-8",
-          }
-        );
-
-
-      const url =
-        URL.createObjectURL(
-          blob
-        );
-
-
-      const link =
-        document.createElement(
-          "a"
-        );
-
-
-      link.href =
-        url;
-
-
-      link.download =
-        `${selectedProforma.proforma_number}.doc`;
-
-
-      document.body.appendChild(
-        link
-      );
-
-
-      link.click();
-
-
-      link.remove();
-
-
-      window.setTimeout(
-        () => {
-
-          URL.revokeObjectURL(
-            url
-          );
-
-        },
-        1000
+      await downloadPdfFromHtml(
+        html,
+        `${selectedProforma.proforma_number}.pdf`
       );
 
     } catch (
@@ -3770,7 +5036,997 @@ export default function ProformaPage() {
 
 
   /* ==============================================================
-     DETAILS PAGE
+     PAGINATION
+  ============================================================== */
+
+  function renderPagination(
+    currentPage:
+      number,
+
+    totalPages:
+      number,
+
+    totalRecords:
+      number,
+
+    onPrevious:
+      () => void,
+
+    onNext:
+      () => void
+  ) {
+
+    const first =
+      totalRecords
+      >
+      0
+        ? (
+            (
+              currentPage
+              -
+              1
+            )
+            *
+            pageSize
+          )
+          +
+          1
+        : 0;
+
+
+    const last =
+      Math.min(
+        currentPage
+        *
+        pageSize,
+
+        totalRecords
+      );
+
+
+    return (
+      <div
+        style={{
+          display:
+            "flex",
+
+          justifyContent:
+            "space-between",
+
+          alignItems:
+            "center",
+
+          gap:
+            "12px",
+
+          padding:
+            "14px 18px",
+
+          borderTop:
+            "1px solid #edf1f5",
+
+          flexWrap:
+            "wrap",
+        }}
+      >
+
+        <div className="record-secondary">
+
+          Showing{" "}
+
+          <strong>
+            {first}
+          </strong>
+
+          {"–"}
+
+          <strong>
+            {last}
+          </strong>
+
+          {" of "}
+
+          <strong>
+            {totalRecords}
+          </strong>
+
+          {" • "}
+
+          {pageSize}
+
+          {" per page"}
+
+        </div>
+
+
+        <div
+          style={{
+            display:
+              "flex",
+
+            alignItems:
+              "center",
+
+            gap:
+              "9px",
+          }}
+        >
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={
+              currentPage
+              <=
+              1
+            }
+            onClick={
+              onPrevious
+            }
+          >
+            Previous
+          </button>
+
+
+          <span className="record-secondary">
+
+            Page{" "}
+
+            <strong>
+              {currentPage}
+            </strong>
+
+            {" of "}
+
+            <strong>
+              {totalPages}
+            </strong>
+
+          </span>
+
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={
+              currentPage
+              >=
+              totalPages
+            }
+            onClick={
+              onNext
+            }
+          >
+            Next
+          </button>
+
+        </div>
+
+      </div>
+    );
+
+  }
+
+
+  /* ==============================================================
+     TRACKING TABLE
+
+     Only VIEW is intentionally provided here.
+
+     Edit remains available inside the Proforma detail page.
+  ============================================================== */
+
+  function renderTrackingTable(
+    records:
+      Proforma[]
+  ) {
+
+    if (
+      records.length
+      ===
+      0
+    ) {
+
+      return (
+        <div className="table-state">
+
+          <FileText
+            size={24}
+          />
+
+          <h3>
+            No Proformas in this section
+          </h3>
+
+        </div>
+      );
+
+    }
+
+
+    return (
+      <div className="proforma-table-wrapper">
+
+        <table className="proforma-table">
+
+          <thead>
+
+            <tr>
+
+              <th>
+                Proforma
+              </th>
+
+              <th>
+                Date
+              </th>
+
+              <th>
+                Customer
+              </th>
+
+              <th>
+                Finished Product / Machine
+              </th>
+
+              <th>
+                Items
+              </th>
+
+              <th>
+                Amount
+              </th>
+
+              <th>
+                Status
+              </th>
+
+              <th>
+                Action
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody>
+
+            {
+              records.map(
+                proforma => {
+
+                  const firstItem =
+                    proforma.items[
+                      0
+                    ]?.description
+                    ||
+                    "-";
+
+
+                  return (
+                    <tr
+                      key={
+                        proforma.id
+                      }
+                    >
+
+                      <td>
+
+                        <div className="record-primary">
+                          {proforma.proforma_number}
+                        </div>
+
+                      </td>
+
+
+                      <td>
+                        {formatDate(proforma.proforma_date)}
+                      </td>
+
+
+                      <td>
+
+                        <div className="customer-name">
+                          {proforma.company_name}
+                        </div>
+
+
+                        {
+                          proforma.contact_person
+                          &&
+                          (
+                            <div className="record-secondary">
+                              {proforma.contact_person}
+                            </div>
+                          )
+                        }
+
+                      </td>
+
+
+                      <td>
+
+                        <div className="record-primary">
+                          {firstItem}
+                        </div>
+
+
+                        {
+                          proforma.items.length
+                          >
+                          1
+                          &&
+                          (
+                            <div className="record-secondary">
+
+                              +
+                              {
+                                proforma.items.length
+                                -
+                                1
+                              }
+
+                              {" more"}
+
+                            </div>
+                          )
+                        }
+
+                      </td>
+
+
+                      <td>
+                        {proforma.items.length}
+                      </td>
+
+
+                      <td>
+
+                        <strong className="amount">
+
+                          ₹
+                          {
+                            money(
+                              proforma.grand_total
+                            )
+                          }
+
+                        </strong>
+
+                      </td>
+
+
+                      <td>
+
+                        <span
+                          className={
+                            `status-badge ${statusClass(
+                              proforma.status
+                            )}`
+                          }
+                        >
+
+                          {proforma.status}
+
+                        </span>
+
+                      </td>
+
+
+                      <td>
+
+                        <div className="row-actions">
+
+                          <button
+                            type="button"
+                            title="View"
+                            onClick={
+                              () =>
+                                navigate(
+                                  `/proformas/${proforma.id}`
+                                )
+                            }
+                          >
+
+                            <Eye
+                              size={16}
+                            />
+
+                          </button>
+
+                        </div>
+
+                      </td>
+
+                    </tr>
+                  );
+
+                }
+              )
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+    );
+
+  }
+
+
+  /* ==============================================================
+     ADVANCE / REFUND CARD
+  ============================================================== */
+
+  function renderAdvanceCard() {
+
+    if (
+      !selectedProforma
+    ) {
+      return null;
+    }
+
+
+    return (
+      <section className="form-card">
+
+        <div className="form-card-heading">
+
+          <div>
+
+            <h2>
+              Customer Advance & Settlement
+            </h2>
+
+
+            <p>
+              Tracks advance money received before Final Billing,
+              including refunds when an order is cancelled.
+            </p>
+
+          </div>
+
+
+          <div
+            style={{
+              display:
+                "flex",
+
+              alignItems:
+                "center",
+
+              gap:
+                "8px",
+
+              flexWrap:
+                "wrap",
+            }}
+          >
+
+            {
+              canConfirmProforma
+              &&
+              advanceSummary
+                ?.can_record_advance
+              &&
+              Number(
+                advanceSummary.balance_after_advance
+              )
+              >
+              0
+              &&
+              (
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={
+                    openAdvanceModal
+                  }
+                >
+
+                  <WalletCards
+                    size={16}
+                  />
+
+                  Record Advance
+
+                </button>
+              )
+            }
+
+
+            {
+              canCancelProforma
+              &&
+              advanceSummary
+                ?.can_record_refund
+              &&
+              Number(
+                advanceSummary.net_advance_held
+              )
+              >
+              0
+              &&
+              (
+                <button
+                  type="button"
+                  className="danger-outline-button"
+                  onClick={
+                    openRefundModal
+                  }
+                >
+
+                  <RefreshCw
+                    size={16}
+                  />
+
+                  Refund Advance
+
+                </button>
+              )
+            }
+
+          </div>
+
+        </div>
+
+
+        {
+          advanceLoading
+            ? (
+                <div className="table-state">
+
+                  <Loader2
+                    size={20}
+                    className="spin"
+                  />
+
+                  Loading advance settlement...
+
+                </div>
+              )
+            : advanceSummary
+              ? (
+                  <>
+
+                    <div
+                      style={{
+                        display:
+                          "grid",
+
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(160px, 1fr))",
+
+                        gap:
+                          "12px",
+
+                        marginBottom:
+                          "16px",
+                      }}
+                    >
+
+                      <div className="proforma-kpi">
+
+                        <div>
+
+                          <span>
+                            Proforma Value
+                          </span>
+
+                          <strong>
+                            ₹{money(advanceSummary.proforma_total)}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="proforma-kpi">
+
+                        <div>
+
+                          <span>
+                            Advance Received
+                          </span>
+
+                          <strong
+                            style={{
+                              color:
+                                "#159a5b",
+                            }}
+                          >
+                            ₹{money(advanceSummary.advance_received)}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="proforma-kpi">
+
+                        <div>
+
+                          <span>
+                            Refunded
+                          </span>
+
+                          <strong
+                            style={{
+                              color:
+                                "#c84655",
+                            }}
+                          >
+                            ₹{money(advanceSummary.advance_refunded)}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="proforma-kpi">
+
+                        <div>
+
+                          <span>
+                            Net Advance Held
+                          </span>
+
+                          <strong
+                            style={{
+                              color:
+                                Number(
+                                  advanceSummary.net_advance_held
+                                )
+                                >
+                                0
+                                  ? "#c36a1c"
+                                  : "#159a5b",
+                            }}
+                          >
+                            ₹{money(advanceSummary.net_advance_held)}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      <div className="proforma-kpi">
+
+                        <div>
+
+                          <span>
+                            Settlement Status
+                          </span>
+
+                          <strong>
+                            {advanceSummary.settlement_status}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+                    </div>
+
+
+                    {
+                      advanceSummary.advance_recording_message
+                      &&
+                      !advanceSummary.can_record_advance
+                      &&
+                      normalizeStatus(
+                        selectedProforma.status
+                      )
+                      !==
+                      "cancelled"
+                      &&
+                      (
+                        <div
+                          style={{
+                            marginBottom:
+                              "12px",
+
+                            padding:
+                              "11px 12px",
+
+                            border:
+                              "1px solid #dce5f0",
+
+                            borderRadius:
+                              "9px",
+
+                            background:
+                              "#f8fafc",
+
+                            color:
+                              "#6f809a",
+
+                            fontSize:
+                              "10px",
+                          }}
+                        >
+                          {advanceSummary.advance_recording_message}
+                        </div>
+                      )
+                    }
+
+
+                    {
+                      normalizeStatus(
+                        selectedProforma.status
+                      )
+                      ===
+                      "cancelled"
+                      &&
+                      advanceSummary.refund_recording_message
+                      &&
+                      !advanceSummary.can_record_refund
+                      &&
+                      (
+                        <div
+                          style={{
+                            marginBottom:
+                              "12px",
+
+                            padding:
+                              "11px 12px",
+
+                            border:
+                              "1px solid #dce5f0",
+
+                            borderRadius:
+                              "9px",
+
+                            background:
+                              "#f8fafc",
+
+                            color:
+                              "#6f809a",
+
+                            fontSize:
+                              "10px",
+                          }}
+                        >
+                          {advanceSummary.refund_recording_message}
+                        </div>
+                      )
+                    }
+
+
+                    {
+                      advanceError
+                      &&
+                      (
+                        <div className="proforma-alert error">
+                          {advanceError}
+                        </div>
+                      )
+                    }
+
+
+                    {
+                      refundError
+                      &&
+                      !refundModalOpen
+                      &&
+                      (
+                        <div className="proforma-alert error">
+                          {refundError}
+                        </div>
+                      )
+                    }
+
+
+                    {
+                      advanceTransactions.length
+                      ===
+                      0
+                        ? (
+                            <div className="table-state">
+
+                              <WalletCards
+                                size={23}
+                              />
+
+                              <h3>
+                                No advance transactions
+                              </h3>
+
+                            </div>
+                          )
+                        : (
+                            <>
+
+                              <div
+                                style={{
+                                  marginBottom:
+                                    "10px",
+
+                                  color:
+                                    "#273f62",
+
+                                  fontSize:
+                                    "11px",
+
+                                  fontWeight:
+                                    800,
+                                }}
+                              >
+                                Advance Transaction History
+                              </div>
+
+
+                              <div className="proforma-table-wrapper">
+
+                                <table className="proforma-table">
+
+                                  <thead>
+
+                                    <tr>
+
+                                      <th>
+                                        Date
+                                      </th>
+
+                                      <th>
+                                        Transaction
+                                      </th>
+
+                                      <th>
+                                        Mode
+                                      </th>
+
+                                      <th>
+                                        Reference
+                                      </th>
+
+                                      <th>
+                                        Notes
+                                      </th>
+
+                                      <th>
+                                        Amount
+                                      </th>
+
+                                    </tr>
+
+                                  </thead>
+
+
+                                  <tbody>
+
+                                    {
+                                      advanceTransactions.map(
+                                        transaction => (
+
+                                          <tr
+                                            key={
+                                              transaction.key
+                                            }
+                                          >
+
+                                            <td>
+                                              {formatDateTime(transaction.date)}
+                                            </td>
+
+
+                                            <td>
+
+                                              <span
+                                                style={{
+                                                  display:
+                                                    "inline-flex",
+
+                                                  padding:
+                                                    "4px 8px",
+
+                                                  borderRadius:
+                                                    "999px",
+
+                                                  background:
+                                                    transaction.direction
+                                                    ===
+                                                    "credit"
+                                                      ? "#eaf8f0"
+                                                      : "#fff0f1",
+
+                                                  color:
+                                                    transaction.direction
+                                                    ===
+                                                    "credit"
+                                                      ? "#168653"
+                                                      : "#b94150",
+
+                                                  fontSize:
+                                                    "9px",
+
+                                                  fontWeight:
+                                                    800,
+                                                }}
+                                              >
+                                                {transaction.transactionType}
+                                              </span>
+
+                                            </td>
+
+
+                                            <td>
+                                              {transaction.mode || "-"}
+                                            </td>
+
+
+                                            <td>
+                                              {transaction.reference || "-"}
+                                            </td>
+
+
+                                            <td>
+                                              {transaction.notes || "-"}
+                                            </td>
+
+
+                                            <td>
+
+                                              <strong
+                                                style={{
+                                                  color:
+                                                    transaction.direction
+                                                    ===
+                                                    "credit"
+                                                      ? "#159a5b"
+                                                      : "#c84655",
+                                                }}
+                                              >
+
+                                                {
+                                                  transaction.direction
+                                                  ===
+                                                  "credit"
+                                                    ? "+"
+                                                    : "-"
+                                                }
+
+                                                ₹{money(transaction.amount)}
+
+                                              </strong>
+
+                                            </td>
+
+                                          </tr>
+
+                                        )
+                                      )
+                                    }
+
+                                  </tbody>
+
+                                </table>
+
+                              </div>
+
+                            </>
+                          )
+                    }
+
+                  </>
+                )
+              : null
+        }
+
+      </section>
+    );
+
+  }
+
+
+  /* ==============================================================
+     DETAIL PAGE
   ============================================================== */
 
   if (
@@ -3795,7 +6051,6 @@ export default function ProformaPage() {
               className="spin"
             />
 
-
             <h3>
               Loading Proforma...
             </h3>
@@ -3808,55 +6063,46 @@ export default function ProformaPage() {
     }
 
 
-    const addressFromEnquiry =
+    const address =
       buildAddress(
         selectedEnquiry
       );
 
 
-    const currentStatusNormalized =
-      (
-        selectedProforma
-          .status
-        || ""
-      )
-        .trim()
-        .toLowerCase();
-
-
     const permittedStatusOptions =
       USER_STATUS_OPTIONS.filter(
-        statusOption => {
+        option => {
 
-          const normalizedStatus =
-            statusOption
-              .trim()
-              .toLowerCase();
+          const next =
+            normalizeStatus(
+              option
+            );
 
 
           if (
-            normalizedStatus
-            === currentStatusNormalized
+            next
+            ===
+            normalizeStatus(
+              selectedProforma.status
+            )
           ) {
             return true;
           }
 
 
           if (
-            [
-              "confirmed",
-              "order confirmed",
-            ].includes(
-              normalizedStatus
-            )
+            next
+            ===
+            "order confirmed"
           ) {
             return canConfirmProforma;
           }
 
 
           if (
-            normalizedStatus
-            === "cancelled"
+            next
+            ===
+            "cancelled"
           ) {
             return canCancelProforma;
           }
@@ -3868,7 +6114,7 @@ export default function ProformaPage() {
       );
 
 
-    const currentStatusOptions =
+    const statusOptions =
       Array.from(
         new Set([
           selectedProforma.status,
@@ -3879,10 +6125,6 @@ export default function ProformaPage() {
 
     return (
       <div className="proforma-page">
-
-        {/* ======================================================
-            BREADCRUMB
-        ====================================================== */}
 
         <div className="proforma-breadcrumb">
 
@@ -3912,12 +6154,7 @@ export default function ProformaPage() {
 
 
           <span>
-
-            {
-              selectedProforma
-                .proforma_number
-            }
-
+            {selectedProforma.proforma_number}
           </span>
 
         </div>
@@ -3943,11 +6180,7 @@ export default function ProformaPage() {
                     )
                 }
               >
-
-                <X
-                  size={16}
-                />
-
+                <X size={16} />
               </button>
 
             </div>
@@ -3955,20 +6188,12 @@ export default function ProformaPage() {
         }
 
 
-        {/* ======================================================
-            HEADER
-        ====================================================== */}
-
         <section className="proforma-page-header">
 
           <div className="page-heading">
 
             <div className="page-heading-icon">
-
-              <FileText
-                size={23}
-              />
-
+              <FileText size={23} />
             </div>
 
 
@@ -3980,42 +6205,12 @@ export default function ProformaPage() {
 
 
               <h1>
-
-                {
-                  selectedProforma
-                    .proforma_number
-                }
-
+                {selectedProforma.proforma_number}
               </h1>
 
 
               <p>
-
-                {
-                  selectedProforma
-                    .company_name
-                }
-
-
-                {
-                  form.items[
-                    0
-                  ]?.description
-                    ? (
-                        <>
-                          {" • "}
-
-                          {
-                            form.items[
-                              0
-                            ].description
-                          }
-
-                        </>
-                      )
-                    : null
-                }
-
+                {selectedProforma.company_name}
               </p>
 
             </div>
@@ -4028,12 +6223,12 @@ export default function ProformaPage() {
             <button
               type="button"
               className="secondary-button"
+              disabled={
+                documentBusy
+              }
               onClick={
                 () =>
                   void handlePrint()
-              }
-              disabled={
-                documentBusy
               }
             >
 
@@ -4046,9 +6241,7 @@ export default function ProformaPage() {
                       />
                     )
                   : (
-                      <Printer
-                        size={17}
-                      />
+                      <Printer size={17} />
                     )
               }
 
@@ -4060,20 +6253,29 @@ export default function ProformaPage() {
             <button
               type="button"
               className="secondary-button"
+              disabled={
+                documentBusy
+              }
               onClick={
                 () =>
                   void handleDownload()
               }
-              disabled={
-                documentBusy
-              }
             >
 
-              <Download
-                size={17}
-              />
+              {
+                documentBusy
+                  ? (
+                      <Loader2
+                        size={17}
+                        className="spin"
+                      />
+                    )
+                  : (
+                      <Download size={17} />
+                    )
+              }
 
-              Download
+              Download PDF
 
             </button>
 
@@ -4098,9 +6300,7 @@ export default function ProformaPage() {
                   }
                 >
 
-                  <Pencil
-                    size={17}
-                  />
+                  <Pencil size={17} />
 
                   Edit
 
@@ -4112,14 +6312,15 @@ export default function ProformaPage() {
             {
               canDeleteProforma
               &&
-              !workflowLocked
+              !deleteLocked
               &&
               (
                 <button
                   type="button"
                   className="danger-outline-button"
                   onClick={
-                    handleDelete
+                    () =>
+                      void handleDelete()
                   }
                   disabled={
                     deleting
@@ -4135,9 +6336,7 @@ export default function ProformaPage() {
                           />
                         )
                       : (
-                          <Trash2
-                            size={17}
-                          />
+                          <Trash2 size={17} />
                         )
                   }
 
@@ -4152,20 +6351,12 @@ export default function ProformaPage() {
         </section>
 
 
-        {/* ======================================================
-            VIEW MODE
-        ====================================================== */}
-
         {
           !editing
             ? (
                 <div className="proforma-workspace">
 
                   <div className="proforma-form">
-
-                    {/* ==========================================
-                        BUSINESS ORIGIN
-                    =========================================== */}
 
                     <section className="form-card">
 
@@ -4177,10 +6368,8 @@ export default function ProformaPage() {
                             Business Origin
                           </h2>
 
-
                           <p>
-                            Customer and Enquiry details
-                            inherited automatically.
+                            Customer and Enquiry details inherited automatically.
                           </p>
 
                         </div>
@@ -4193,12 +6382,7 @@ export default function ProformaPage() {
                             )}`
                           }
                         >
-
-                          {
-                            selectedProforma
-                              .status
-                          }
-
+                          {selectedProforma.status}
                         </span>
 
                       </div>
@@ -4212,16 +6396,8 @@ export default function ProformaPage() {
                             Enquiry
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedEnquiry
-                                ?.enquiry_number
-                              ||
-                              "Linked Enquiry"
-                            }
-
+                            {selectedEnquiry?.enquiry_number || "-"}
                           </strong>
 
                         </div>
@@ -4233,16 +6409,8 @@ export default function ProformaPage() {
                             Proforma Date
                           </span>
 
-
                           <strong>
-
-                            {
-                              formatDate(
-                                selectedProforma
-                                  .proforma_date
-                              )
-                            }
-
+                            {formatDate(selectedProforma.proforma_date)}
                           </strong>
 
                         </div>
@@ -4254,14 +6422,8 @@ export default function ProformaPage() {
                             Customer
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .company_name
-                            }
-
+                            {selectedProforma.company_name}
                           </strong>
 
                         </div>
@@ -4271,25 +6433,14 @@ export default function ProformaPage() {
                     </section>
 
 
-                    {/* ==========================================
-                        CUSTOMER DETAILS
-                    =========================================== */}
-
                     <section className="form-card">
 
                       <div className="form-card-heading">
 
                         <div>
-
                           <h2>
                             Customer Details
                           </h2>
-
-
-                          <p>
-                            Captured from the original Enquiry.
-                          </p>
-
                         </div>
 
                       </div>
@@ -4300,37 +6451,11 @@ export default function ProformaPage() {
                         <div>
 
                           <span className="record-secondary">
-                            Company
+                            Contact
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .company_name
-                            }
-
-                          </strong>
-
-                        </div>
-
-
-                        <div>
-
-                          <span className="record-secondary">
-                            Contact Person
-                          </span>
-
-
-                          <strong>
-
-                            {
-                              selectedProforma
-                                .contact_person
-                              || "-"
-                            }
-
+                            {selectedProforma.contact_person || "-"}
                           </strong>
 
                         </div>
@@ -4342,15 +6467,8 @@ export default function ProformaPage() {
                             Phone
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .phone
-                              || "-"
-                            }
-
+                            {selectedProforma.phone || "-"}
                           </strong>
 
                         </div>
@@ -4362,15 +6480,8 @@ export default function ProformaPage() {
                             Email
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .email
-                              || "-"
-                            }
-
+                            {selectedProforma.email || "-"}
                           </strong>
 
                         </div>
@@ -4382,34 +6493,21 @@ export default function ProformaPage() {
                             GSTIN
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedEnquiry
-                                ?.gst_number
-                              || "-"
-                            }
-
+                            {selectedEnquiry?.gst_number || "-"}
                           </strong>
 
                         </div>
 
 
-                        <div>
+                        <div className="span-two">
 
                           <span className="record-secondary">
-                            Enquiry Address
+                            Original Address
                           </span>
 
-
                           <strong>
-
-                            {
-                              addressFromEnquiry
-                              || "-"
-                            }
-
+                            {address || "-"}
                           </strong>
 
                         </div>
@@ -4419,26 +6517,14 @@ export default function ProformaPage() {
                     </section>
 
 
-                    {/* ==========================================
-                        FINISHED PRODUCT / MACHINE
-                    =========================================== */}
-
                     <section className="form-card">
 
                       <div className="form-card-heading">
 
                         <div>
-
                           <h2>
                             Finished Product / Machine
                           </h2>
-
-
-                          <p>
-                            Manufactured output quoted
-                            to the customer.
-                          </p>
-
                         </div>
 
                       </div>
@@ -4508,82 +6594,35 @@ export default function ProformaPage() {
                                     >
 
                                       <td>
-
                                         <strong>
-
-                                          {
-                                            item
-                                              .description
-                                          }
-
+                                          {item.description}
                                         </strong>
-
                                       </td>
-
 
                                       <td>
                                         {item.quantity}
                                       </td>
 
-
                                       <td>
-
-                                        {
-                                          item.unit
-                                          || "Nos"
-                                        }
-
+                                        {item.unit}
                                       </td>
 
-
                                       <td>
-
-                                        ₹
-                                        {
-                                          money(
-                                            item.unit_price
-                                          )
-                                        }
-
+                                        ₹{money(item.unit_price)}
                                       </td>
 
-
                                       <td>
-
-                                        {
-                                          item
-                                            .discount_percent
-                                        }
-                                        %
-
+                                        {item.discount_percent}%
                                       </td>
 
-
                                       <td>
-
-                                        {
-                                          item
-                                            .tax_percent
-                                        }
-                                        %
-
+                                        {item.tax_percent}%
                                       </td>
 
-
                                       <td>
-
-                                        <strong className="amount">
-
-                                          ₹
-                                          {
-                                            money(
-                                              calculated
-                                                .total
-                                            )
-                                          }
-
+                                        <strong>
+                                          ₹{money(calculated.total)}
                                         </strong>
-
                                       </td>
 
                                     </tr>
@@ -4602,20 +6641,14 @@ export default function ProformaPage() {
                     </section>
 
 
-                    {/* ==========================================
-                        ADDRESSES
-                    =========================================== */}
-
                     <section className="form-card">
 
                       <div className="form-card-heading">
 
                         <div>
-
                           <h2>
-                            Document Addresses
+                            Addresses
                           </h2>
-
                         </div>
 
                       </div>
@@ -4629,15 +6662,8 @@ export default function ProformaPage() {
                             Billing Address
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .billing_address
-                              || "-"
-                            }
-
+                            {selectedProforma.billing_address || "-"}
                           </strong>
 
                         </div>
@@ -4649,15 +6675,8 @@ export default function ProformaPage() {
                             Shipping Address
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .shipping_address
-                              || "-"
-                            }
-
+                            {selectedProforma.shipping_address || "-"}
                           </strong>
 
                         </div>
@@ -4667,20 +6686,14 @@ export default function ProformaPage() {
                     </section>
 
 
-                    {/* ==========================================
-                        COMMERCIAL TERMS
-                    =========================================== */}
-
                     <section className="form-card">
 
                       <div className="form-card-heading">
 
                         <div>
-
                           <h2>
                             Commercial Terms
                           </h2>
-
                         </div>
 
                       </div>
@@ -4694,20 +6707,12 @@ export default function ProformaPage() {
                             Validity
                           </span>
 
-
                           <strong>
 
                             {
-                              selectedProforma
-                                .validity_days
-                              ?? "-"
-                            }
-
-                            {
-                              selectedProforma
-                                .validity_days
-                                ? " days"
-                                : ""
+                              selectedProforma.validity_days
+                                ? `${selectedProforma.validity_days} days`
+                                : "-"
                             }
 
                           </strong>
@@ -4721,15 +6726,8 @@ export default function ProformaPage() {
                             Payment Terms
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .payment_terms
-                              || "-"
-                            }
-
+                            {selectedProforma.payment_terms || "-"}
                           </strong>
 
                         </div>
@@ -4741,15 +6739,8 @@ export default function ProformaPage() {
                             Delivery Terms
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .delivery_terms
-                              || "-"
-                            }
-
+                            {selectedProforma.delivery_terms || "-"}
                           </strong>
 
                         </div>
@@ -4761,35 +6752,8 @@ export default function ProformaPage() {
                             Notes
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .notes
-                              || "-"
-                            }
-
-                          </strong>
-
-                        </div>
-
-
-                        <div className="span-two">
-
-                          <span className="record-secondary">
-                            Terms & Conditions
-                          </span>
-
-
-                          <strong>
-
-                            {
-                              selectedProforma
-                                .terms_and_conditions
-                              || "-"
-                            }
-
+                            {selectedProforma.notes || "-"}
                           </strong>
 
                         </div>
@@ -4798,12 +6762,11 @@ export default function ProformaPage() {
 
                     </section>
 
+
+                    {renderAdvanceCard()}
+
                   </div>
 
-
-                  {/* ==============================================
-                      SUMMARY
-                  ============================================== */}
 
                   <aside className="proforma-summary">
 
@@ -4817,22 +6780,14 @@ export default function ProformaPage() {
                             DOCUMENT SUMMARY
                           </span>
 
-
                           <h3>
-
-                            {
-                              selectedProforma
-                                .proforma_number
-                            }
-
+                            {selectedProforma.proforma_number}
                           </h3>
 
                         </div>
 
 
-                        <CircleDollarSign
-                          size={21}
-                        />
+                        <CircleDollarSign size={21} />
 
                       </div>
 
@@ -4843,17 +6798,8 @@ export default function ProformaPage() {
                           Grand Total
                         </span>
 
-
                         <strong>
-
-                          ₹
-                          {
-                            money(
-                              selectedProforma
-                                .grand_total
-                            )
-                          }
-
+                          ₹{money(selectedProforma.grand_total)}
                         </strong>
 
                       </div>
@@ -4867,17 +6813,8 @@ export default function ProformaPage() {
                             Subtotal
                           </span>
 
-
                           <strong>
-
-                            ₹
-                            {
-                              money(
-                                selectedProforma
-                                  .subtotal
-                              )
-                            }
-
+                            ₹{money(selectedProforma.subtotal)}
                           </strong>
 
                         </div>
@@ -4889,39 +6826,8 @@ export default function ProformaPage() {
                             Discount
                           </span>
 
-
                           <strong>
-
-                            − ₹
-                            {
-                              money(
-                                selectedProforma
-                                  .discount_amount
-                              )
-                            }
-
-                          </strong>
-
-                        </div>
-
-
-                        <div>
-
-                          <span>
-                            Taxable Amount
-                          </span>
-
-
-                          <strong>
-
-                            ₹
-                            {
-                              money(
-                                selectedProforma
-                                  .taxable_amount
-                              )
-                            }
-
+                            − ₹{money(selectedProforma.discount_amount)}
                           </strong>
 
                         </div>
@@ -4933,22 +6839,92 @@ export default function ProformaPage() {
                             GST / Tax
                           </span>
 
-
                           <strong>
-
-                            ₹
-                            {
-                              money(
-                                selectedProforma
-                                  .tax_amount
-                              )
-                            }
-
+                            ₹{money(selectedProforma.tax_amount)}
                           </strong>
 
                         </div>
 
                       </div>
+
+
+                      {
+                        hasFinancialHistory
+                        &&
+                        (
+                          <>
+
+                            <div className="summary-divider" />
+
+
+                            <div className="summary-lines">
+
+                              <div>
+
+                                <span>
+                                  Advance Received
+                                </span>
+
+                                <strong
+                                  style={{
+                                    color:
+                                      "#159a5b",
+                                  }}
+                                >
+                                  ₹{money(grossAdvanceReceived)}
+                                </strong>
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  Refunded
+                                </span>
+
+                                <strong
+                                  style={{
+                                    color:
+                                      "#c84655",
+                                  }}
+                                >
+                                  ₹{money(advanceRefunded)}
+                                </strong>
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  Net Advance Held
+                                </span>
+
+                                <strong>
+                                  ₹{money(netAdvanceHeld)}
+                                </strong>
+
+                              </div>
+
+
+                              <div>
+
+                                <span>
+                                  Settlement
+                                </span>
+
+                                <strong>
+                                  {advanceSummary?.settlement_status}
+                                </strong>
+
+                              </div>
+
+                            </div>
+
+                          </>
+                        )
+                      }
 
                     </div>
 
@@ -4961,10 +6937,7 @@ export default function ProformaPage() {
                           WORKFLOW STATUS
                         </span>
 
-
-                        <CheckCircle2
-                          size={17}
-                        />
+                        <CheckCircle2 size={17} />
 
                       </div>
 
@@ -4981,50 +6954,38 @@ export default function ProformaPage() {
                                   )}`
                                 }
                               >
-
-                                {
-                                  selectedProforma
-                                    .status
-                                }
-
+                                {selectedProforma.status}
                               </div>
                             )
                           : (
                               <select
                                 value={
-                                  selectedProforma
-                                    .status
-                                }
-                                onChange={
-                                  event =>
-                                    void handleStatusChange(
-                                      event
-                                        .target
-                                        .value
-                                    )
+                                  selectedProforma.status
                                 }
                                 disabled={
                                   saving
                                 }
+                                onChange={
+                                  event =>
+                                    void handleStatusChange(
+                                      event.target.value
+                                    )
+                                }
                               >
 
                                 {
-                                  currentStatusOptions.map(
-                                    statusValue => (
+                                  statusOptions.map(
+                                    option => (
 
                                       <option
                                         key={
-                                          statusValue
+                                          option
                                         }
                                         value={
-                                          statusValue
+                                          option
                                         }
                                       >
-
-                                        {
-                                          statusValue
-                                        }
-
+                                        {option}
                                       </option>
 
                                     )
@@ -5037,8 +6998,47 @@ export default function ProformaPage() {
 
 
                       <p>
-                        Order Confirmed moves the
-                        Enquiry into the production workflow.
+
+                        {
+                          workflowLocked
+                            ? (
+                                "Production has started. "
+                                +
+                                "The Proforma is locked to protect "
+                                +
+                                "Production and billing traceability."
+                              )
+                            : normalizeStatus(
+                                selectedProforma.status
+                              )
+                              ===
+                              "cancelled"
+                                ? (
+                                    hasNetAdvance
+                                      ? (
+                                          "This order is cancelled and "
+                                          +
+                                          "customer advance is still held. "
+                                          +
+                                          "Use Refund Advance to settle it."
+                                        )
+                                      : (
+                                          "This order is cancelled. "
+                                          +
+                                          "Any advance settlement history "
+                                          +
+                                          "remains preserved."
+                                        )
+                                  )
+                                : (
+                                    "Order Confirmed prepares the Proforma "
+                                    +
+                                    "for Production. It can still be edited "
+                                    +
+                                    "or reverted until Production starts."
+                                  )
+                        }
+
                       </p>
 
                     </div>
@@ -5048,10 +7048,6 @@ export default function ProformaPage() {
                 </div>
               )
             : (
-                /* ==================================================
-                   EDIT MODE
-                ================================================== */
-
                 <div className="proforma-workspace">
 
                   <form
@@ -5066,19 +7062,11 @@ export default function ProformaPage() {
                       &&
                       (
                         <div className="proforma-alert error">
-
-                          <span>
-                            {formError}
-                          </span>
-
+                          {formError}
                         </div>
                       )
                     }
 
-
-                    {/* ==========================================
-                        BUSINESS ORIGIN
-                    =========================================== */}
 
                     <section className="form-card">
 
@@ -5090,10 +7078,8 @@ export default function ProformaPage() {
                             Business Origin
                           </h2>
 
-
                           <p>
-                            Customer identity is inherited
-                            from Enquiry and cannot be changed here.
+                            Customer identity remains inherited from Enquiry.
                           </p>
 
                         </div>
@@ -5109,16 +7095,8 @@ export default function ProformaPage() {
                             Enquiry
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedEnquiry
-                                ?.enquiry_number
-                              ||
-                              "Linked Enquiry"
-                            }
-
+                            {selectedEnquiry?.enquiry_number || "-"}
                           </strong>
 
                         </div>
@@ -5130,14 +7108,8 @@ export default function ProformaPage() {
                             Customer
                           </span>
 
-
                           <strong>
-
-                            {
-                              selectedProforma
-                                .company_name
-                            }
-
+                            {selectedProforma.company_name}
                           </strong>
 
                         </div>
@@ -5149,7 +7121,6 @@ export default function ProformaPage() {
                             Proforma Date *
                           </span>
 
-
                           <input
                             type="date"
                             value={
@@ -5159,9 +7130,7 @@ export default function ProformaPage() {
                               event =>
                                 updateField(
                                   "proforma_date",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                             }
                           />
@@ -5173,26 +7142,14 @@ export default function ProformaPage() {
                     </section>
 
 
-                    {/* ==========================================
-                        ADDRESSES
-                    =========================================== */}
-
                     <section className="form-card">
 
                       <div className="form-card-heading">
 
                         <div>
-
                           <h2>
-                            Document Addresses
+                            Addresses
                           </h2>
-
-
-                          <p>
-                            Defaulted from Enquiry but
-                            editable for this quotation.
-                          </p>
-
                         </div>
 
                       </div>
@@ -5206,20 +7163,18 @@ export default function ProformaPage() {
                             Billing Address
                           </span>
 
-
                           <textarea
                             rows={3}
                             value={
                               form.billing_address
-                              || ""
+                              ||
+                              ""
                             }
                             onChange={
                               event =>
                                 updateField(
                                   "billing_address",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                             }
                           />
@@ -5233,20 +7188,18 @@ export default function ProformaPage() {
                             Shipping Address
                           </span>
 
-
                           <textarea
                             rows={3}
                             value={
                               form.shipping_address
-                              || ""
+                              ||
+                              ""
                             }
                             onChange={
                               event =>
                                 updateField(
                                   "shipping_address",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                             }
                           />
@@ -5258,26 +7211,14 @@ export default function ProformaPage() {
                     </section>
 
 
-                    {/* ==========================================
-                        ITEMS
-                    =========================================== */}
-
                     <section className="form-card">
 
                       <div className="form-card-heading">
 
                         <div>
-
                           <h2>
                             Finished Product / Machine
                           </h2>
-
-
-                          <p>
-                            Enter the manufactured output.
-                            No purchased Product ID is used.
-                          </p>
-
                         </div>
 
 
@@ -5289,9 +7230,7 @@ export default function ProformaPage() {
                           }
                         >
 
-                          <Plus
-                            size={17}
-                          />
+                          <Plus size={16} />
 
                           Add Item
 
@@ -5368,7 +7307,6 @@ export default function ProformaPage() {
                                       <td>
 
                                         <input
-                                          type="text"
                                           value={
                                             item.description
                                           }
@@ -5377,9 +7315,7 @@ export default function ProformaPage() {
                                               updateItem(
                                                 index,
                                                 "description",
-                                                event
-                                                  .target
-                                                  .value
+                                                event.target.value
                                               )
                                           }
                                         />
@@ -5402,9 +7338,7 @@ export default function ProformaPage() {
                                                 index,
                                                 "quantity",
                                                 Number(
-                                                  event
-                                                    .target
-                                                    .value
+                                                  event.target.value
                                                 )
                                               )
                                           }
@@ -5416,7 +7350,6 @@ export default function ProformaPage() {
                                       <td>
 
                                         <input
-                                          type="text"
                                           value={
                                             item.unit
                                           }
@@ -5425,9 +7358,7 @@ export default function ProformaPage() {
                                               updateItem(
                                                 index,
                                                 "unit",
-                                                event
-                                                  .target
-                                                  .value
+                                                event.target.value
                                               )
                                           }
                                         />
@@ -5442,13 +7373,7 @@ export default function ProformaPage() {
                                           min="0"
                                           step="0.01"
                                           value={
-                                            Number(
-                                              item.unit_price
-                                            )
-                                            === 0
-                                              ? ""
-                                              : item
-                                                  .unit_price
+                                            item.unit_price
                                           }
                                           onChange={
                                             event =>
@@ -5456,9 +7381,7 @@ export default function ProformaPage() {
                                                 index,
                                                 "unit_price",
                                                 Number(
-                                                  event
-                                                    .target
-                                                    .value
+                                                  event.target.value
                                                 )
                                               )
                                           }
@@ -5475,14 +7398,7 @@ export default function ProformaPage() {
                                           max="100"
                                           step="0.01"
                                           value={
-                                            Number(
-                                              item
-                                                .discount_percent
-                                            )
-                                            === 0
-                                              ? ""
-                                              : item
-                                                  .discount_percent
+                                            item.discount_percent
                                           }
                                           onChange={
                                             event =>
@@ -5490,9 +7406,7 @@ export default function ProformaPage() {
                                                 index,
                                                 "discount_percent",
                                                 Number(
-                                                  event
-                                                    .target
-                                                    .value
+                                                  event.target.value
                                                 )
                                               )
                                           }
@@ -5517,9 +7431,7 @@ export default function ProformaPage() {
                                                 index,
                                                 "tax_percent",
                                                 Number(
-                                                  event
-                                                    .target
-                                                    .value
+                                                  event.target.value
                                                 )
                                               )
                                           }
@@ -5529,18 +7441,7 @@ export default function ProformaPage() {
 
 
                                       <td>
-
-                                        <strong className="amount">
-
-                                          ₹
-                                          {
-                                            money(
-                                              calculated.total
-                                            )
-                                          }
-
-                                        </strong>
-
+                                        ₹{money(calculated.total)}
                                       </td>
 
 
@@ -5551,7 +7452,8 @@ export default function ProformaPage() {
                                           className="icon-danger-button"
                                           disabled={
                                             form.items.length
-                                            === 1
+                                            ===
+                                            1
                                           }
                                           onClick={
                                             () =>
@@ -5561,9 +7463,7 @@ export default function ProformaPage() {
                                           }
                                         >
 
-                                          <Trash2
-                                            size={15}
-                                          />
+                                          <Trash2 size={15} />
 
                                         </button>
 
@@ -5585,23 +7485,56 @@ export default function ProformaPage() {
                     </section>
 
 
-                    {/* ==========================================
-                        COMMERCIAL TERMS
-                    =========================================== */}
-
                     <section className="form-card">
 
                       <div className="form-card-heading">
 
                         <div>
-
                           <h2>
                             Commercial Terms
                           </h2>
-
                         </div>
 
                       </div>
+
+
+                      {
+                        hasNetAdvance
+                        &&
+                        (
+                          <div
+                            style={{
+                              marginBottom:
+                                "14px",
+
+                              padding:
+                                "11px 12px",
+
+                              border:
+                                "1px solid #f0dec5",
+
+                              borderRadius:
+                                "9px",
+
+                              background:
+                                "#fffbf5",
+
+                              color:
+                                "#9b621d",
+
+                              fontSize:
+                                "10px",
+                            }}
+                          >
+
+                            Net customer advance still held:
+                            {" ₹"}
+                            {money(netAdvanceHeld)}.
+                            The Proforma total cannot be reduced below this amount.
+
+                          </div>
+                        )
+                      }
 
 
                       <div className="form-grid two">
@@ -5612,25 +7545,21 @@ export default function ProformaPage() {
                             Validity Days
                           </span>
 
-
                           <input
                             type="number"
                             min="1"
                             value={
                               form.validity_days
-                              ?? ""
+                              ??
+                              ""
                             }
                             onChange={
                               event =>
                                 updateField(
                                   "validity_days",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                     ? Number(
-                                        event
-                                          .target
-                                          .value
+                                        event.target.value
                                       )
                                     : null
                                 )
@@ -5646,20 +7575,18 @@ export default function ProformaPage() {
                             Payment Terms
                           </span>
 
-
                           <textarea
                             rows={3}
                             value={
                               form.payment_terms
-                              || ""
+                              ||
+                              ""
                             }
                             onChange={
                               event =>
                                 updateField(
                                   "payment_terms",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                             }
                           />
@@ -5673,20 +7600,18 @@ export default function ProformaPage() {
                             Delivery Terms
                           </span>
 
-
                           <textarea
                             rows={3}
                             value={
                               form.delivery_terms
-                              || ""
+                              ||
+                              ""
                             }
                             onChange={
                               event =>
                                 updateField(
                                   "delivery_terms",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                             }
                           />
@@ -5700,20 +7625,18 @@ export default function ProformaPage() {
                             Notes
                           </span>
 
-
                           <textarea
                             rows={3}
                             value={
                               form.notes
-                              || ""
+                              ||
+                              ""
                             }
                             onChange={
                               event =>
                                 updateField(
                                   "notes",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                             }
                           />
@@ -5727,21 +7650,18 @@ export default function ProformaPage() {
                             Terms & Conditions
                           </span>
 
-
                           <textarea
                             rows={4}
                             value={
-                              form
-                                .terms_and_conditions
-                              || ""
+                              form.terms_and_conditions
+                              ||
+                              ""
                             }
                             onChange={
                               event =>
                                 updateField(
                                   "terms_and_conditions",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                             }
                           />
@@ -5758,9 +7678,6 @@ export default function ProformaPage() {
                       <button
                         type="button"
                         className="secondary-button"
-                        disabled={
-                          saving
-                        }
                         onClick={
                           () => {
 
@@ -5778,9 +7695,7 @@ export default function ProformaPage() {
                           }
                         }
                       >
-
                         Cancel
-
                       </button>
 
 
@@ -5796,22 +7711,18 @@ export default function ProformaPage() {
                           saving
                             ? (
                                 <Loader2
-                                  size={17}
+                                  size={16}
                                   className="spin"
                                 />
                               )
                             : (
                                 <Save
-                                  size={17}
+                                  size={16}
                                 />
                               )
                         }
 
-                        {
-                          saving
-                            ? "Saving..."
-                            : "Save Changes"
-                        }
+                        Save Changes
 
                       </button>
 
@@ -5824,141 +7735,66 @@ export default function ProformaPage() {
 
                     <div className="summary-card">
 
-                      <div className="summary-card-header">
-
-                        <div>
-
-                          <span>
-                            DOCUMENT SUMMARY
-                          </span>
-
-
-                          <h3>
-
-                            {
-                              selectedProforma
-                                .proforma_number
-                            }
-
-                          </h3>
-
-                        </div>
-
-
-                        <CircleDollarSign
-                          size={21}
-                        />
-
-                      </div>
-
-
                       <div className="summary-total">
 
                         <span>
                           Grand Total
                         </span>
 
-
                         <strong>
-
-                          ₹
-                          {
-                            money(
-                              totals.total
-                            )
-                          }
-
+                          ₹{money(totals.total)}
                         </strong>
 
                       </div>
 
 
-                      <div className="summary-lines">
+                      {
+                        hasFinancialHistory
+                        &&
+                        (
+                          <div className="summary-lines">
 
-                        <div>
+                            <div>
 
-                          <span>
-                            Subtotal
-                          </span>
+                              <span>
+                                Advance Received
+                              </span>
 
+                              <strong>
+                                ₹{money(grossAdvanceReceived)}
+                              </strong>
 
-                          <strong>
-
-                            ₹
-                            {
-                              money(
-                                totals.subtotal
-                              )
-                            }
-
-                          </strong>
-
-                        </div>
+                            </div>
 
 
-                        <div>
+                            <div>
 
-                          <span>
-                            Discount
-                          </span>
+                              <span>
+                                Refunded
+                              </span>
 
+                              <strong>
+                                ₹{money(advanceRefunded)}
+                              </strong>
 
-                          <strong>
-
-                            − ₹
-                            {
-                              money(
-                                totals.discount
-                              )
-                            }
-
-                          </strong>
-
-                        </div>
+                            </div>
 
 
-                        <div>
+                            <div>
 
-                          <span>
-                            Taxable Amount
-                          </span>
+                              <span>
+                                Net Advance Held
+                              </span>
 
+                              <strong>
+                                ₹{money(netAdvanceHeld)}
+                              </strong>
 
-                          <strong>
+                            </div>
 
-                            ₹
-                            {
-                              money(
-                                totals.taxable
-                              )
-                            }
-
-                          </strong>
-
-                        </div>
-
-
-                        <div>
-
-                          <span>
-                            GST / Tax
-                          </span>
-
-
-                          <strong>
-
-                            ₹
-                            {
-                              money(
-                                totals.tax
-                              )
-                            }
-
-                          </strong>
-
-                        </div>
-
-                      </div>
+                          </div>
+                        )
+                      }
 
                     </div>
 
@@ -5966,6 +7802,891 @@ export default function ProformaPage() {
 
                 </div>
               )
+        }
+
+
+        {/* ======================================================
+            ADVANCE MODAL
+        ====================================================== */}
+
+        {
+          advanceModalOpen
+          &&
+          advanceSummary
+          &&
+          (
+            <div
+              style={{
+                position:
+                  "fixed",
+
+                inset:
+                  0,
+
+                zIndex:
+                  10000,
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                padding:
+                  "24px",
+
+                background:
+                  "rgba(22,39,66,.58)",
+              }}
+            >
+
+              <div
+                style={{
+                  width:
+                    "100%",
+
+                  maxWidth:
+                    "660px",
+
+                  background:
+                    "#ffffff",
+
+                  borderRadius:
+                    "16px",
+
+                  boxShadow:
+                    "0 24px 70px rgba(15,34,64,.24)",
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+
+                    justifyContent:
+                      "space-between",
+
+                    alignItems:
+                      "flex-start",
+
+                    gap:
+                      "14px",
+
+                    padding:
+                      "20px",
+
+                    borderBottom:
+                      "1px solid #e8eef6",
+                  }}
+                >
+
+                  <div>
+
+                    <div className="page-eyebrow">
+                      CUSTOMER PAYMENT
+                    </div>
+
+                    <h2>
+                      Record Advance Payment
+                    </h2>
+
+                    <p className="record-secondary">
+
+                      {selectedProforma.proforma_number}
+
+                      {" • "}
+
+                      {selectedProforma.company_name}
+
+                    </p>
+
+                  </div>
+
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={
+                      closeAdvanceModal
+                    }
+                    disabled={
+                      advanceSaving
+                    }
+                  >
+                    <X size={16} />
+                  </button>
+
+                </div>
+
+
+                {
+                  advanceError
+                  &&
+                  (
+                    <div
+                      className="proforma-alert error"
+                      style={{
+                        margin:
+                          "16px 20px 0",
+                      }}
+                    >
+                      {advanceError}
+                    </div>
+                  )
+                }
+
+
+                <div
+                  className="form-grid two"
+                  style={{
+                    padding:
+                      "20px",
+                  }}
+                >
+
+                  <label>
+
+                    <span>
+                      Payment Date *
+                    </span>
+
+                    <input
+                      type="datetime-local"
+                      value={
+                        advanceDate
+                      }
+                      onChange={
+                        event =>
+                          setAdvanceDate(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                  </label>
+
+
+                  <label>
+
+                    <span>
+                      Advance Amount *
+                    </span>
+
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      max={
+                        Number(
+                          advanceSummary.balance_after_advance
+                        )
+                      }
+                      value={
+                        advanceAmount
+                      }
+                      onChange={
+                        event =>
+                          setAdvanceAmount(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                  </label>
+
+
+                  <label>
+
+                    <span>
+                      Payment Mode
+                    </span>
+
+                    <select
+                      value={
+                        advanceMode
+                      }
+                      onChange={
+                        event =>
+                          setAdvanceMode(
+                            event.target.value
+                          )
+                      }
+                    >
+
+                      <option value="Bank Transfer">
+                        Bank Transfer
+                      </option>
+
+                      <option value="UPI">
+                        UPI
+                      </option>
+
+                      <option value="Cash">
+                        Cash
+                      </option>
+
+                      <option value="Cheque">
+                        Cheque
+                      </option>
+
+                      <option value="Other">
+                        Other
+                      </option>
+
+                    </select>
+
+                  </label>
+
+
+                  <label>
+
+                    <span>
+                      Reference / UTR
+                    </span>
+
+                    <input
+                      value={
+                        advanceReference
+                      }
+                      onChange={
+                        event =>
+                          setAdvanceReference(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                  </label>
+
+
+                  <label className="span-two">
+
+                    <span>
+                      Notes
+                    </span>
+
+                    <textarea
+                      rows={3}
+                      value={
+                        advanceNotes
+                      }
+                      onChange={
+                        event =>
+                          setAdvanceNotes(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                  </label>
+
+                </div>
+
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+
+                    justifyContent:
+                      "space-between",
+
+                    alignItems:
+                      "center",
+
+                    gap:
+                      "10px",
+
+                    padding:
+                      "16px 20px",
+
+                    borderTop:
+                      "1px solid #e8eef6",
+
+                    flexWrap:
+                      "wrap",
+                  }}
+                >
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={
+                      () =>
+                        setAdvanceAmount(
+                          String(
+                            advanceSummary.balance_after_advance
+                          )
+                        )
+                    }
+                    disabled={
+                      advanceSaving
+                    }
+                  >
+                    Use Full Balance
+                  </button>
+
+
+                  <div
+                    style={{
+                      display:
+                        "flex",
+
+                      gap:
+                        "10px",
+                    }}
+                  >
+
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={
+                        closeAdvanceModal
+                      }
+                      disabled={
+                        advanceSaving
+                      }
+                    >
+                      Cancel
+                    </button>
+
+
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={
+                        advanceSaving
+                      }
+                      onClick={
+                        () =>
+                          void handleRecordAdvance()
+                      }
+                    >
+
+                      {
+                        advanceSaving
+                          ? (
+                              <Loader2
+                                size={16}
+                                className="spin"
+                              />
+                            )
+                          : (
+                              <WalletCards
+                                size={16}
+                              />
+                            )
+                      }
+
+                      Record Advance
+
+                    </button>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+          )
+        }
+
+
+        {/* ======================================================
+            REFUND MODAL
+        ====================================================== */}
+
+        {
+          refundModalOpen
+          &&
+          advanceSummary
+          &&
+          (
+            <div
+              style={{
+                position:
+                  "fixed",
+
+                inset:
+                  0,
+
+                zIndex:
+                  10000,
+
+                display:
+                  "flex",
+
+                alignItems:
+                  "center",
+
+                justifyContent:
+                  "center",
+
+                padding:
+                  "24px",
+
+                background:
+                  "rgba(22,39,66,.58)",
+              }}
+            >
+
+              <div
+                style={{
+                  width:
+                    "100%",
+
+                  maxWidth:
+                    "680px",
+
+                  background:
+                    "#ffffff",
+
+                  borderRadius:
+                    "16px",
+
+                  boxShadow:
+                    "0 24px 70px rgba(15,34,64,.24)",
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+
+                    justifyContent:
+                      "space-between",
+
+                    alignItems:
+                      "flex-start",
+
+                    gap:
+                      "14px",
+
+                    padding:
+                      "20px",
+
+                    borderBottom:
+                      "1px solid #e8eef6",
+                  }}
+                >
+
+                  <div>
+
+                    <div
+                      style={{
+                        color:
+                          "#b94150",
+
+                        fontSize:
+                          "9px",
+
+                        fontWeight:
+                          800,
+
+                        letterSpacing:
+                          ".08em",
+                      }}
+                    >
+                      CANCELLED ORDER SETTLEMENT
+                    </div>
+
+
+                    <h2
+                      style={{
+                        margin:
+                          "5px 0 0",
+                      }}
+                    >
+                      Refund Customer Advance
+                    </h2>
+
+
+                    <p className="record-secondary">
+
+                      {selectedProforma.proforma_number}
+
+                      {" • "}
+
+                      {selectedProforma.company_name}
+
+                    </p>
+
+                  </div>
+
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={
+                      closeRefundModal
+                    }
+                    disabled={
+                      refundSaving
+                    }
+                  >
+                    <X size={16} />
+                  </button>
+
+                </div>
+
+
+                {
+                  refundError
+                  &&
+                  (
+                    <div
+                      className="proforma-alert error"
+                      style={{
+                        margin:
+                          "16px 20px 0",
+                      }}
+                    >
+                      {refundError}
+                    </div>
+                  )
+                }
+
+
+                <div
+                  style={{
+                    display:
+                      "grid",
+
+                    gridTemplateColumns:
+                      "repeat(3, minmax(0, 1fr))",
+
+                    gap:
+                      "10px",
+
+                    padding:
+                      "18px 20px 0",
+                  }}
+                >
+
+                  <div className="proforma-kpi">
+
+                    <div>
+
+                      <span>
+                        Advance Received
+                      </span>
+
+                      <strong
+                        style={{
+                          color:
+                            "#159a5b",
+                        }}
+                      >
+                        ₹{money(advanceSummary.advance_received)}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+
+                  <div className="proforma-kpi">
+
+                    <div>
+
+                      <span>
+                        Already Refunded
+                      </span>
+
+                      <strong
+                        style={{
+                          color:
+                            "#c84655",
+                        }}
+                      >
+                        ₹{money(advanceSummary.advance_refunded)}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+
+                  <div className="proforma-kpi">
+
+                    <div>
+
+                      <span>
+                        Refundable Balance
+                      </span>
+
+                      <strong>
+                        ₹{money(advanceSummary.net_advance_held)}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                <div
+                  className="form-grid two"
+                  style={{
+                    padding:
+                      "20px",
+                  }}
+                >
+
+                  <label>
+
+                    <span>
+                      Refund Date *
+                    </span>
+
+                    <input
+                      type="datetime-local"
+                      value={
+                        refundDate
+                      }
+                      onChange={
+                        event =>
+                          setRefundDate(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                  </label>
+
+
+                  <label>
+
+                    <span>
+                      Refund Amount *
+                    </span>
+
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      max={
+                        Number(
+                          advanceSummary.net_advance_held
+                        )
+                      }
+                      value={
+                        refundAmount
+                      }
+                      onChange={
+                        event =>
+                          setRefundAmount(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                  </label>
+
+
+                  <label>
+
+                    <span>
+                      Refund Mode
+                    </span>
+
+                    <select
+                      value={
+                        refundMode
+                      }
+                      onChange={
+                        event =>
+                          setRefundMode(
+                            event.target.value
+                          )
+                      }
+                    >
+
+                      <option value="Bank Transfer">
+                        Bank Transfer
+                      </option>
+
+                      <option value="UPI">
+                        UPI
+                      </option>
+
+                      <option value="Cash">
+                        Cash
+                      </option>
+
+                      <option value="Cheque">
+                        Cheque
+                      </option>
+
+                      <option value="Other">
+                        Other
+                      </option>
+
+                    </select>
+
+                  </label>
+
+
+                  <label>
+
+                    <span>
+                      Reference / UTR
+                    </span>
+
+                    <input
+                      value={
+                        refundReference
+                      }
+                      onChange={
+                        event =>
+                          setRefundReference(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                  </label>
+
+
+                  <label className="span-two">
+
+                    <span>
+                      Refund Notes
+                    </span>
+
+                    <textarea
+                      rows={3}
+                      value={
+                        refundNotes
+                      }
+                      onChange={
+                        event =>
+                          setRefundNotes(
+                            event.target.value
+                          )
+                      }
+                      placeholder="Reason or settlement note"
+                    />
+
+                  </label>
+
+                </div>
+
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+
+                    justifyContent:
+                      "space-between",
+
+                    alignItems:
+                      "center",
+
+                    gap:
+                      "10px",
+
+                    padding:
+                      "16px 20px",
+
+                    borderTop:
+                      "1px solid #e8eef6",
+
+                    flexWrap:
+                      "wrap",
+                  }}
+                >
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={
+                      refundSaving
+                    }
+                    onClick={
+                      () =>
+                        setRefundAmount(
+                          String(
+                            advanceSummary.net_advance_held
+                          )
+                        )
+                    }
+                  >
+                    Use Full Refundable Balance
+                  </button>
+
+
+                  <div
+                    style={{
+                      display:
+                        "flex",
+
+                      gap:
+                        "10px",
+                    }}
+                  >
+
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={
+                        closeRefundModal
+                      }
+                      disabled={
+                        refundSaving
+                      }
+                    >
+                      Cancel
+                    </button>
+
+
+                    <button
+                      type="button"
+                      className="danger-outline-button"
+                      disabled={
+                        refundSaving
+                      }
+                      onClick={
+                        () =>
+                          void handleRecordRefund()
+                      }
+                    >
+
+                      {
+                        refundSaving
+                          ? (
+                              <Loader2
+                                size={16}
+                                className="spin"
+                              />
+                            )
+                          : (
+                              <RefreshCw
+                                size={16}
+                              />
+                            )
+                      }
+
+                      Record Refund
+
+                    </button>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+          )
         }
 
       </div>
@@ -5978,49 +8699,15 @@ export default function ProformaPage() {
      LIST PAGE
   ============================================================== */
 
-  const firstRecord =
-    filteredProformas.length
-      ? (
-          (
-            page
-            -
-            1
-          )
-          *
-          PAGE_SIZE
-        )
-        +
-        1
-      : 0;
-
-
-  const lastRecord =
-    Math.min(
-      page
-      *
-      PAGE_SIZE,
-
-      filteredProformas.length
-    );
-
-
   return (
     <div className="proforma-page">
-
-      {/* ======================================================
-          HEADER
-      ====================================================== */}
 
       <section className="proforma-page-header">
 
         <div className="page-heading">
 
           <div className="page-heading-icon">
-
-            <FileText
-              size={23}
-            />
-
+            <FileText size={23} />
           </div>
 
 
@@ -6030,15 +8717,12 @@ export default function ProformaPage() {
               SALES WORKFLOW
             </div>
 
-
             <h1>
               Proformas
             </h1>
 
-
             <p>
-              Create, manage and track
-              customer quotations.
+              Clear tracking from quotation through Production.
             </p>
 
           </div>
@@ -6055,19 +8739,9 @@ export default function ProformaPage() {
               () =>
                 void loadProformas()
             }
-            disabled={
-              loading
-            }
           >
 
-            <RefreshCw
-              size={17}
-              className={
-                loading
-                  ? "spin"
-                  : ""
-              }
-            />
+            <RefreshCw size={17} />
 
             Refresh
 
@@ -6089,9 +8763,7 @@ export default function ProformaPage() {
                 }
               >
 
-                <FilePlus2
-                  size={18}
-                />
+                <FilePlus2 size={17} />
 
                 New Proforma
 
@@ -6104,37 +8776,26 @@ export default function ProformaPage() {
       </section>
 
 
-      {/* ======================================================
-          KPI
-      ====================================================== */}
-
       <section className="proforma-kpi-grid">
 
         <div className="proforma-kpi">
 
           <div className="kpi-icon">
-
-            <FileText
-              size={19}
-            />
-
+            <FileText size={19} />
           </div>
-
 
           <div>
 
             <span>
-              Total Proformas
+              Total
             </span>
-
 
             <strong>
               {proformas.length}
             </strong>
 
-
             <small>
-              All recorded documents
+              All Proformas
             </small>
 
           </div>
@@ -6145,36 +8806,21 @@ export default function ProformaPage() {
         <div className="proforma-kpi">
 
           <div className="kpi-icon">
-
-            <ClipboardList
-              size={19}
-            />
-
+            <ClipboardList size={19} />
           </div>
-
 
           <div>
 
             <span>
-              Drafts
+              Sales / Awaiting Production
             </span>
 
-
             <strong>
-
-              {
-                proformas.filter(
-                  item =>
-                    item.status
-                    === "Draft"
-                ).length
-              }
-
+              {salesTrackingProformas.length}
             </strong>
 
-
             <small>
-              Still being prepared
+              Draft, Sent, Order Confirmed
             </small>
 
           </div>
@@ -6185,42 +8831,21 @@ export default function ProformaPage() {
         <div className="proforma-kpi">
 
           <div className="kpi-icon">
-
-            <CheckCircle2
-              size={19}
-            />
-
+            <CheckCircle2 size={19} />
           </div>
-
 
           <div>
 
             <span>
-              Order Confirmed
+              Production / Closed
             </span>
 
-
             <strong>
-
-              {
-                proformas.filter(
-                  item =>
-                    [
-                      "Confirmed",
-                      "Order Confirmed",
-                      "Production Started",
-                      "Production Completed",
-                    ].includes(
-                      item.status
-                    )
-                ).length
-              }
-
+              {productionTrackingProformas.length}
             </strong>
 
-
             <small>
-              Accepted customer orders
+              Production and closed records
             </small>
 
           </div>
@@ -6231,20 +8856,14 @@ export default function ProformaPage() {
         <div className="proforma-kpi highlight">
 
           <div className="kpi-icon">
-
-            <CircleDollarSign
-              size={19}
-            />
-
+            <CircleDollarSign size={19} />
           </div>
-
 
           <div>
 
             <span>
               Total Value
             </span>
-
 
             <strong>
 
@@ -6268,9 +8887,8 @@ export default function ProformaPage() {
 
             </strong>
 
-
             <small>
-              Current records
+              Recorded Proforma value
             </small>
 
           </div>
@@ -6280,18 +8898,11 @@ export default function ProformaPage() {
       </section>
 
 
-      {/* ======================================================
-          FILTER
-      ====================================================== */}
-
       <section className="filter-card">
 
         <div className="search-box">
 
-          <Search
-            size={18}
-          />
-
+          <Search size={18} />
 
           <input
             value={
@@ -6300,14 +8911,11 @@ export default function ProformaPage() {
             onChange={
               event =>
                 setSearch(
-                  event
-                    .target
-                    .value
+                  event.target.value
                 )
             }
-            placeholder="Search proforma, customer or finished product..."
+            placeholder="Search Proforma, customer or finished product..."
           />
-
 
           {
             search
@@ -6322,11 +8930,7 @@ export default function ProformaPage() {
                     )
                 }
               >
-
-                <X
-                  size={16}
-                />
-
+                <X size={16} />
               </button>
             )
           }
@@ -6341,9 +8945,7 @@ export default function ProformaPage() {
           onChange={
             event =>
               setStatusFilter(
-                event
-                  .target
-                  .value
+                event.target.value
               )
           }
         >
@@ -6390,71 +8992,17 @@ export default function ProformaPage() {
         &&
         (
           <div className="proforma-alert error">
-
-            <span>
-              {error}
-            </span>
-
-
-            <button
-              type="button"
-              onClick={
-                () =>
-                  setError(
-                    ""
-                  )
-              }
-            >
-
-              <X
-                size={16}
-              />
-
-            </button>
-
+            {error}
           </div>
         )
       }
 
 
-      {/* ======================================================
-          TABLE
-      ====================================================== */}
+      {
+        loading
+          ? (
+              <section className="table-card">
 
-      <section className="table-card">
-
-        <div className="table-card-header">
-
-          <div>
-
-            <h2>
-              Proforma Records
-            </h2>
-
-
-            <p>
-
-              {
-                filteredProformas.length
-              }
-
-              {" records shown"}
-
-            </p>
-
-          </div>
-
-
-          <span className="table-meta">
-            Enquiry → Proforma
-          </span>
-
-        </div>
-
-
-        {
-          loading
-            ? (
                 <div className="table-state">
 
                   <Loader2
@@ -6462,472 +9010,219 @@ export default function ProformaPage() {
                     className="spin"
                   />
 
-
                   <h3>
                     Loading Proformas...
                   </h3>
 
                 </div>
-              )
-            : filteredProformas.length
-              === 0
-                ? (
-                    <div className="table-state">
 
-                      <div className="empty-state-icon">
-
-                        <FileText
-                          size={27}
-                        />
-
-                      </div>
-
-
-                      <h3>
-                        No Proformas found
-                      </h3>
-
-
-                      <p>
-                        Try changing the search or status filter.
-                      </p>
-
-                    </div>
-                  )
-                : (
-                    <>
-
-                      <div className="proforma-table-wrapper">
-
-                        <table className="proforma-table">
-
-                          <thead>
-
-                            <tr>
-
-                              <th>
-                                Proforma
-                              </th>
-
-                              <th>
-                                Date
-                              </th>
-
-                              <th>
-                                Customer
-                              </th>
-
-                              <th>
-                                Finished Product / Machine
-                              </th>
-
-                              <th>
-                                Items
-                              </th>
-
-                              <th>
-                                Amount
-                              </th>
-
-                              <th>
-                                Status
-                              </th>
-
-                              <th>
-                                Action
-                              </th>
-
-                            </tr>
-
-                          </thead>
-
-
-                          <tbody>
-
-                            {
-                              paginatedProformas.map(
-                                proforma => {
-
-                                  const firstItem =
-                                    proforma.items[
-                                      0
-                                    ]?.description
-                                    || "-";
-
-
-                                  const recordLocked =
-                                    [
-                                      "Order Confirmed",
-                                      "Confirmed",
-                                      "Production Started",
-                                      "Production Completed",
-                                      "Final Bill Generated",
-                                      "Payment Pending",
-                                      "Payment Received",
-                                      "Completed",
-                                    ].includes(
-                                      proforma.status
-                                    );
-
-
-                                  return (
-                                    <tr
-                                      key={
-                                        proforma.id
-                                      }
-                                    >
-
-                                      <td>
-
-                                        <div className="record-primary">
-
-                                          {
-                                            proforma
-                                              .proforma_number
-                                          }
-
-                                        </div>
-
-                                      </td>
-
-
-                                      <td>
-
-                                        {
-                                          formatDate(
-                                            proforma
-                                              .proforma_date
-                                          )
-                                        }
-
-                                      </td>
-
-
-                                      <td>
-
-                                        <div className="customer-name">
-
-                                          {
-                                            proforma
-                                              .company_name
-                                          }
-
-                                        </div>
-
-
-                                        {
-                                          proforma
-                                            .contact_person
-                                          &&
-                                          (
-                                            <div className="record-secondary">
-
-                                              {
-                                                proforma
-                                                  .contact_person
-                                              }
-
-                                            </div>
-                                          )
-                                        }
-
-                                      </td>
-
-
-                                      <td>
-
-                                        <div className="record-primary">
-
-                                          {
-                                            firstItem
-                                          }
-
-                                        </div>
-
-
-                                        {
-                                          proforma.items.length
-                                          > 1
-                                          &&
-                                          (
-                                            <div className="record-secondary">
-
-                                              +
-                                              {
-                                                proforma
-                                                  .items
-                                                  .length
-                                                -
-                                                1
-                                              }
-
-                                              {" more"}
-
-                                            </div>
-                                          )
-                                        }
-
-                                      </td>
-
-
-                                      <td>
-
-                                        {
-                                          proforma
-                                            .items
-                                            .length
-                                        }
-
-                                      </td>
-
-
-                                      <td>
-
-                                        <strong className="amount">
-
-                                          ₹
-                                          {
-                                            money(
-                                              proforma
-                                                .grand_total
-                                            )
-                                          }
-
-                                        </strong>
-
-                                      </td>
-
-
-                                      <td>
-
-                                        <span
-                                          className={
-                                            `status-badge ${statusClass(
-                                              proforma.status
-                                            )}`
-                                          }
-                                        >
-
-                                          {
-                                            proforma
-                                              .status
-                                          }
-
-                                        </span>
-
-                                      </td>
-
-
-                                      <td>
-
-                                        <div className="row-actions">
-
-                                          <button
-                                            type="button"
-                                            title="View"
-                                            onClick={
-                                              () =>
-                                                navigate(
-                                                  `/proformas/${proforma.id}`
-                                                )
-                                            }
-                                          >
-
-                                            <Eye
-                                              size={16}
-                                            />
-
-                                          </button>
-
-
-                                          {
-                                            canEditProforma
-                                            &&
-                                            !recordLocked
-                                            &&
-                                            (
-                                              <button
-                                                type="button"
-                                                title="Edit"
-                                                onClick={
-                                                  () =>
-                                                    navigate(
-                                                      `/proformas/${proforma.id}?edit=true`
-                                                    )
-                                                }
-                                              >
-
-                                                <Pencil
-                                                  size={16}
-                                                />
-
-                                              </button>
-                                            )
-                                          }
-
-                                        </div>
-
-                                      </td>
-
-                                    </tr>
-                                  );
-
-                                }
-                              )
-                            }
-
-                          </tbody>
-
-                        </table>
-
-                      </div>
-
-
-                      {/* ==========================================
-                          PAGINATION
-                      =========================================== */}
+              </section>
+            )
+          : (
+              <>
+
+                <section
+                  className="table-card"
+                  style={{
+                    marginBottom:
+                      "22px",
+                  }}
+                >
+
+                  <div className="table-card-header">
+
+                    <div>
 
                       <div
                         style={{
-                          display:
-                            "flex",
+                          marginBottom:
+                            "5px",
 
-                          alignItems:
-                            "center",
+                          color:
+                            "#3478ed",
 
-                          justifyContent:
-                            "space-between",
+                          fontSize:
+                            "9px",
 
-                          gap:
-                            "14px",
+                          fontWeight:
+                            800,
 
-                          padding:
-                            "16px 18px",
-
-                          borderTop:
-                            "1px solid #edf1f5",
+                          letterSpacing:
+                            ".08em",
                         }}
                       >
-
-                        <div className="record-secondary">
-
-                          Showing{" "}
-
-                          <strong>
-                            {firstRecord}
-                          </strong>
-
-                          {"–"}
-
-                          <strong>
-                            {lastRecord}
-                          </strong>
-
-                          {" of "}
-
-                          <strong>
-                            {
-                              filteredProformas
-                                .length
-                            }
-                          </strong>
-
-                          {" records"}
-
-                        </div>
-
-
-                        <div
-                          style={{
-                            display:
-                              "flex",
-
-                            alignItems:
-                              "center",
-
-                            gap:
-                              "10px",
-                          }}
-                        >
-
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            disabled={
-                              page
-                              <= 1
-                            }
-                            onClick={
-                              () =>
-                                setPage(
-                                  current =>
-                                    Math.max(
-                                      1,
-                                      current
-                                      -
-                                      1
-                                    )
-                                )
-                            }
-                          >
-
-                            Previous
-
-                          </button>
-
-
-                          <span className="record-secondary">
-
-                            Page{" "}
-
-                            <strong>
-                              {page}
-                            </strong>
-
-                            {" of "}
-
-                            <strong>
-                              {totalPages}
-                            </strong>
-
-                          </span>
-
-
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            disabled={
-                              page
-                              >= totalPages
-                            }
-                            onClick={
-                              () =>
-                                setPage(
-                                  current =>
-                                    Math.min(
-                                      totalPages,
-                                      current
-                                      +
-                                      1
-                                    )
-                                )
-                            }
-                          >
-
-                            Next
-
-                          </button>
-
-                        </div>
-
+                        ACTIVE SALES WORKFLOW
                       </div>
 
-                    </>
-                  )
-        }
 
-      </section>
+                      <h2>
+                        Sales / Awaiting Production
+                      </h2>
+
+
+                      <p>
+                        Draft, Sent and Order Confirmed Proformas.
+                        Order Confirmed remains editable until
+                        Production actually starts.
+                      </p>
+
+                    </div>
+
+
+                    <span className="table-meta">
+
+                      {
+                        salesTrackingProformas.length
+                      }{" "}
+                      active
+
+                    </span>
+
+                  </div>
+
+
+                  {
+                    renderTrackingTable(
+                      paginatedSalesProformas
+                    )
+                  }
+
+
+                  {
+                    salesTrackingProformas.length
+                    >
+                    0
+                    &&
+                    renderPagination(
+                      salesPage,
+
+                      salesTotalPages,
+
+                      salesTrackingProformas.length,
+
+                      () =>
+                        setSalesPage(
+                          current =>
+                            Math.max(
+                              1,
+                              current - 1
+                            )
+                        ),
+
+                      () =>
+                        setSalesPage(
+                          current =>
+                            Math.min(
+                              salesTotalPages,
+                              current + 1
+                            )
+                        )
+                    )
+                  }
+
+                </section>
+
+
+                <section className="table-card">
+
+                  <div className="table-card-header">
+
+                    <div>
+
+                      <div
+                        style={{
+                          marginBottom:
+                            "5px",
+
+                          color:
+                            "#6c5ce7",
+
+                          fontSize:
+                            "9px",
+
+                          fontWeight:
+                            800,
+
+                          letterSpacing:
+                            ".08em",
+                        }}
+                      >
+                        DOWNSTREAM WORKFLOW
+                      </div>
+
+
+                      <h2>
+                        Production / Closed Proformas
+                      </h2>
+
+
+                      <p>
+                        Production Started, Production Completed,
+                        Rejected and Cancelled records are tracked
+                        separately from active quotations.
+                      </p>
+
+                    </div>
+
+
+                    <span className="table-meta">
+
+                      {
+                        productionTrackingProformas.length
+                      }{" "}
+                      records
+
+                    </span>
+
+                  </div>
+
+
+                  {
+                    renderTrackingTable(
+                      paginatedProductionProformas
+                    )
+                  }
+
+
+                  {
+                    productionTrackingProformas.length
+                    >
+                    0
+                    &&
+                    renderPagination(
+                      productionPage,
+
+                      productionTotalPages,
+
+                      productionTrackingProformas.length,
+
+                      () =>
+                        setProductionPage(
+                          current =>
+                            Math.max(
+                              1,
+                              current - 1
+                            )
+                        ),
+
+                      () =>
+                        setProductionPage(
+                          current =>
+                            Math.min(
+                              productionTotalPages,
+                              current + 1
+                            )
+                        )
+                    )
+                  }
+
+                </section>
+
+              </>
+            )
+      }
 
     </div>
   );
+
 }

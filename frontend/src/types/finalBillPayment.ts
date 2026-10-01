@@ -61,6 +61,24 @@ export interface FinalBillPaymentSummary {
 
   receivable_amount: string;
 
+  /*
+   * Customer money received before Final Billing,
+   * against the confirmed Proforma.
+   */
+  proforma_advance_amount: string;
+
+  /*
+   * Customer money recorded after Final Bill issue.
+   */
+  invoice_payment_amount: string;
+
+  /*
+   * Total customer money received:
+   *
+   * Proforma Advance
+   * +
+   * Final Bill Payments
+   */
   paid_amount: string;
 
   balance_amount: string;
@@ -68,5 +86,11 @@ export interface FinalBillPaymentSummary {
   payment_status:
     FinalBillPaymentStatus;
 
+  /*
+   * Only payments recorded directly from Final Billing.
+   *
+   * Proforma advance history remains stored against
+   * the Proforma itself.
+   */
   payments: FinalBillPayment[];
 }
