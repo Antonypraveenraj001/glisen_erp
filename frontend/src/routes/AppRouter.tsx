@@ -30,6 +30,9 @@ import PurchaseBillList
 import PurchaseBillScanner
   from "../pages/PurchaseBills/PurchaseBillScanner";
 
+import PurchaseBillDrafts
+  from "../pages/PurchaseBills/PurchaseBillDrafts";
+
 import PurchaseBillReview
   from "../pages/PurchaseBills/PurchaseBillReview";
 
@@ -373,6 +376,7 @@ function DefaultLandingRoute() {
 
     </div>
   );
+
 }
 
 
@@ -387,6 +391,10 @@ export default function AppRouter() {
 
       <Routes>
 
+        {/* ======================================================
+            LOGIN
+        ====================================================== */}
+
         <Route
           path="/login"
           element={
@@ -394,6 +402,10 @@ export default function AppRouter() {
           }
         />
 
+
+        {/* ======================================================
+            AUTHENTICATED ERP
+        ====================================================== */}
 
         <Route
           element={
@@ -405,6 +417,10 @@ export default function AppRouter() {
           }
         >
 
+          {/* ====================================================
+              DEFAULT
+          ==================================================== */}
+
           <Route
             path="/"
             element={
@@ -413,7 +429,9 @@ export default function AppRouter() {
           />
 
 
-          {/* DASHBOARD */}
+          {/* ====================================================
+              DASHBOARD
+          ==================================================== */}
 
           <Route
             path="/dashboard"
@@ -429,7 +447,9 @@ export default function AppRouter() {
           />
 
 
-          {/* ENQUIRIES */}
+          {/* ====================================================
+              ENQUIRIES
+          ==================================================== */}
 
           <Route
             path="/enquiries"
@@ -445,7 +465,9 @@ export default function AppRouter() {
           />
 
 
-          {/* PROFORMAS */}
+          {/* ====================================================
+              PROFORMAS
+          ==================================================== */}
 
           <Route
             path="/proformas"
@@ -493,7 +515,9 @@ export default function AppRouter() {
           />
 
 
-          {/* PURCHASE BILLS */}
+          {/* ====================================================
+              PURCHASE BILLS
+          ==================================================== */}
 
           <Route
             path="/purchase-bills"
@@ -509,6 +533,10 @@ export default function AppRouter() {
           />
 
 
+          {/* ----------------------------------------------------
+              MULTI BILL UPLOAD / AI SCAN
+          ---------------------------------------------------- */}
+
           <Route
             path="/purchase-bills/scan"
             element={
@@ -522,6 +550,34 @@ export default function AppRouter() {
             }
           />
 
+
+          {/* ----------------------------------------------------
+              EXTRACTED BILL DRAFTS
+
+              IMPORTANT:
+              Keep this route BEFORE /purchase-bills/:id
+              otherwise "drafts" may be interpreted as an ID.
+          ---------------------------------------------------- */}
+
+          <Route
+            path="/purchase-bills/drafts"
+            element={
+              <PermissionRoute
+                permission="purchase_bills.ai_scan"
+              >
+
+                <PurchaseBillDrafts />
+
+              </PermissionRoute>
+            }
+          />
+
+
+          {/* ----------------------------------------------------
+              REVIEW / MANUAL ENTRY
+
+              Existing route retained.
+          ---------------------------------------------------- */}
 
           <Route
             path="/purchase-bills/review"
@@ -537,6 +593,15 @@ export default function AppRouter() {
           />
 
 
+          {/* ----------------------------------------------------
+              CONFIRMED PURCHASE BILL DETAILS
+
+              Dynamic route must remain after:
+              /scan
+              /drafts
+              /review
+          ---------------------------------------------------- */}
+
           <Route
             path="/purchase-bills/:id"
             element={
@@ -551,7 +616,9 @@ export default function AppRouter() {
           />
 
 
-          {/* PRODUCTS */}
+          {/* ====================================================
+              PRODUCTS
+          ==================================================== */}
 
           <Route
             path="/products"
@@ -567,7 +634,9 @@ export default function AppRouter() {
           />
 
 
-          {/* SUPPLIERS */}
+          {/* ====================================================
+              SUPPLIERS
+          ==================================================== */}
 
           <Route
             path="/suppliers"
@@ -583,7 +652,9 @@ export default function AppRouter() {
           />
 
 
-          {/* CUSTOMERS */}
+          {/* ====================================================
+              CUSTOMERS
+          ==================================================== */}
 
           <Route
             path="/customers"
@@ -599,7 +670,9 @@ export default function AppRouter() {
           />
 
 
-          {/* STOCK */}
+          {/* ====================================================
+              STOCK
+          ==================================================== */}
 
           <Route
             path="/stock"
@@ -615,7 +688,9 @@ export default function AppRouter() {
           />
 
 
-          {/* PRODUCTION */}
+          {/* ====================================================
+              PRODUCTION
+          ==================================================== */}
 
           <Route
             path="/production"
@@ -631,7 +706,9 @@ export default function AppRouter() {
           />
 
 
-          {/* FINISHED PRODUCTS */}
+          {/* ====================================================
+              FINISHED PRODUCTS
+          ==================================================== */}
 
           <Route
             path="/finished-products"
@@ -661,7 +738,9 @@ export default function AppRouter() {
           />
 
 
-          {/* FINAL BILLING */}
+          {/* ====================================================
+              FINAL BILLING
+          ==================================================== */}
 
           <Route
             path="/final-billing"
@@ -677,7 +756,9 @@ export default function AppRouter() {
           />
 
 
-          {/* GST */}
+          {/* ====================================================
+              GST
+          ==================================================== */}
 
           <Route
             path="/gst"
@@ -693,7 +774,9 @@ export default function AppRouter() {
           />
 
 
-          {/* EXPENSES */}
+          {/* ====================================================
+              EXPENSES
+          ==================================================== */}
 
           <Route
             path="/expenses"
@@ -709,7 +792,9 @@ export default function AppRouter() {
           />
 
 
-          {/* FINANCIAL */}
+          {/* ====================================================
+              FINANCIAL
+          ==================================================== */}
 
           <Route
             path="/financial"
@@ -725,7 +810,9 @@ export default function AppRouter() {
           />
 
 
-          {/* SETTINGS */}
+          {/* ====================================================
+              SETTINGS
+          ==================================================== */}
 
           <Route
             path="/settings"
@@ -742,6 +829,10 @@ export default function AppRouter() {
 
         </Route>
 
+
+        {/* ======================================================
+            404
+        ====================================================== */}
 
         <Route
           path="*"
@@ -764,4 +855,5 @@ export default function AppRouter() {
 
     </BrowserRouter>
   );
+
 }

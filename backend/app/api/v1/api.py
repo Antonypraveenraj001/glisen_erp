@@ -162,12 +162,35 @@ api_router.include_router(
     suppliers_router
 )
 
-api_router.include_router(
-    purchase_bills_router
-)
+
+# ================================================================
+# IMPORTANT ROUTE ORDER
+#
+# Purchase Bill AI routes must be registered BEFORE the normal
+# Purchase Bill router.
+#
+# Reason:
+#
+# Normal Purchase Bill router contains:
+#
+#     GET /purchase-bills/{purchase_bill_id}
+#
+# AI router contains static paths such as:
+#
+#     GET /purchase-bills/ai-drafts
+#     GET /purchase-bills/ai-drafts/{draft_id}
+#     GET /purchase-bills/ai-batches/{batch_id}
+#
+# Registering the AI router first ensures static AI paths are
+# matched before the dynamic Purchase Bill ID route.
+# ================================================================
 
 api_router.include_router(
     purchase_bill_ai_router
+)
+
+api_router.include_router(
+    purchase_bills_router
 )
 
 

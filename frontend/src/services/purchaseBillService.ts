@@ -2,6 +2,11 @@ import axios from "axios";
 
 import type {
   PurchaseBill,
+  PurchaseBillAIBatchResponse,
+  PurchaseBillAIBatchStartResponse,
+  PurchaseBillAIDraftDetail,
+  PurchaseBillAIDraftSummary,
+  PurchaseBillAIDataResponse,
   PurchaseBillAIResponse,
   PurchaseBillConfirmRequest,
   PurchaseBillConfirmResponse,
@@ -19,7 +24,7 @@ const API_BASE_URL =
 
 
 /* ================================================================
-   AUTHENTICATION HEADERS
+   AUTH HEADERS
 ================================================================ */
 
 function getAuthHeaders() {
@@ -31,9 +36,11 @@ function getAuthHeaders() {
 
 
   if (!token) {
+
     throw new Error(
       "Authentication required."
     );
+
   }
 
 
@@ -41,16 +48,18 @@ function getAuthHeaders() {
     Authorization:
       `Bearer ${token}`,
   };
+
 }
 
 
 /* ================================================================
-   1. AI EXTRACT PURCHASE BILL
+   SINGLE FILE AI EXTRACTION
 ================================================================ */
 
 export async function extractPurchaseBill(
   file: File
-): Promise<PurchaseBillAIResponse> {
+):
+Promise<PurchaseBillAIResponse> {
 
   const formData =
     new FormData();
@@ -69,27 +78,280 @@ export async function extractPurchaseBill(
       `${API_BASE_URL}/purchase-bills/extract`,
       formData,
       {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+
+  return response.data;
+
+}
+
+
+/* ================================================================
+   MULTI FILE AI EXTRACTION
+================================================================ */
+
+export async function extractPurchaseBillBatch(
+  files: File[]
+):
+Promise<PurchaseBillAIBatchStartResponse> {
+
+  if (
+    files.length
+    ===
+    0
+  ) {
+
+    throw new Error(
+      "At least one Purchase Bill image is required."
+    );
+
+  }
+
+
+  const formData =
+    new FormData();
+
+
+  files.forEach(
+    file => {
+
+      formData.append(
+        "files",
+        file
+      );
+
+    }
+  );
+
+
+  const response =
+    await axios.post<
+      PurchaseBillAIBatchStartResponse
+    >(
+      `${API_BASE_URL}/purchase-bills/extract-batch`,
+      formData,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+
+  return response.data;
+
+}
+
+
+/* ================================================================
+   GET AI DRAFTS
+================================================================ */
+
+export async function getPurchaseBillAIDrafts(
+  status?: string
+):
+Promise<PurchaseBillAIDraftSummary[]> {
+
+  const response =
+    await axios.get<
+      PurchaseBillAIDraftSummary[]
+    >(
+      `${API_BASE_URL}/purchase-bills/ai-drafts`,
+      {
+        headers:
+          getAuthHeaders(),
+
+        params:
+          status
+            ? {
+                status,
+              }
+            : undefined,
+      }
+    );
+
+
+  return response.data;
+
+}
+
+
+/* ================================================================
+   GET ONE AI DRAFT
+================================================================ */
+
+export async function getPurchaseBillAIDraft(
+  draftId: number
+):
+Promise<PurchaseBillAIDraftDetail> {
+
+  const response =
+    await axios.get<
+      PurchaseBillAIDraftDetail
+    >(
+      `${API_BASE_URL}/purchase-bills/ai-drafts/${draftId}`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+
+  return response.data;
+
+}
+
+
+/* ================================================================
+   UPDATE READY AI DRAFT
+================================================================ */
+
+export async function updatePurchaseBillAIDraft(
+  draftId: number,
+
+  data:
+    PurchaseBillAIDataResponse
+):
+Promise<PurchaseBillAIDraftDetail> {
+
+  const response =
+    await axios.put<
+      PurchaseBillAIDraftDetail
+    >(
+      `${API_BASE_URL}/purchase-bills/ai-drafts/${draftId}`,
+      data,
+      {
         headers: {
           ...getAuthHeaders(),
 
           "Content-Type":
-            "multipart/form-data",
+            "application/json",
         },
       }
     );
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   2. GET PURCHASE BILLS
+   CANCEL AI DRAFT
+================================================================ */
+
+export async function cancelPurchaseBillAIDraft(
+  draftId: number
+):
+Promise<PurchaseBillAIDraftDetail> {
+
+  const response =
+    await axios.post<
+      PurchaseBillAIDraftDetail
+    >(
+      `${API_BASE_URL}/purchase-bills/ai-drafts/${draftId}/cancel`,
+      {},
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+
+  return response.data;
+
+}
+
+
+/* ================================================================
+   CONFIRM AI DRAFT
+================================================================ */
+
+export async function confirmPurchaseBillAIDraft(
+  draftId: number
+):
+Promise<{
+  success: boolean;
+
+  draft_id: number;
+
+  status: string;
+
+  purchase_bill_id: number;
+
+  bill_number: string;
+
+  supplier_id: number;
+
+  grand_total: number;
+}> {
+
+  const response =
+    await axios.post<{
+      success: boolean;
+
+      draft_id: number;
+
+      status: string;
+
+      purchase_bill_id: number;
+
+      bill_number: string;
+
+      supplier_id: number;
+
+      grand_total: number;
+    }>(
+      `${API_BASE_URL}/purchase-bills/ai-drafts/${draftId}/confirm`,
+      {},
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+
+  return response.data;
+
+}
+
+
+/* ================================================================
+   GET AI BATCH
+================================================================ */
+
+export async function getPurchaseBillAIBatch(
+  batchId: number
+):
+Promise<PurchaseBillAIBatchResponse> {
+
+  const response =
+    await axios.get<
+      PurchaseBillAIBatchResponse
+    >(
+      `${API_BASE_URL}/purchase-bills/ai-batches/${batchId}`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    );
+
+
+  return response.data;
+
+}
+
+
+/* ================================================================
+   GET PURCHASE BILLS
 ================================================================ */
 
 export async function getPurchaseBills(
   search?: string
-): Promise<PurchaseBill[]> {
+):
+Promise<PurchaseBill[]> {
 
   const response =
     await axios.get<
@@ -111,16 +373,18 @@ export async function getPurchaseBills(
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   3. GET SINGLE PURCHASE BILL
+   GET PURCHASE BILL
 ================================================================ */
 
 export async function getPurchaseBill(
   purchaseBillId: number
-): Promise<PurchaseBill> {
+):
+Promise<PurchaseBill> {
 
   const response =
     await axios.get<
@@ -135,31 +399,32 @@ export async function getPurchaseBill(
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   3A. GET SINGLE PURCHASE BILL BY ID
-
-   Alias used by existing Purchase Bill pages.
+   GET PURCHASE BILL BY ID ALIAS
 ================================================================ */
 
 export async function getPurchaseBillById(
   purchaseBillId: number
-): Promise<PurchaseBill> {
+):
+Promise<PurchaseBill> {
 
   return getPurchaseBill(
     purchaseBillId
   );
+
 }
 
 
 /* ================================================================
-   4. GET PURCHASE BILL STATISTICS
+   STATISTICS
 ================================================================ */
 
 export async function getPurchaseBillStatistics():
-  Promise<PurchaseBillStatistics> {
+Promise<PurchaseBillStatistics> {
 
   const response =
     await axios.get<
@@ -174,17 +439,19 @@ export async function getPurchaseBillStatistics():
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   5. CONFIRM AI PURCHASE BILL
+   EXISTING MANUAL / SINGLE EXTRACTION CONFIRM
 ================================================================ */
 
 export async function confirmPurchaseBill(
   data:
     PurchaseBillConfirmRequest
-): Promise<PurchaseBillConfirmResponse> {
+):
+Promise<PurchaseBillConfirmResponse> {
 
   const response =
     await axios.post<
@@ -204,18 +471,21 @@ export async function confirmPurchaseBill(
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   6. UPDATE PURCHASE BILL
+   UPDATE PURCHASE BILL
 ================================================================ */
 
 export async function updatePurchaseBill(
   purchaseBillId: number,
+
   data:
     PurchaseBillUpdateRequest
-): Promise<PurchaseBill> {
+):
+Promise<PurchaseBill> {
 
   const response =
     await axios.put<
@@ -235,16 +505,18 @@ export async function updatePurchaseBill(
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   7. DELETE / DEACTIVATE PURCHASE BILL
+   CANCEL PURCHASE BILL
 ================================================================ */
 
 export async function deactivatePurchaseBill(
   purchaseBillId: number
-): Promise<{
+):
+Promise<{
   message: string;
 }> {
 
@@ -261,16 +533,18 @@ export async function deactivatePurchaseBill(
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   8. GET PAYMENT SUMMARY
+   PAYMENT SUMMARY
 ================================================================ */
 
 export async function getPurchaseBillPaymentSummary(
   purchaseBillId: number
-): Promise<PurchaseBillPaymentSummary> {
+):
+Promise<PurchaseBillPaymentSummary> {
 
   const response =
     await axios.get<
@@ -285,18 +559,21 @@ export async function getPurchaseBillPaymentSummary(
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   9. RECORD SUPPLIER PAYMENT
+   RECORD PAYMENT
 ================================================================ */
 
 export async function recordPurchaseBillPayment(
   purchaseBillId: number,
+
   data:
     PurchaseBillPaymentCreate
-): Promise<PurchaseBillPayment> {
+):
+Promise<PurchaseBillPayment> {
 
   const response =
     await axios.post<
@@ -316,15 +593,16 @@ export async function recordPurchaseBillPayment(
 
 
   return response.data;
+
 }
 
 
 /* ================================================================
-   10. GET UNPAID PURCHASE BILL AGING
+   UNPAID AGING
 ================================================================ */
 
 export async function getUnpaidPurchaseBillAging():
-  Promise<PurchaseBillUnpaidAging[]> {
+Promise<PurchaseBillUnpaidAging[]> {
 
   const response =
     await axios.get<
@@ -339,4 +617,5 @@ export async function getUnpaidPurchaseBillAging():
 
 
   return response.data;
+
 }

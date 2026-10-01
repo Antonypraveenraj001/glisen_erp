@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -24,11 +26,6 @@ class AIPurchaseBillResponse(BaseModel):
     bill_number: str = ""
     bill_date: str = ""
 
-    # AI extraction does not need to guess
-    # supplier credit terms.
-    #
-    # User reviews/enters this value before
-    # confirming the Purchase Bill.
     credit_days: int = 0
 
     subtotal: float = 0
@@ -60,6 +57,12 @@ class PurchaseBillAIDataResponse(BaseModel):
     products: list[AIProductResponse]
 
 
+# ================================================================
+# OLD SINGLE-FILE EXTRACTION RESPONSE
+#
+# Retained temporarily so the current frontend continues working.
+# ================================================================
+
 class PurchaseBillAIResponse(BaseModel):
     status: str
     filename: str
@@ -69,3 +72,100 @@ class PurchaseBillAIResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+
+# ================================================================
+# BATCH START RESPONSE
+# ================================================================
+
+class PurchaseBillAIBatchStartResponse(
+    BaseModel
+):
+    batch_id: int
+    total_files: int
+    queued: int
+    message: str
+
+
+# ================================================================
+# DRAFT SUMMARY
+# ================================================================
+
+class PurchaseBillAIDraftSummaryResponse(
+    BaseModel
+):
+    id: int
+    batch_id: int
+    sequence_number: int
+
+    original_filename: str
+
+    status: str
+
+    supplier_name: str = ""
+    bill_number: str = ""
+    bill_date: str = ""
+    grand_total: float = 0
+
+    error_message: str | None = None
+
+    confirmed_purchase_bill_id: (
+        int | None
+    ) = None
+
+    processing_started_at: (
+        datetime | None
+    ) = None
+
+    processing_completed_at: (
+        datetime | None
+    ) = None
+
+    confirmed_at: (
+        datetime | None
+    ) = None
+
+    cancelled_at: (
+        datetime | None
+    ) = None
+
+    created_at: datetime
+    updated_at: datetime
+
+
+# ================================================================
+# DRAFT DETAIL
+# ================================================================
+
+class PurchaseBillAIDraftDetailResponse(
+    PurchaseBillAIDraftSummaryResponse
+):
+    extracted_data: (
+        PurchaseBillAIDataResponse
+        |
+        None
+    ) = None
+
+
+# ================================================================
+# BATCH STATUS
+# ================================================================
+
+class PurchaseBillAIBatchResponse(
+    BaseModel
+):
+    batch_id: int
+    total_files: int
+
+    queued: int
+    processing: int
+    ready: int
+    failed: int
+    confirmed: int
+    cancelled: int
+
+    created_at: datetime
+
+    drafts: list[
+        PurchaseBillAIDraftSummaryResponse
+    ]

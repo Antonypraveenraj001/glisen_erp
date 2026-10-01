@@ -19,12 +19,16 @@ import {
   getPurchaseBills,
 } from "../../services/purchaseBillService";
 
+import {
+  getBusinessSettings,
+} from "../../services/settingsService";
+
 import type {
   PurchaseBill,
 } from "../../types/purchaseBill";
 
 
-const PAGE_SIZE =
+const FALLBACK_PAGE_SIZE =
   10;
 
 
@@ -36,7 +40,9 @@ function formatDate(
   value: string
 ) {
 
-  if (!value) {
+  if (
+    !value
+  ) {
     return "—";
   }
 
@@ -69,6 +75,7 @@ function formatDate(
         "numeric",
     }
   );
+
 }
 
 
@@ -80,7 +87,9 @@ function formatCurrency(
 
   const amount =
     Number(
-      value || 0
+      value
+      ||
+      0
     );
 
 
@@ -144,6 +153,7 @@ function getApiErrorMessage(
 
 
   return fallback;
+
 }
 
 
@@ -221,6 +231,15 @@ export default function PurchaseBillList() {
 
 
   const [
+    pageSize,
+    setPageSize,
+  ] =
+    useState(
+      FALLBACK_PAGE_SIZE
+    );
+
+
+  const [
     cancellingBillId,
     setCancellingBillId,
   ] =
@@ -233,7 +252,66 @@ export default function PurchaseBillList() {
 
 
   /* ==============================================================
-     LOAD
+     LOAD SETTINGS PAGE SIZE
+  ============================================================== */
+
+  async function loadPageSize() {
+
+    try {
+
+      const settings =
+        await getBusinessSettings();
+
+
+      const configuredPageSize =
+        Number(
+          settings.default_page_size
+        );
+
+
+      if (
+        Number.isInteger(
+          configuredPageSize
+        )
+        &&
+        configuredPageSize >= 5
+        &&
+        configuredPageSize <= 100
+      ) {
+
+        setPageSize(
+          configuredPageSize
+        );
+
+      } else {
+
+        setPageSize(
+          FALLBACK_PAGE_SIZE
+        );
+
+      }
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        "Unable to load Purchase Bill page size:",
+        err
+      );
+
+
+      setPageSize(
+        FALLBACK_PAGE_SIZE
+      );
+
+    }
+
+  }
+
+
+  /* ==============================================================
+     LOAD PURCHASE BILLS
   ============================================================== */
 
   const fetchPurchaseBills =
@@ -290,7 +368,10 @@ export default function PurchaseBillList() {
   useEffect(
     () => {
 
-      void fetchPurchaseBills();
+      void Promise.all([
+        loadPageSize(),
+        fetchPurchaseBills(),
+      ]);
 
     },
     []
@@ -307,7 +388,7 @@ export default function PurchaseBillList() {
       Math.ceil(
         purchaseBills.length
         /
-        PAGE_SIZE
+        pageSize
       )
     );
 
@@ -323,20 +404,21 @@ export default function PurchaseBillList() {
             1
           )
           *
-          PAGE_SIZE;
+          pageSize;
 
 
         return purchaseBills.slice(
           startIndex,
           startIndex
           +
-          PAGE_SIZE
+          pageSize
         );
 
       },
       [
         purchaseBills,
         currentPage,
+        pageSize,
       ]
     );
 
@@ -352,7 +434,7 @@ export default function PurchaseBillList() {
             1
           )
           *
-          PAGE_SIZE
+          pageSize
         )
         +
         1
@@ -363,10 +445,24 @@ export default function PurchaseBillList() {
     Math.min(
       currentPage
       *
-      PAGE_SIZE,
+      pageSize,
 
       purchaseBills.length
     );
+
+
+  useEffect(
+    () => {
+
+      setCurrentPage(
+        1
+      );
+
+    },
+    [
+      pageSize,
+    ]
+  );
 
 
   useEffect(
@@ -524,6 +620,9 @@ export default function PurchaseBillList() {
 
           gap:
             "20px",
+
+          flexWrap:
+            "wrap",
         }}
       >
 
@@ -533,6 +632,9 @@ export default function PurchaseBillList() {
             style={{
               margin:
                 "0 0 5px",
+
+              color:
+                "#1f3555",
             }}
           >
             Purchase Bills
@@ -548,7 +650,8 @@ export default function PurchaseBillList() {
                 "#6b7280",
             }}
           >
-            Manage supplier purchase bills.
+            Manage confirmed supplier Purchase Bills
+            and AI-extracted drafts.
           </p>
 
         </div>
@@ -558,39 +661,100 @@ export default function PurchaseBillList() {
           canScanPurchaseBill
           &&
           (
-            <button
-              type="button"
-              onClick={
-                () =>
-                  navigate(
-                    "/purchase-bills/scan"
-                  )
-              }
+            <div
               style={{
-                background:
-                  "#2563eb",
+                display:
+                  "flex",
 
-                color:
-                  "#ffffff",
+                alignItems:
+                  "center",
 
-                border:
-                  "none",
+                gap:
+                  "10px",
 
-                borderRadius:
-                  "7px",
-
-                padding:
-                  "12px 18px",
-
-                cursor:
-                  "pointer",
-
-                fontWeight:
-                  600,
+                flexWrap:
+                  "wrap",
               }}
             >
-              + Scan Purchase Bill
-            </button>
+
+              {/* ================================================
+                  EXTRACTED BILL DRAFTS
+              ================================================ */}
+
+              <button
+                type="button"
+                onClick={
+                  () =>
+                    navigate(
+                      "/purchase-bills/drafts"
+                    )
+                }
+                style={{
+                  background:
+                    "#ffffff",
+
+                  color:
+                    "#31547f",
+
+                  border:
+                    "1px solid #b8c7db",
+
+                  borderRadius:
+                    "7px",
+
+                  padding:
+                    "12px 18px",
+
+                  cursor:
+                    "pointer",
+
+                  fontWeight:
+                    600,
+                }}
+              >
+                Extracted Bills
+              </button>
+
+
+              {/* ================================================
+                  MULTI BILL UPLOAD
+              ================================================ */}
+
+              <button
+                type="button"
+                onClick={
+                  () =>
+                    navigate(
+                      "/purchase-bills/scan"
+                    )
+                }
+                style={{
+                  background:
+                    "#2563eb",
+
+                  color:
+                    "#ffffff",
+
+                  border:
+                    "none",
+
+                  borderRadius:
+                    "7px",
+
+                  padding:
+                    "12px 18px",
+
+                  cursor:
+                    "pointer",
+
+                  fontWeight:
+                    600,
+                }}
+              >
+                + Upload Purchase Bills
+              </button>
+
+            </div>
           )
         }
 
@@ -642,7 +806,11 @@ export default function PurchaseBillList() {
                 : "pointer",
           }}
         >
-          Refresh
+          {
+            loading
+              ? "Refreshing..."
+              : "Refresh"
+          }
         </button>
 
       </div>
@@ -752,7 +920,15 @@ export default function PurchaseBillList() {
                     }}
                   >
 
-                    <h3>
+                    <h3
+                      style={{
+                        color:
+                          "#1f3555",
+
+                        marginTop:
+                          0,
+                      }}
+                    >
                       No Purchase Bills Found
                     </h3>
 
@@ -763,8 +939,8 @@ export default function PurchaseBillList() {
                           "#6b7280",
                       }}
                     >
-                      Scan your first purchase bill
-                      to get started.
+                      Upload supplier bills or enter a
+                      Purchase Bill manually to get started.
                     </p>
 
 
@@ -772,36 +948,95 @@ export default function PurchaseBillList() {
                       canScanPurchaseBill
                       &&
                       (
-                        <button
-                          type="button"
-                          onClick={
-                            () =>
-                              navigate(
-                                "/purchase-bills/scan"
-                              )
-                          }
+                        <div
                           style={{
-                            background:
-                              "#2563eb",
+                            display:
+                              "flex",
 
-                            color:
-                              "#ffffff",
+                            justifyContent:
+                              "center",
 
-                            border:
-                              "none",
+                            gap:
+                              "10px",
 
-                            borderRadius:
-                              "6px",
+                            flexWrap:
+                              "wrap",
 
-                            padding:
-                              "10px 18px",
-
-                            cursor:
-                              "pointer",
+                            marginTop:
+                              "18px",
                           }}
                         >
-                          Scan Purchase Bill
-                        </button>
+
+                          <button
+                            type="button"
+                            onClick={
+                              () =>
+                                navigate(
+                                  "/purchase-bills/drafts"
+                                )
+                            }
+                            style={{
+                              background:
+                                "#ffffff",
+
+                              color:
+                                "#31547f",
+
+                              border:
+                                "1px solid #b8c7db",
+
+                              borderRadius:
+                                "6px",
+
+                              padding:
+                                "10px 18px",
+
+                              cursor:
+                                "pointer",
+
+                              fontWeight:
+                                600,
+                            }}
+                          >
+                            Extracted Bills
+                          </button>
+
+
+                          <button
+                            type="button"
+                            onClick={
+                              () =>
+                                navigate(
+                                  "/purchase-bills/scan"
+                                )
+                            }
+                            style={{
+                              background:
+                                "#2563eb",
+
+                              color:
+                                "#ffffff",
+
+                              border:
+                                "none",
+
+                              borderRadius:
+                                "6px",
+
+                              padding:
+                                "10px 18px",
+
+                              cursor:
+                                "pointer",
+
+                              fontWeight:
+                                600,
+                            }}
+                          >
+                            Upload Purchase Bills
+                          </button>
+
+                        </div>
                       )
                     }
 
@@ -1001,6 +1236,10 @@ export default function PurchaseBillList() {
                                   </td>
 
 
+                                  {/* ==============================
+                                      BILL DATE
+                                  =============================== */}
+
                                   <td
                                     style={{
                                       padding:
@@ -1014,6 +1253,10 @@ export default function PurchaseBillList() {
                                     }
                                   </td>
 
+
+                                  {/* ==============================
+                                      SUBTOTAL
+                                  =============================== */}
 
                                   <td
                                     style={{
@@ -1029,6 +1272,10 @@ export default function PurchaseBillList() {
                                   </td>
 
 
+                                  {/* ==============================
+                                      GST
+                                  =============================== */}
+
                                   <td
                                     style={{
                                       padding:
@@ -1042,6 +1289,10 @@ export default function PurchaseBillList() {
                                     }
                                   </td>
 
+
+                                  {/* ==============================
+                                      GRAND TOTAL
+                                  =============================== */}
 
                                   <td
                                     style={{
@@ -1062,6 +1313,10 @@ export default function PurchaseBillList() {
                                     }
                                   </td>
 
+
+                                  {/* ==============================
+                                      STATUS
+                                  =============================== */}
 
                                   <td
                                     style={{
@@ -1102,6 +1357,10 @@ export default function PurchaseBillList() {
 
                                   </td>
 
+
+                                  {/* ==============================
+                                      ACTIONS
+                                  =============================== */}
 
                                   <td
                                     style={{
@@ -1240,7 +1499,7 @@ export default function PurchaseBillList() {
 
 
                     {/* ==========================================
-                        PAGINATION
+                        SETTINGS CONTROLLED PAGINATION
                     =========================================== */}
 
                     <div
@@ -1265,6 +1524,9 @@ export default function PurchaseBillList() {
 
                         background:
                           "#ffffff",
+
+                        flexWrap:
+                          "wrap",
                       }}
                     >
 
@@ -1299,6 +1561,14 @@ export default function PurchaseBillList() {
                         </strong>
 
                         {" records"}
+
+                        {" • "}
+
+                        {
+                          pageSize
+                        }
+
+                        {" per page"}
 
                       </div>
 
@@ -1455,4 +1725,5 @@ export default function PurchaseBillList() {
 
     </div>
   );
+
 }

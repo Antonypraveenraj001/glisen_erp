@@ -81,6 +81,105 @@ export interface PurchaseBillAIResponse {
     PurchaseBillAIDataResponse;
 }
 
+/* ================================================================
+   AI BATCH EXTRACTION
+================================================================ */
+
+export type PurchaseBillAIDraftStatus =
+  | "QUEUED"
+  | "PROCESSING"
+  | "READY"
+  | "FAILED"
+  | "CONFIRMED"
+  | "CANCELLED";
+
+
+export interface PurchaseBillAIBatchStartResponse {
+  batch_id: number;
+
+  total_files: number;
+
+  queued: number;
+
+  message: string;
+}
+
+
+export interface PurchaseBillAIDraftSummary {
+  id: number;
+
+  batch_id: number;
+
+  sequence_number: number;
+
+  original_filename: string;
+
+  status:
+    PurchaseBillAIDraftStatus;
+
+  supplier_name: string;
+
+  bill_number: string;
+
+  bill_date: string;
+
+  grand_total: number;
+
+  error_message:
+    string | null;
+
+  confirmed_purchase_bill_id:
+    number | null;
+
+  processing_started_at:
+    string | null;
+
+  processing_completed_at:
+    string | null;
+
+  confirmed_at:
+    string | null;
+
+  cancelled_at:
+    string | null;
+
+  created_at: string;
+
+  updated_at: string;
+}
+
+
+export interface PurchaseBillAIDraftDetail
+  extends PurchaseBillAIDraftSummary {
+
+  extracted_data:
+    PurchaseBillAIDataResponse
+    | null;
+}
+
+
+export interface PurchaseBillAIBatchResponse {
+  batch_id: number;
+
+  total_files: number;
+
+  queued: number;
+
+  processing: number;
+
+  ready: number;
+
+  failed: number;
+
+  confirmed: number;
+
+  cancelled: number;
+
+  created_at: string;
+
+  drafts:
+    PurchaseBillAIDraftSummary[];
+}
 
 /* ================================================================
    CONFIRM PURCHASE BILL REQUEST
