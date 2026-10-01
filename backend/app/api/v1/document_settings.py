@@ -2,19 +2,27 @@ from fastapi import (
     APIRouter,
     Depends,
 )
+
 from sqlalchemy.orm import Session
 
 from app.dependencies.database import (
     get_db,
 )
+
 from app.dependencies.permissions import (
+    require_any_permission,
     require_permission,
 )
-from app.models.user import User
+
+from app.models.user import (
+    User,
+)
+
 from app.schemas.document_settings import (
     DocumentSettingsResponse,
     DocumentSettingsUpdate,
 )
+
 from app.services.document_settings_service import (
     DocumentSettingsService,
 )
@@ -31,8 +39,15 @@ router = APIRouter(
 # ================================================================
 # GET DOCUMENT SETTINGS
 #
-# Permission:
-#     settings.view
+# These settings are operational document-output settings.
+#
+# They may be read by:
+#
+# - Settings module
+# - Proformas module for Print / Download
+# - Final Billing module for Print / Download
+#
+# Editing remains protected separately.
 # ================================================================
 
 @router.get(
@@ -47,8 +62,10 @@ def get_document_settings(
     ),
 
     current_user: User = Depends(
-        require_permission(
-            "settings.view"
+        require_any_permission(
+            "settings.view",
+            "proformas.view",
+            "final_billing.view",
         )
     ),
 ):
@@ -64,8 +81,7 @@ def get_document_settings(
 # ================================================================
 # UPDATE DOCUMENT SETTINGS
 #
-# Permission:
-#     settings.documents.manage
+# Boss / authorized Settings users only.
 # ================================================================
 
 @router.put(
@@ -75,7 +91,8 @@ def get_document_settings(
     ),
 )
 def update_document_settings(
-    data: DocumentSettingsUpdate,
+    data:
+        DocumentSettingsUpdate,
 
     db: Session = Depends(
         get_db

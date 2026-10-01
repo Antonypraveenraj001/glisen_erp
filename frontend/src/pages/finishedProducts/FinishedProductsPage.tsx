@@ -40,6 +40,10 @@ import {
   getFinalBills,
 } from "../../services/finalBillService";
 
+import {
+  getBusinessSettings,
+} from "../../services/settingsService";
+
 import type {
   FinishedProduct,
 } from "../../types/finishedProduct";
@@ -57,6 +61,10 @@ import type {
 } from "../../types/finalBill";
 
 
+const FALLBACK_PAGE_SIZE =
+  10;
+
+
 /* ============================================================
    HELPERS
 ============================================================ */
@@ -67,12 +75,17 @@ function formatDate(
     | null
     | undefined
 ) {
+
   if (!value) {
     return "-";
   }
 
+
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
+
 
   if (
     Number.isNaN(
@@ -82,9 +95,11 @@ function formatDate(
     return value;
   }
 
+
   return date.toLocaleDateString(
     "en-IN"
   );
+
 }
 
 
@@ -93,25 +108,34 @@ function formatNumber(
     | string
     | number
 ) {
+
   const numericValue =
-    Number(value);
+    Number(
+      value
+    );
+
 
   if (
     Number.isNaN(
       numericValue
     )
   ) {
-    return String(value);
+    return String(
+      value
+    );
   }
+
 
   return new Intl.NumberFormat(
     "en-IN",
     {
-      maximumFractionDigits: 2,
+      maximumFractionDigits:
+        2,
     }
   ).format(
     numericValue
   );
+
 }
 
 
@@ -120,6 +144,7 @@ function formatNumber(
 ============================================================ */
 
 interface FinishedProductRow {
+
   finishedProduct:
     FinishedProduct;
 
@@ -134,6 +159,7 @@ interface FinishedProductRow {
 
   draftInvoice:
     FinalBill | null;
+
 }
 
 
@@ -142,27 +168,35 @@ interface FinishedProductRow {
 ============================================================ */
 
 function getIssuedInvoice(
-  bills: FinalBill[],
+  bills:
+    FinalBill[],
+
   proformaId:
     number | null
 ) {
+
   if (
-    proformaId === null
+    proformaId
+    ===
+    null
   ) {
     return null;
   }
+
 
   const matchingBills =
     bills
       .filter(
         bill =>
-          bill.proforma_id ===
-            proformaId
+          bill.proforma_id
+          ===
+          proformaId
           &&
           bill.status
             .trim()
             .toLowerCase()
-          === "issued"
+          ===
+          "issued"
           &&
           !bill.invoice_type
             .trim()
@@ -178,15 +212,19 @@ function getIssuedInvoice(
         ) => {
 
           if (
-            b.revision_number !==
+            b.revision_number
+            !==
             a.revision_number
           ) {
+
             return (
               b.revision_number
               -
               a.revision_number
             );
+
           }
+
 
           return (
             new Date(
@@ -201,35 +239,46 @@ function getIssuedInvoice(
         }
       );
 
+
   return (
     matchingBills[0]
-    ?? null
+    ??
+    null
   );
+
 }
 
 
 function getDraftInvoice(
-  bills: FinalBill[],
+  bills:
+    FinalBill[],
+
   proformaId:
     number | null
 ) {
+
   if (
-    proformaId === null
+    proformaId
+    ===
+    null
   ) {
     return null;
   }
+
 
   const matchingBills =
     bills
       .filter(
         bill =>
-          bill.proforma_id ===
-            proformaId
+          bill.proforma_id
+          ===
+          proformaId
           &&
           bill.status
             .trim()
             .toLowerCase()
-          === "draft"
+          ===
+          "draft"
           &&
           !bill.invoice_type
             .trim()
@@ -252,10 +301,13 @@ function getDraftInvoice(
           ).getTime()
       );
 
+
   return (
     matchingBills[0]
-    ?? null
+    ??
+    null
   );
+
 }
 
 
@@ -309,14 +361,18 @@ export default function FinishedProductsPage() {
     search,
     setSearch,
   ] =
-    useState("");
+    useState(
+      ""
+    );
 
 
   const [
     loading,
     setLoading,
   ] =
-    useState(true);
+    useState(
+      true
+    );
 
 
   const [
@@ -324,14 +380,115 @@ export default function FinishedProductsPage() {
     setError,
   ] =
     useState<
-      string | null
+      string |
+      null
     >(
       null
     );
 
 
   /* ==========================================================
-     LOAD
+     SETTINGS CONTROLLED PAGINATION
+  ========================================================== */
+
+  const [
+    pageSize,
+    setPageSize,
+  ] =
+    useState(
+      FALLBACK_PAGE_SIZE
+    );
+
+
+  const [
+    toBeBilledPage,
+    setToBeBilledPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    billedPage,
+    setBilledPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  /* ==========================================================
+     LOAD PAGE SIZE
+  ========================================================== */
+
+  useEffect(
+    () => {
+
+      async function loadPageSize() {
+
+        try {
+
+          const settings =
+            await getBusinessSettings();
+
+
+          const configuredSize =
+            Number(
+              settings.default_page_size
+            );
+
+
+          if (
+            Number.isInteger(
+              configuredSize
+            )
+            &&
+            configuredSize >= 5
+            &&
+            configuredSize <= 100
+          ) {
+
+            setPageSize(
+              configuredSize
+            );
+
+          } else {
+
+            setPageSize(
+              FALLBACK_PAGE_SIZE
+            );
+
+          }
+
+        } catch (
+          err
+        ) {
+
+          console.error(
+            "Unable to load Finished Products page size:",
+            err
+          );
+
+
+          setPageSize(
+            FALLBACK_PAGE_SIZE
+          );
+
+        }
+
+      }
+
+
+      void loadPageSize();
+
+    },
+    []
+  );
+
+
+  /* ==========================================================
+     LOAD DATA
   ========================================================== */
 
   async function loadFinishedProducts() {
@@ -341,6 +498,7 @@ export default function FinishedProductsPage() {
       setLoading(
         true
       );
+
 
       setError(
         null
@@ -466,7 +624,8 @@ export default function FinishedProductsPage() {
                     finishedProduct
                       .production_order_id
                   )
-                  ?? null;
+                  ??
+                  null;
 
 
                 const proforma =
@@ -476,7 +635,8 @@ export default function FinishedProductsPage() {
                           productionOrder
                             .proforma_id
                         )
-                        ?? null
+                        ??
+                        null
                       )
                     : null;
 
@@ -491,6 +651,7 @@ export default function FinishedProductsPage() {
 
 
                 return {
+
                   finishedProduct,
 
                   productionOrder,
@@ -508,6 +669,7 @@ export default function FinishedProductsPage() {
                       finalBills,
                       proformaId
                     ),
+
                 };
 
               }
@@ -554,7 +716,9 @@ export default function FinishedProductsPage() {
             .toLowerCase();
 
 
-        if (!query) {
+        if (
+          !query
+        ) {
           return rows;
         }
 
@@ -563,6 +727,7 @@ export default function FinishedProductsPage() {
           row => {
 
             const values = [
+
               row
                 .finishedProduct
                 .finished_product_number,
@@ -590,6 +755,7 @@ export default function FinishedProductsPage() {
               row
                 .draftInvoice
                 ?.invoice_number,
+
             ];
 
 
@@ -597,7 +763,8 @@ export default function FinishedProductsPage() {
               value =>
                 (
                   value
-                  ?? ""
+                  ??
+                  ""
                 )
                   .toLowerCase()
                   .includes(
@@ -617,6 +784,30 @@ export default function FinishedProductsPage() {
 
 
   /* ==========================================================
+     RESET PAGES WHEN SEARCH / PAGE SIZE CHANGES
+  ========================================================== */
+
+  useEffect(
+    () => {
+
+      setToBeBilledPage(
+        1
+      );
+
+
+      setBilledPage(
+        1
+      );
+
+    },
+    [
+      search,
+      pageSize,
+    ]
+  );
+
+
+  /* ==========================================================
      BILLING GROUPS
   ========================================================== */
 
@@ -626,7 +817,8 @@ export default function FinishedProductsPage() {
         filteredRows.filter(
           row =>
             row.issuedInvoice
-            === null
+            ===
+            null
         ),
       [
         filteredRows,
@@ -640,10 +832,147 @@ export default function FinishedProductsPage() {
         filteredRows.filter(
           row =>
             row.issuedInvoice
-            !== null
+            !==
+            null
         ),
       [
         filteredRows,
+      ]
+    );
+
+
+  /* ==========================================================
+     TO BE BILLED PAGINATION
+  ========================================================== */
+
+  const toBeBilledTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        toBeBilledRows.length
+        /
+        pageSize
+      )
+    );
+
+
+  useEffect(
+    () => {
+
+      if (
+        toBeBilledPage
+        >
+        toBeBilledTotalPages
+      ) {
+
+        setToBeBilledPage(
+          toBeBilledTotalPages
+        );
+
+      }
+
+    },
+    [
+      toBeBilledPage,
+      toBeBilledTotalPages,
+    ]
+  );
+
+
+  const paginatedToBeBilledRows =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            toBeBilledPage
+            -
+            1
+          )
+          *
+          pageSize;
+
+
+        return toBeBilledRows.slice(
+          start,
+          start
+          +
+          pageSize
+        );
+
+      },
+      [
+        toBeBilledRows,
+        toBeBilledPage,
+        pageSize,
+      ]
+    );
+
+
+  /* ==========================================================
+     BILLED PAGINATION
+  ========================================================== */
+
+  const billedTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        billedRows.length
+        /
+        pageSize
+      )
+    );
+
+
+  useEffect(
+    () => {
+
+      if (
+        billedPage
+        >
+        billedTotalPages
+      ) {
+
+        setBilledPage(
+          billedTotalPages
+        );
+
+      }
+
+    },
+    [
+      billedPage,
+      billedTotalPages,
+    ]
+  );
+
+
+  const paginatedBilledRows =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            billedPage
+            -
+            1
+          )
+          *
+          pageSize;
+
+
+        return billedRows.slice(
+          start,
+          start
+          +
+          pageSize
+        );
+
+      },
+      [
+        billedRows,
+        billedPage,
+        pageSize,
       ]
     );
 
@@ -666,7 +995,8 @@ export default function FinishedProductsPage() {
               row
                 .productionOrder
                 ?.quantity
-              ?? 0
+              ??
+              0
             ),
           0
         ),
@@ -682,7 +1012,8 @@ export default function FinishedProductsPage() {
         rows.filter(
           row =>
             row.issuedInvoice
-            === null
+            ===
+            null
         ).length,
       [
         rows,
@@ -696,7 +1027,8 @@ export default function FinishedProductsPage() {
         rows.filter(
           row =>
             row.issuedInvoice
-            !== null
+            !==
+            null
         ).length,
       [
         rows,
@@ -727,7 +1059,9 @@ export default function FinishedProductsPage() {
   return (
     <div className="finished-products-page">
 
-      {/* HEADER */}
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
 
       <div className="finished-products-header">
 
@@ -756,8 +1090,9 @@ export default function FinishedProductsPage() {
         <button
           type="button"
           className="finished-products-refresh"
-          onClick={() =>
-            void loadFinishedProducts()
+          onClick={
+            () =>
+              void loadFinishedProducts()
           }
         >
 
@@ -774,7 +1109,8 @@ export default function FinishedProductsPage() {
 
       {
         error
-        && (
+        &&
+        (
           <div className="finished-products-error">
             {error}
           </div>
@@ -782,7 +1118,9 @@ export default function FinishedProductsPage() {
       }
 
 
-      {/* KPI */}
+      {/* ======================================================
+          KPI
+      ====================================================== */}
 
       <div className="finished-products-kpi-grid">
 
@@ -902,7 +1240,9 @@ export default function FinishedProductsPage() {
       </div>
 
 
-      {/* SEARCH */}
+      {/* ======================================================
+          SEARCH
+      ====================================================== */}
 
       <div className="finished-products-search-panel">
 
@@ -930,12 +1270,16 @@ export default function FinishedProductsPage() {
 
           {
             search
-            && (
+            &&
+            (
               <button
                 type="button"
                 className="finished-products-search-clear"
-                onClick={() =>
-                  setSearch("")
+                onClick={
+                  () =>
+                    setSearch(
+                      ""
+                    )
                 }
               >
 
@@ -955,605 +1299,998 @@ export default function FinishedProductsPage() {
       {
         loading
           ? (
-            <div className="finished-products-state">
+              <div className="finished-products-state">
 
-              <Loader2
-                size={23}
-                className="finished-products-spin"
-              />
+                <Loader2
+                  size={23}
+                  className="finished-products-spin"
+                />
 
-              Loading Finished Products...
+                Loading Finished Products...
 
-            </div>
-          )
+              </div>
+            )
           : (
-            <>
+              <>
 
-              {/* ===============================================
-                  TO BE BILLED
-              ================================================ */}
+                {/* ===============================================
+                    TO BE BILLED
+                ================================================ */}
 
-              <div className="finished-products-panel">
+                <div className="finished-products-panel">
 
-                <div className="finished-products-panel-header">
+                  <div className="finished-products-panel-header">
 
-                  <div className="finished-products-section-heading">
+                    <div className="finished-products-section-heading">
 
-                    <Clock3
-                      size={18}
-                    />
+                      <Clock3
+                        size={18}
+                      />
 
 
-                    <div>
+                      <div>
 
-                      <div className="finished-products-panel-title">
-                        TO BE BILLED
+                        <div className="finished-products-panel-title">
+                          TO BE BILLED
+                        </div>
+
+
+                        <div className="finished-products-panel-subtitle">
+                          Production is completed,
+                          but no issued invoice exists yet.
+                        </div>
+
                       </div>
 
+                    </div>
 
-                      <div className="finished-products-panel-subtitle">
-                        Production is completed,
-                        but no issued invoice exists yet.
-                      </div>
+
+                    <div className="finished-products-count amber">
+
+                      {
+                        toBeBilledRows.length
+                      }{" "}
+                      pending
 
                     </div>
 
                   </div>
 
 
-                  <div className="finished-products-count amber">
+                  {
+                    toBeBilledRows.length
+                    ===
+                    0
+                      ? (
+                          <div className="finished-products-state">
 
-                    {
-                      toBeBilledRows.length
-                    }{" "}
-                    pending
+                            <CheckCircle2
+                              size={25}
+                            />
 
-                  </div>
+                            No Finished Products are
+                            waiting for billing.
 
-                </div>
+                          </div>
+                        )
+                      : (
+                          <>
 
+                            <div className="finished-products-list">
 
-                {
-                  toBeBilledRows.length
-                  === 0
-                    ? (
-                      <div className="finished-products-state">
+                              {
+                                paginatedToBeBilledRows.map(
+                                  row => (
 
-                        <CheckCircle2
-                          size={25}
-                        />
-
-                        No Finished Products are
-                        waiting for billing.
-
-                      </div>
-                    )
-                    : (
-                      <div className="finished-products-list">
-
-                        {
-                          toBeBilledRows.map(
-                            row => (
-                              <div
-                                className="finished-product-row"
-                                key={
-                                  row
-                                    .finishedProduct
-                                    .id
-                                }
-                              >
-
-                                <div className="finished-product-main">
-
-                                  <div className="finished-product-icon pending">
-
-                                    <PackageCheck
-                                      size={20}
-                                    />
-
-                                  </div>
-
-
-                                  <div>
-
-                                    <div className="finished-product-name">
-
-                                      {
+                                    <div
+                                      className="finished-product-row"
+                                      key={
                                         row
                                           .finishedProduct
-                                          .product_name
+                                          .id
                                       }
+                                    >
 
-                                    </div>
+                                      <div className="finished-product-main">
 
+                                        <div className="finished-product-icon pending">
 
-                                    <div className="finished-product-meta">
+                                          <PackageCheck
+                                            size={20}
+                                          />
 
-                                      <span>
-
-                                        {
-                                          row
-                                            .finishedProduct
-                                            .finished_product_number
-                                        }
-
-                                      </span>
+                                        </div>
 
 
-                                      <span className="finished-product-dot">
-                                        •
-                                      </span>
+                                        <div>
 
+                                          <div className="finished-product-name">
 
-                                      <span>
-
-                                        Qty{" "}
-
-                                        <strong>
-
-                                          {
-                                            formatNumber(
+                                            {
                                               row
-                                                .productionOrder
-                                                ?.quantity
-                                              ?? 0
-                                            )
-                                          }
+                                                .finishedProduct
+                                                .product_name
+                                            }
 
-                                        </strong>
-
-                                        {" "}
-
-                                        {
-                                          row
-                                            .finishedProduct
-                                            .unit
-                                        }
-
-                                      </span>
-
-                                    </div>
-
-                                  </div>
-
-                                </div>
+                                          </div>
 
 
-                                <div className="finished-product-business">
+                                          <div className="finished-product-meta">
 
-                                  <div className="finished-product-label">
-                                    Proforma
-                                  </div>
+                                            <span>
 
+                                              {
+                                                row
+                                                  .finishedProduct
+                                                  .finished_product_number
+                                              }
 
-                                  <div className="finished-product-value">
-
-                                    {
-                                      row
-                                        .proforma
-                                        ?.proforma_number
-                                      ??
-                                      "-"
-                                    }
-
-                                  </div>
+                                            </span>
 
 
-                                  <div className="finished-product-small">
-
-                                    {
-                                      formatDate(
-                                        row
-                                          .proforma
-                                          ?.proforma_date
-                                      )
-                                    }
-
-                                  </div>
-
-                                </div>
+                                            <span className="finished-product-dot">
+                                              •
+                                            </span>
 
 
-                                <div className="finished-product-business">
+                                            <span>
 
-                                  <div className="finished-product-label">
-                                    Customer
-                                  </div>
+                                              Qty{" "}
 
+                                              <strong>
 
-                                  <div className="finished-product-value">
+                                                {
+                                                  formatNumber(
+                                                    row
+                                                      .productionOrder
+                                                      ?.quantity
+                                                    ??
+                                                    0
+                                                  )
+                                                }
 
-                                    {
-                                      row
-                                        .proforma
-                                        ?.company_name
-                                      ??
-                                      "-"
-                                    }
+                                              </strong>
 
-                                  </div>
+                                              {" "}
 
+                                              {
+                                                row
+                                                  .finishedProduct
+                                                  .unit
+                                              }
 
-                                  <div className="finished-product-small">
+                                            </span>
 
-                                    {
-                                      row
-                                        .productionOrder
-                                        ?.production_number
-                                      ??
-                                      "-"
-                                    }
+                                          </div>
 
-                                  </div>
+                                        </div>
 
-                                </div>
-
-
-                                <div className="finished-product-business">
-
-                                  <div className="finished-product-label">
-                                    Production Completed
-                                  </div>
+                                      </div>
 
 
-                                  <div className="finished-product-value">
+                                      <div className="finished-product-business">
 
-                                    {
-                                      formatDate(
-                                        row
-                                          .productionOrder
-                                          ?.actual_end_date
-                                      )
-                                    }
-
-                                  </div>
+                                        <div className="finished-product-label">
+                                          Proforma
+                                        </div>
 
 
-                                  {
-                                    row.draftInvoice
-                                      ? (
-                                        <div className="finished-product-draft">
-
-                                          Draft:{" "}
+                                        <div className="finished-product-value">
 
                                           {
                                             row
-                                              .draftInvoice
-                                              .invoice_number
+                                              .proforma
+                                              ?.proforma_number
+                                            ??
+                                            "-"
                                           }
 
                                         </div>
-                                      )
-                                      : (
-                                        <div className="finished-product-ready">
-                                          Ready for billing
+
+
+                                        <div className="finished-product-small">
+
+                                          {
+                                            formatDate(
+                                              row
+                                                .proforma
+                                                ?.proforma_date
+                                            )
+                                          }
+
                                         </div>
+
+                                      </div>
+
+
+                                      <div className="finished-product-business">
+
+                                        <div className="finished-product-label">
+                                          Customer
+                                        </div>
+
+
+                                        <div className="finished-product-value">
+
+                                          {
+                                            row
+                                              .proforma
+                                              ?.company_name
+                                            ??
+                                            "-"
+                                          }
+
+                                        </div>
+
+
+                                        <div className="finished-product-small">
+
+                                          {
+                                            row
+                                              .productionOrder
+                                              ?.production_number
+                                            ??
+                                            "-"
+                                          }
+
+                                        </div>
+
+                                      </div>
+
+
+                                      <div className="finished-product-business">
+
+                                        <div className="finished-product-label">
+                                          Production Completed
+                                        </div>
+
+
+                                        <div className="finished-product-value">
+
+                                          {
+                                            formatDate(
+                                              row
+                                                .productionOrder
+                                                ?.actual_end_date
+                                            )
+                                          }
+
+                                        </div>
+
+
+                                        {
+                                          row.draftInvoice
+                                            ? (
+                                                <div className="finished-product-draft">
+
+                                                  Draft:{" "}
+
+                                                  {
+                                                    row
+                                                      .draftInvoice
+                                                      .invoice_number
+                                                  }
+
+                                                </div>
+                                              )
+                                            : (
+                                                <div className="finished-product-ready">
+                                                  Ready for billing
+                                                </div>
+                                              )
+                                        }
+
+                                      </div>
+
+
+                                      <div className="finished-product-action">
+
+                                        <button
+                                          type="button"
+                                          className="finished-products-view"
+                                          onClick={
+                                            () =>
+                                              openTraceability(
+                                                row
+                                                  .finishedProduct
+                                              )
+                                          }
+                                        >
+
+                                          View
+
+                                          <ChevronRight
+                                            size={15}
+                                          />
+
+                                        </button>
+
+                                      </div>
+
+                                    </div>
+
+                                  )
+                                )
+                              }
+
+                            </div>
+
+
+                            <PaginationFooter
+                              currentPage={
+                                toBeBilledPage
+                              }
+                              totalPages={
+                                toBeBilledTotalPages
+                              }
+                              totalRecords={
+                                toBeBilledRows.length
+                              }
+                              pageSize={
+                                pageSize
+                              }
+                              onPrevious={
+                                () =>
+                                  setToBeBilledPage(
+                                    page =>
+                                      Math.max(
+                                        1,
+                                        page - 1
                                       )
-                                  }
-
-                                </div>
-
-
-                                <div className="finished-product-action">
-
-                                  <button
-                                    type="button"
-                                    className="finished-products-view"
-                                    onClick={() =>
-                                      openTraceability(
-                                        row
-                                          .finishedProduct
+                                  )
+                              }
+                              onNext={
+                                () =>
+                                  setToBeBilledPage(
+                                    page =>
+                                      Math.min(
+                                        toBeBilledTotalPages,
+                                        page + 1
                                       )
-                                    }
-                                  >
+                                  )
+                              }
+                            />
 
-                                    View
+                          </>
+                        )
+                  }
 
-                                    <ChevronRight
-                                      size={15}
-                                    />
+                </div>
 
-                                  </button>
 
-                                </div>
+                {/* ===============================================
+                    BILLED
+                ================================================ */}
 
-                              </div>
-                            )
-                          )
-                        }
+                <div className="finished-products-panel">
+
+                  <div className="finished-products-panel-header">
+
+                    <div className="finished-products-section-heading">
+
+                      <CircleDollarSign
+                        size={18}
+                      />
+
+
+                      <div>
+
+                        <div className="finished-products-panel-title">
+                          BILLED FINISHED PRODUCTS
+                        </div>
+
+
+                        <div className="finished-products-panel-subtitle">
+                          Finished Products linked
+                          to an issued Tax or Revised Invoice.
+                        </div>
 
                       </div>
-                    )
-                }
 
-              </div>
+                    </div>
 
 
-              {/* ===============================================
-                  BILLED
-              ================================================ */}
+                    <div className="finished-products-count green">
 
-              <div className="finished-products-panel">
-
-                <div className="finished-products-panel-header">
-
-                  <div className="finished-products-section-heading">
-
-                    <CircleDollarSign
-                      size={18}
-                    />
-
-
-                    <div>
-
-                      <div className="finished-products-panel-title">
-                        BILLED FINISHED PRODUCTS
-                      </div>
-
-
-                      <div className="finished-products-panel-subtitle">
-                        Finished Products linked
-                        to an issued Tax or Revised Invoice.
-                      </div>
+                      {
+                        billedRows.length
+                      }{" "}
+                      billed
 
                     </div>
 
                   </div>
 
 
-                  <div className="finished-products-count green">
+                  {
+                    billedRows.length
+                    ===
+                    0
+                      ? (
+                          <div className="finished-products-state">
 
-                    {
-                      billedRows.length
-                    }{" "}
-                    billed
+                            <FileText
+                              size={25}
+                            />
 
-                  </div>
+                            No Finished Products
+                            have been billed yet.
 
-                </div>
+                          </div>
+                        )
+                      : (
+                          <>
 
+                            <div className="finished-products-list">
 
-                {
-                  billedRows.length
-                  === 0
-                    ? (
-                      <div className="finished-products-state">
+                              {
+                                paginatedBilledRows.map(
+                                  row => (
 
-                        <FileText
-                          size={25}
-                        />
-
-                        No Finished Products
-                        have been billed yet.
-
-                      </div>
-                    )
-                    : (
-                      <div className="finished-products-list">
-
-                        {
-                          billedRows.map(
-                            row => (
-                              <div
-                                className="finished-product-row"
-                                key={
-                                  row
-                                    .finishedProduct
-                                    .id
-                                }
-                              >
-
-                                <div className="finished-product-main">
-
-                                  <div className="finished-product-icon billed">
-
-                                    <CheckCircle2
-                                      size={20}
-                                    />
-
-                                  </div>
-
-
-                                  <div>
-
-                                    <div className="finished-product-name">
-
-                                      {
+                                    <div
+                                      className="finished-product-row"
+                                      key={
                                         row
                                           .finishedProduct
-                                          .product_name
+                                          .id
                                       }
+                                    >
 
-                                    </div>
+                                      <div className="finished-product-main">
 
+                                        <div className="finished-product-icon billed">
 
-                                    <div className="finished-product-meta">
+                                          <CheckCircle2
+                                            size={20}
+                                          />
 
-                                      <span>
-
-                                        {
-                                          row
-                                            .finishedProduct
-                                            .finished_product_number
-                                        }
-
-                                      </span>
+                                        </div>
 
 
-                                      <span className="finished-product-dot">
-                                        •
-                                      </span>
+                                        <div>
+
+                                          <div className="finished-product-name">
+
+                                            {
+                                              row
+                                                .finishedProduct
+                                                .product_name
+                                            }
+
+                                          </div>
 
 
-                                      <span>
+                                          <div className="finished-product-meta">
 
-                                        Qty{" "}
+                                            <span>
 
-                                        <strong>
+                                              {
+                                                row
+                                                  .finishedProduct
+                                                  .finished_product_number
+                                              }
+
+                                            </span>
+
+
+                                            <span className="finished-product-dot">
+                                              •
+                                            </span>
+
+
+                                            <span>
+
+                                              Qty{" "}
+
+                                              <strong>
+
+                                                {
+                                                  formatNumber(
+                                                    row
+                                                      .productionOrder
+                                                      ?.quantity
+                                                    ??
+                                                    0
+                                                  )
+                                                }
+
+                                              </strong>
+
+                                              {" "}
+
+                                              {
+                                                row
+                                                  .finishedProduct
+                                                  .unit
+                                              }
+
+                                            </span>
+
+                                          </div>
+
+                                        </div>
+
+                                      </div>
+
+
+                                      <div className="finished-product-business">
+
+                                        <div className="finished-product-label">
+                                          Proforma
+                                        </div>
+
+
+                                        <div className="finished-product-value">
 
                                           {
-                                            formatNumber(
+                                            row
+                                              .proforma
+                                              ?.proforma_number
+                                            ??
+                                            "-"
+                                          }
+
+                                        </div>
+
+
+                                        <div className="finished-product-small">
+
+                                          {
+                                            formatDate(
                                               row
-                                                .productionOrder
-                                                ?.quantity
-                                              ?? 0
+                                                .proforma
+                                                ?.proforma_date
                                             )
                                           }
 
-                                        </strong>
+                                        </div>
 
-                                        {" "}
+                                      </div>
 
-                                        {
-                                          row
-                                            .finishedProduct
-                                            .unit
-                                        }
 
-                                      </span>
+                                      <div className="finished-product-business">
+
+                                        <div className="finished-product-label">
+                                          Invoice
+                                        </div>
+
+
+                                        <div className="finished-product-value">
+
+                                          {
+                                            row
+                                              .issuedInvoice
+                                              ?.invoice_number
+                                            ??
+                                            "-"
+                                          }
+
+                                        </div>
+
+
+                                        <div className="finished-product-small">
+
+                                          {
+                                            row
+                                              .issuedInvoice
+                                              ?.invoice_type
+                                            ??
+                                            "-"
+                                          }
+
+                                        </div>
+
+                                      </div>
+
+
+                                      <div className="finished-product-business">
+
+                                        <div className="finished-product-label">
+                                          Billed Date
+                                        </div>
+
+
+                                        <div className="finished-product-value">
+
+                                          {
+                                            formatDate(
+                                              row
+                                                .issuedInvoice
+                                                ?.invoice_date
+                                            )
+                                          }
+
+                                        </div>
+
+
+                                        <div className="finished-product-billed">
+                                          Billed
+                                        </div>
+
+                                      </div>
+
+
+                                      <div className="finished-product-action">
+
+                                        <button
+                                          type="button"
+                                          className="finished-products-view"
+                                          onClick={
+                                            () =>
+                                              openTraceability(
+                                                row
+                                                  .finishedProduct
+                                              )
+                                          }
+                                        >
+
+                                          View
+
+                                          <ChevronRight
+                                            size={15}
+                                          />
+
+                                        </button>
+
+                                      </div>
 
                                     </div>
 
-                                  </div>
+                                  )
+                                )
+                              }
 
-                                </div>
-
-
-                                <div className="finished-product-business">
-
-                                  <div className="finished-product-label">
-                                    Proforma
-                                  </div>
+                            </div>
 
 
-                                  <div className="finished-product-value">
-
-                                    {
-                                      row
-                                        .proforma
-                                        ?.proforma_number
-                                      ??
-                                      "-"
-                                    }
-
-                                  </div>
-
-
-                                  <div className="finished-product-small">
-
-                                    {
-                                      formatDate(
-                                        row
-                                          .proforma
-                                          ?.proforma_date
+                            <PaginationFooter
+                              currentPage={
+                                billedPage
+                              }
+                              totalPages={
+                                billedTotalPages
+                              }
+                              totalRecords={
+                                billedRows.length
+                              }
+                              pageSize={
+                                pageSize
+                              }
+                              onPrevious={
+                                () =>
+                                  setBilledPage(
+                                    page =>
+                                      Math.max(
+                                        1,
+                                        page - 1
                                       )
-                                    }
-
-                                  </div>
-
-                                </div>
-
-
-                                <div className="finished-product-business">
-
-                                  <div className="finished-product-label">
-                                    Invoice
-                                  </div>
-
-
-                                  <div className="finished-product-value">
-
-                                    {
-                                      row
-                                        .issuedInvoice
-                                        ?.invoice_number
-                                      ??
-                                      "-"
-                                    }
-
-                                  </div>
-
-
-                                  <div className="finished-product-small">
-
-                                    {
-                                      row
-                                        .issuedInvoice
-                                        ?.invoice_type
-                                      ??
-                                      "-"
-                                    }
-
-                                  </div>
-
-                                </div>
-
-
-                                <div className="finished-product-business">
-
-                                  <div className="finished-product-label">
-                                    Billed Date
-                                  </div>
-
-
-                                  <div className="finished-product-value">
-
-                                    {
-                                      formatDate(
-                                        row
-                                          .issuedInvoice
-                                          ?.invoice_date
+                                  )
+                              }
+                              onNext={
+                                () =>
+                                  setBilledPage(
+                                    page =>
+                                      Math.min(
+                                        billedTotalPages,
+                                        page + 1
                                       )
-                                    }
+                                  )
+                              }
+                            />
 
-                                  </div>
+                          </>
+                        )
+                  }
 
+                </div>
 
-                                  <div className="finished-product-billed">
-                                    Billed
-                                  </div>
-
-                                </div>
-
-
-                                <div className="finished-product-action">
-
-                                  <button
-                                    type="button"
-                                    className="finished-products-view"
-                                    onClick={() =>
-                                      openTraceability(
-                                        row
-                                          .finishedProduct
-                                      )
-                                    }
-                                  >
-
-                                    View
-
-                                    <ChevronRight
-                                      size={15}
-                                    />
-
-                                  </button>
-
-                                </div>
-
-                              </div>
-                            )
-                          )
-                        }
-
-                      </div>
-                    )
-                }
-
-              </div>
-
-            </>
-          )
+              </>
+            )
       }
 
     </div>
   );
+
+}
+
+
+/* ============================================================
+   PAGINATION FOOTER
+============================================================ */
+
+function PaginationFooter(
+  {
+    currentPage,
+    totalPages,
+    totalRecords,
+    pageSize,
+    onPrevious,
+    onNext,
+  }:
+  {
+    currentPage:
+      number;
+
+    totalPages:
+      number;
+
+    totalRecords:
+      number;
+
+    pageSize:
+      number;
+
+    onPrevious:
+      () => void;
+
+    onNext:
+      () => void;
+  }
+) {
+
+  const firstRecord =
+    totalRecords
+    >
+    0
+      ? (
+          (
+            currentPage
+            -
+            1
+          )
+          *
+          pageSize
+        )
+        +
+        1
+      : 0;
+
+
+  const lastRecord =
+    Math.min(
+      currentPage
+      *
+      pageSize,
+
+      totalRecords
+    );
+
+
+  return (
+    <div
+      style={{
+        display:
+          "flex",
+
+        justifyContent:
+          "space-between",
+
+        alignItems:
+          "center",
+
+        gap:
+          "14px",
+
+        padding:
+          "14px 18px",
+
+        borderTop:
+          "1px solid #e8eef7",
+
+        background:
+          "#ffffff",
+
+        flexWrap:
+          "wrap",
+      }}
+    >
+
+      <div
+        style={{
+          color:
+            "#8a9bb3",
+
+          fontSize:
+            "10px",
+        }}
+      >
+
+        Showing{" "}
+
+        <strong
+          style={{
+            color:
+              "#526b8f",
+          }}
+        >
+          {firstRecord}
+        </strong>
+
+        {"–"}
+
+        <strong
+          style={{
+            color:
+              "#526b8f",
+          }}
+        >
+          {lastRecord}
+        </strong>
+
+        {" of "}
+
+        <strong
+          style={{
+            color:
+              "#526b8f",
+          }}
+        >
+          {totalRecords}
+        </strong>
+
+        {" records • "}
+
+        {pageSize}
+
+        {" per page"}
+
+      </div>
+
+
+      <div
+        style={{
+          display:
+            "flex",
+
+          alignItems:
+            "center",
+
+          gap:
+            "9px",
+        }}
+      >
+
+        <button
+          type="button"
+          disabled={
+            currentPage
+            <=
+            1
+          }
+          onClick={
+            onPrevious
+          }
+          style={{
+            minHeight:
+              "36px",
+
+            padding:
+              "0 12px",
+
+            border:
+              "1px solid #d7e2f3",
+
+            borderRadius:
+              "9px",
+
+            background:
+              "#ffffff",
+
+            color:
+              "#50688e",
+
+            fontSize:
+              "10px",
+
+            fontWeight:
+              700,
+
+            cursor:
+              currentPage
+              <=
+              1
+                ? "not-allowed"
+                : "pointer",
+
+            opacity:
+              currentPage
+              <=
+              1
+                ? 0.5
+                : 1,
+          }}
+        >
+          Previous
+        </button>
+
+
+        <span
+          style={{
+            minWidth:
+              "74px",
+
+            textAlign:
+              "center",
+
+            color:
+              "#7183a0",
+
+            fontSize:
+              "10px",
+          }}
+        >
+
+          Page{" "}
+
+          <strong>
+            {currentPage}
+          </strong>
+
+          {" of "}
+
+          <strong>
+            {totalPages}
+          </strong>
+
+        </span>
+
+
+        <button
+          type="button"
+          disabled={
+            currentPage
+            >=
+            totalPages
+          }
+          onClick={
+            onNext
+          }
+          style={{
+            minHeight:
+              "36px",
+
+            padding:
+              "0 12px",
+
+            border:
+              "1px solid #d7e2f3",
+
+            borderRadius:
+              "9px",
+
+            background:
+              "#ffffff",
+
+            color:
+              "#50688e",
+
+            fontSize:
+              "10px",
+
+            fontWeight:
+              700,
+
+            cursor:
+              currentPage
+              >=
+              totalPages
+                ? "not-allowed"
+                : "pointer",
+
+            opacity:
+              currentPage
+              >=
+              totalPages
+                ? 0.5
+                : 1,
+          }}
+        >
+          Next
+        </button>
+
+      </div>
+
+    </div>
+  );
+
 }

@@ -8,23 +8,32 @@ from fastapi import (
     UploadFile,
     status,
 )
+
 from fastapi.responses import (
     FileResponse,
 )
+
 from sqlalchemy.orm import Session
 
 from app.dependencies.database import (
     get_db,
 )
+
 from app.dependencies.permissions import (
+    require_any_permission,
     require_permission,
 )
-from app.models.user import User
+
+from app.models.user import (
+    User,
+)
+
 from app.schemas.company_settings import (
     CompanySettingsCreate,
     CompanySettingsResponse,
     CompanySettingsUpdate,
 )
+
 from app.services.company_settings_service import (
     CompanySettingsService,
 )
@@ -40,9 +49,6 @@ router = APIRouter(
 
 # ================================================================
 # CREATE COMPANY SETTINGS
-#
-# Permission:
-#     settings.company.manage
 # ================================================================
 
 @router.post(
@@ -55,7 +61,8 @@ router = APIRouter(
     ),
 )
 def create_company_settings(
-    data: CompanySettingsCreate,
+    data:
+        CompanySettingsCreate,
 
     db: Session = Depends(
         get_db
@@ -93,8 +100,8 @@ def create_company_settings(
 # ================================================================
 # GET COMPANY SETTINGS
 #
-# Permission:
-#     settings.view
+# Company identity is required by generated Proformas and
+# Final Billing documents.
 # ================================================================
 
 @router.get(
@@ -109,8 +116,10 @@ def get_company_settings(
     ),
 
     current_user: User = Depends(
-        require_permission(
-            "settings.view"
+        require_any_permission(
+            "settings.view",
+            "proformas.view",
+            "final_billing.view",
         )
     ),
 ):
@@ -125,7 +134,8 @@ def get_company_settings(
 
     if (
         company_settings
-        is None
+        is
+        None
     ):
 
         raise HTTPException(
@@ -144,9 +154,6 @@ def get_company_settings(
 
 # ================================================================
 # UPDATE COMPANY SETTINGS
-#
-# Permission:
-#     settings.company.manage
 # ================================================================
 
 @router.put(
@@ -156,7 +163,8 @@ def get_company_settings(
     ),
 )
 def update_company_settings(
-    data: CompanySettingsUpdate,
+    data:
+        CompanySettingsUpdate,
 
     db: Session = Depends(
         get_db
@@ -193,9 +201,6 @@ def update_company_settings(
 
 # ================================================================
 # UPLOAD COMPANY LOGO
-#
-# Permission:
-#     settings.company.manage
 # ================================================================
 
 @router.post(
@@ -205,7 +210,8 @@ def update_company_settings(
     ),
 )
 async def upload_company_logo(
-    file: UploadFile = File(...),
+    file:
+        UploadFile = File(...),
 
     db: Session = Depends(
         get_db
@@ -233,10 +239,13 @@ async def upload_company_logo(
             CompanySettingsService
             .save_logo(
                 db=db,
+
                 original_filename=(
                     file.filename
-                    or ""
+                    or
+                    ""
                 ),
+
                 content=content,
             )
         )
@@ -260,8 +269,7 @@ async def upload_company_logo(
 # ================================================================
 # GET COMPANY LOGO
 #
-# Permission:
-#     settings.view
+# Required for Proforma and Final Bill document generation.
 # ================================================================
 
 @router.get(
@@ -273,8 +281,10 @@ def get_company_logo(
     ),
 
     current_user: User = Depends(
-        require_permission(
-            "settings.view"
+        require_any_permission(
+            "settings.view",
+            "proformas.view",
+            "final_billing.view",
         )
     ),
 ):
@@ -289,7 +299,8 @@ def get_company_logo(
 
     if (
         company_settings
-        is None
+        is
+        None
     ):
 
         raise HTTPException(
@@ -313,7 +324,8 @@ def get_company_logo(
 
     if (
         logo_path
-        is None
+        is
+        None
     ):
 
         raise HTTPException(
@@ -344,9 +356,6 @@ def get_company_logo(
 
 # ================================================================
 # DELETE COMPANY LOGO
-#
-# Permission:
-#     settings.company.manage
 # ================================================================
 
 @router.delete(
