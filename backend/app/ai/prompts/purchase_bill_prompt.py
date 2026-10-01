@@ -14,6 +14,15 @@ IMPORTANT:
 - If a numeric field cannot be found, return 0.
 - Preserve the information exactly as shown on the bill whenever possible.
 
+VERY IMPORTANT SUPPLIER RULE:
+
+In Glisen ERP, "supplier" means:
+
+THE SELLER / VENDOR / INVOICE ISSUER WHO SOLD THE GOODS TO OUR COMPANY.
+
+It does NOT mean the buyer, customer, purchaser, consignee, bill-to party,
+ship-to party, or receiving party.
+
 ==================================================
 REQUIRED JSON STRUCTURE
 ==================================================
@@ -55,10 +64,164 @@ REQUIRED JSON STRUCTURE
 }
 
 ==================================================
+SUPPLIER / SELLER IDENTIFICATION
+==================================================
+
+The supplier is the company that ISSUED the invoice and SOLD the goods.
+
+Do not simply select the first company name found inside a customer,
+party, buyer, consignee, bill-to, ship-to, or delivery-details box.
+
+Determine the seller / invoice issuer using the whole document.
+
+Use the following evidence in priority order:
+
+1. COMPANY LETTERHEAD / MAIN HEADER
+2. SELLER LOGO OR BUSINESS NAME AT THE TOP OF THE DOCUMENT
+3. GSTIN PRINTED WITH THAT LETTERHEAD
+4. SELLER ADDRESS / PHONE / EMAIL IN THE HEADER
+5. BANK ACCOUNT OR UPI DETAILS RECEIVING PAYMENT
+6. COMPANY STAMP
+7. "For <Company Name>" NEAR THE AUTHORISED SIGNATURE
+8. TERMS STATING PAYMENT TO THE SELLER
+
+These are strong indicators of the invoice issuer.
+
+A company appearing inside a block labelled any of the following may be
+the BUYER and must NOT automatically be treated as the supplier:
+
+- Party Details
+- Supplier / Party Details
+- Buyer
+- Buyer Details
+- Customer
+- Customer Details
+- Bill To
+- Billed To
+- Ship To
+- Consignee
+- Delivery Address
+- Purchaser
+- Party Name
+
+The wording of such a block is not enough by itself.
+
+You must determine which company is SELLING the goods and which company
+is BUYING the goods.
+
+==================================================
+IMPORTANT SELLER EXAMPLE
+==================================================
+
+Suppose the top of a document shows:
+
+SHREE KRISHNA TRADERS
+
+Deals in: Welding Accessories, Industrial Goods & Hardware
+
+Shop No. 12, Ground Floor, Near Axis Bank,
+Gandhi Road, Vapi - 396191, Gujarat, India
+
+GSTIN: 24BPLPS1234F1Z8
+
+Contact: 98251 23456
+Email: shreekrishnatraders@gmail.com
+
+and later the document contains:
+
+Supplier / Party Details:
+
+M/s. Galaxy Welding Products
+
+GSTIN: 24AABFG5678K1Z9
+
+and the bottom of the document contains:
+
+Bank Details
+
+and:
+
+For Shree Krishna Traders
+Authorised Signatory
+
+Then the supplier / seller is:
+
+SHREE KRISHNA TRADERS
+
+NOT:
+
+M/s. Galaxy Welding Products
+
+The correct supplier JSON would be:
+
+{
+  "company_name": "SHREE KRISHNA TRADERS",
+  "contact_person": "",
+  "email": "shreekrishnatraders@gmail.com",
+  "phone": "98251 23456",
+  "gst_number": "24BPLPS1234F1Z8",
+  "address": "Shop No. 12, Ground Floor, Near Axis Bank, Gandhi Road, Vapi - 396191, Gujarat, India",
+  "city": "Vapi",
+  "state": "Gujarat",
+  "pincode": "396191"
+}
+
+The Party Details company in that example is the buyer / customer and
+must not be returned as supplier.
+
+==================================================
+MULTIPLE GSTIN RULE
+==================================================
+
+A purchase bill may contain more than one GSTIN.
+
+Do NOT assume the GSTIN nearest to a Party Details section belongs to
+the supplier.
+
+First determine the seller / invoice issuer.
+
+Then return the GSTIN belonging to that seller.
+
+For example:
+
+Header:
+
+SHREE KRISHNA TRADERS
+GSTIN: 24BPLPS1234F1Z8
+
+Party Details:
+
+GALAXY WELDING PRODUCTS
+GSTIN: 24AABFG5678K1Z9
+
+The supplier GST number must be:
+
+24BPLPS1234F1Z8
+
+because it belongs to the invoice issuer.
+
+==================================================
+BANK / SIGNATURE CROSS-CHECK
+==================================================
+
+Before finalising supplier details, inspect:
+
+- Bank Details
+- UPI information
+- company seal / stamp
+- authorised signatory area
+- "For <Company Name>" text
+
+If these identify the same company as the main letterhead, that is very
+strong confirmation that this company is the seller / supplier.
+
+A buyer / party name printed elsewhere must not override this evidence.
+
+==================================================
 SUPPLIER EXTRACTION
 ==================================================
 
-Extract:
+After identifying the SELLER / SUPPLIER, extract only that company's:
 
 - company_name
 - contact_person
@@ -70,18 +233,24 @@ Extract:
 - state
 - pincode
 
-Do not confuse the supplier with:
+Do not mix seller information with buyer information.
 
-- customer
-- buyer
-- consignee
-- delivery address
-- billing address belonging to the buyer
+For example, do NOT return:
 
-If the document contains a supplier address, preserve the complete address.
+seller company_name
++
+buyer GSTIN
++
+buyer address
 
-If city, state, or pincode can be clearly determined from the supplier
-address, extract them separately.
+All supplier fields must belong to the same seller entity.
+
+If no contact person name is printed for the supplier, return:
+
+"contact_person": ""
+
+Do not invent a person's name from an authorised signature unless the
+printed name is clearly readable.
 
 ==================================================
 PURCHASE BILL EXTRACTION
@@ -143,41 +312,108 @@ Each product must contain:
 - line_total
 
 ==================================================
-PRODUCT NAME
+PRODUCT NAME / PRODUCT IDENTITY
 ==================================================
 
-product_name must contain the actual product/item name.
+product_name must preserve enough printed information to uniquely identify
+the purchased stock item.
+
+This is extremely important because Glisen ERP uses product_name to match
+future Purchase Bills to the correct stock Product.
+
+Keep variant-defining information in product_name when it appears on the
+same product title / item line, including:
+
+- model or grade code
+- size
+- diameter
+- thickness
+- length
+- capacity
+- part number
+- type
+- other text or numbers required to distinguish one stock item from another
+
+Do NOT shorten two different bill lines into the same generic product_name.
 
 Example:
 
+Printed line:
+Welding Rods (E6013) 3.15 mm
+(Mild Steel)
+
+Return:
+
+"product_name": "Welding Rods (E6013) 3.15 mm",
+"description": "(Mild Steel)"
+
+Printed line:
+Welding Rods (E6013) 2.50 mm
+(Mild Steel)
+
+Return:
+
+"product_name": "Welding Rods (E6013) 2.50 mm",
+"description": "(Mild Steel)"
+
+Printed line:
+Welding Rods (E7018) 3.15 mm
+(High Tensile)
+
+Return:
+
+"product_name": "Welding Rods (E7018) 3.15 mm",
+"description": "(High Tensile)"
+
+These three products must NEVER all become:
+
+"Welding Rods"
+
+or:
+
+"Welding Rods (E6013)"
+
+because those shortened names would merge different stock items.
+
+If two visible product rows would otherwise produce the same product_name,
+re-read the rows and include the distinguishing printed model / size /
+specification in product_name.
+
+If the bill clearly contains a simple product with no variant information,
+a simple name such as:
+
 "Spur Gear"
 
-Do not put the entire description into product_name if the bill clearly
-separates the product name and description.
+is valid.
 
 ==================================================
 DESCRIPTION
 ==================================================
 
-description should contain additional product information such as:
+description should contain additional printed product information that is
+not required to uniquely identify the stock item.
 
-- model
-- size
-- specification
-- module
-- teeth count
-- dimensions
-- grade
+Examples include:
+
 - material
-- part specification
+- explanatory note
+- secondary specification
+- descriptive text printed on a continuation line
 
 Example:
 
-Product:
-Spur Gear
+Printed line:
+Welding Rods (E6013) 3.15 mm
+(Mild Steel)
 
-Description:
-(Module 2, 20 Teeth)
+Return:
+
+"product_name": "Welding Rods (E6013) 3.15 mm",
+"description": "(Mild Steel)"
+
+Do not move a size, model, grade code, diameter, part number, or other
+variant-defining value out of product_name when removing it would cause two
+different stock items to have the same product_name.
 
 If no separate description exists, return "".
 
@@ -463,22 +699,57 @@ Do not merge separate product lines.
 
 Do not omit repeated HSN codes when they belong to different products.
 
+HSN is a tax classification and is NOT a unique product identity.
+
+Before returning the JSON, compare all extracted product_name values.
+
+If two different visible rows have the same product_name but the printed
+bill shows a different model, size, diameter, specification, grade, part
+number, or other variant, correct product_name so each distinct stock item
+retains its distinguishing printed information.
+
 ==================================================
 DATA ACCURACY PRIORITY
 ==================================================
 
 When extracting the document, prioritize:
 
-1. Actual printed bill values
-2. Clear arithmetic relationships
-3. Product line information
-4. Supplier information
-5. Reasonable calculation only when a value is missing
+1. Correct seller / supplier identification
+2. Actual printed bill values
+3. Clear arithmetic relationships
+4. Product line information
+5. Supplier contact information
+6. Reasonable calculation only when a value is missing
 
 Never invent missing information.
 
 ==================================================
-FINAL VALIDATION BEFORE RETURNING JSON
+FINAL SUPPLIER CONSISTENCY CHECK
+==================================================
+
+Before returning JSON, ask internally:
+
+1. Which company issued this invoice?
+2. Which company is selling the goods?
+3. Which company appears on the main letterhead?
+4. Which company owns the seller GSTIN?
+5. Which company receives payment according to the bank / UPI section?
+6. Which company appears next to "For" above the authorised signature
+   or company stamp?
+
+The supplier JSON should represent that company.
+
+Then ask:
+
+Is there another company appearing in a Party Details, Buyer, Customer,
+Bill To, Ship To, Consignee, or similar section?
+
+If yes, do NOT accidentally return that buyer / party as supplier.
+
+All supplier fields must belong to one consistent seller entity.
+
+==================================================
+FINAL PRODUCT / TOTAL VALIDATION
 ==================================================
 
 Before returning the JSON, internally verify:

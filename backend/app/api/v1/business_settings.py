@@ -4,6 +4,9 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
+from app.dependencies.auth import (
+    get_current_user,
+)
 from app.dependencies.database import (
     get_db,
 )
@@ -31,11 +34,18 @@ router = APIRouter(
 # ================================================================
 # GET BUSINESS SETTINGS
 #
-# Permission:
-#     settings.view
+# All authenticated ERP users may read these defaults.
 #
-# Reading these values is allowed to users who can open Settings.
-# Modification remains Boss-only.
+# This allows normal module pages to use shared settings such as:
+#
+# - default_page_size
+# - currency
+# - timezone
+# - GST defaults
+# - document prefixes
+#
+# Reading does NOT allow the user to edit Settings.
+# Modification remains protected separately.
 # ================================================================
 
 @router.get(
@@ -48,11 +58,8 @@ def get_business_settings(
     db: Session = Depends(
         get_db
     ),
-
     current_user: User = Depends(
-        require_permission(
-            "settings.view"
-        )
+        get_current_user
     ),
 ):
 
@@ -70,9 +77,7 @@ def get_business_settings(
 # Permission:
 #     settings.business.manage
 #
-# This permission is marked boss_only in the permission catalogue.
-# It cannot be assigned to normal roles through the permission
-# matrix.
+# Boss-only.
 # ================================================================
 
 @router.put(
@@ -83,11 +88,9 @@ def get_business_settings(
 )
 def update_business_settings(
     data: BusinessSettingsUpdate,
-
     db: Session = Depends(
         get_db
     ),
-
     current_user: User = Depends(
         require_permission(
             "settings.business.manage"

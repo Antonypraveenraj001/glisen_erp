@@ -62,14 +62,17 @@ class PurchaseBillAIService:
         if gst_number:
 
             supplier_match = (
-                SupplierRepository.get_by_gst_number(
+                SupplierRepository
+                .get_by_gst_number(
                     db=db,
                     gst_number=gst_number,
                 )
             )
 
             if supplier_match:
-                match_type = "gst_number"
+                match_type = (
+                    "gst_number"
+                )
 
         # ------------------------------------------
         # Fallback: company name
@@ -88,14 +91,19 @@ class PurchaseBillAIService:
             if company_name:
 
                 supplier_match = (
-                    SupplierRepository.get_by_company_name(
+                    SupplierRepository
+                    .get_by_company_name(
                         db=db,
-                        company_name=company_name,
+                        company_name=(
+                            company_name
+                        ),
                     )
                 )
 
                 if supplier_match:
-                    match_type = "company_name"
+                    match_type = (
+                        "company_name"
+                    )
 
         # ------------------------------------------
         # Add matching information
@@ -107,7 +115,10 @@ class PurchaseBillAIService:
 
         supplier[
             "existing_supplier"
-        ] = supplier_match is not None
+        ] = (
+            supplier_match
+            is not None
+        )
 
         supplier[
             "supplier_id"
@@ -119,10 +130,44 @@ class PurchaseBillAIService:
 
         supplier[
             "match_type"
-        ] = match_type
+        ] = (
+            match_type
+        )
 
         # ==========================================
         # 3. PRODUCT MATCHING
+        # ==========================================
+        #
+        # IMPORTANT:
+        #
+        # HSN is a classification code.
+        #
+        # It is NOT a unique Product identifier.
+        #
+        # Different products can legally share the
+        # same HSN.
+        #
+        # Example:
+        #
+        # Welding Rod E6013 3.15 mm
+        # Welding Rod E7018 3.15 mm
+        # Welding Rod E6013 2.50 mm
+        #
+        # can all use HSN:
+        #
+        # 83111000
+        #
+        # Therefore:
+        #
+        # 1. Product name is the primary match.
+        # 2. HSN is used only when the AI could not
+        #    extract a product name.
+        #
+        # If a named Product cannot be matched,
+        # product_id remains None and the normal
+        # Purchase Bill confirmation workflow will
+        # create a new Product instead of corrupting
+        # another Product's stock.
         # ==========================================
 
         for product in products:
@@ -131,7 +176,19 @@ class PurchaseBillAIService:
             product_match_type = None
 
             # --------------------------------------
-            # Match by HSN
+            # PRODUCT NAME
+            # --------------------------------------
+
+            product_name = str(
+                product.get(
+                    "product_name",
+                    "",
+                )
+                or ""
+            ).strip()
+
+            # --------------------------------------
+            # HSN
             # --------------------------------------
 
             hsn_code = str(
@@ -142,59 +199,74 @@ class PurchaseBillAIService:
                 or ""
             ).strip()
 
-            if hsn_code:
+            # --------------------------------------
+            # PRIMARY:
+            # Exact/case-insensitive product name
+            # --------------------------------------
+
+            if product_name:
 
                 product_match = (
-                    ProductRepository.get_by_hsn_code(
+                    ProductRepository
+                    .get_by_name(
                         db=db,
-                        hsn_code=hsn_code,
+                        product_name=(
+                            product_name
+                        ),
                     )
                 )
 
                 if product_match:
+
                     product_match_type = (
-                        "hsn_code"
+                        "product_name"
                     )
 
             # --------------------------------------
-            # Fallback: product name
+            # HSN FALLBACK
+            #
+            # Only when product name is missing.
+            #
+            # Never use HSN to override a named
+            # product because multiple products can
+            # share one HSN.
             # --------------------------------------
 
-            if product_match is None:
+            if (
+                product_match is None
+                and not product_name
+                and hsn_code
+            ):
 
-                product_name = str(
-                    product.get(
-                        "product_name",
-                        "",
+                product_match = (
+                    ProductRepository
+                    .get_by_hsn_code(
+                        db=db,
+                        hsn_code=(
+                            hsn_code
+                        ),
                     )
-                    or ""
-                ).strip()
+                )
 
-                if product_name:
+                if product_match:
 
-                    product_match = (
-                        ProductRepository.get_by_name(
-                            db=db,
-                            product_name=product_name,
-                        )
+                    product_match_type = (
+                        "hsn_code_fallback"
                     )
-
-                    if product_match:
-                        product_match_type = (
-                            "product_name"
-                        )
 
             # --------------------------------------
             # Add matching metadata
             #
             # IMPORTANT:
-            # Never replace the AI-extracted
-            # product values.
+            # Never replace AI-extracted values.
             # --------------------------------------
 
             product[
                 "existing_product"
-            ] = product_match is not None
+            ] = (
+                product_match
+                is not None
+            )
 
             product[
                 "product_id"
@@ -206,7 +278,9 @@ class PurchaseBillAIService:
 
             product[
                 "match_type"
-            ] = product_match_type
+            ] = (
+                product_match_type
+            )
 
         # ==========================================
         # 4. VALIDATE + CALCULATE
@@ -215,25 +289,33 @@ class PurchaseBillAIService:
         # This happens AFTER AI extraction and
         # supplier/product matching.
         #
-        # The validator is responsible for:
+        # Validator responsibilities:
         #
-        # quantity
-        # purchase_price
-        # line_total
-        # subtotal
-        # GST
-        # grand_total
+        # - quantity
+        # - purchase price
+        # - line total
+        # - subtotal
+        # - GST consistency
+        # - CGST + SGST half-rate correction
+        # - grand total
         #
         # ==========================================
 
-        data = PurchaseBillValidator.validate(
-            data
+        data = (
+            PurchaseBillValidator
+            .validate(
+                data
+            )
         )
 
         # ==========================================
         # 5. RETURN FINAL REVIEW DATA
         # ==========================================
 
-        ai_result["data"] = data
+        ai_result[
+            "data"
+        ] = (
+            data
+        )
 
         return ai_result

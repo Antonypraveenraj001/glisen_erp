@@ -16,6 +16,7 @@ import {
   History,
   Loader2,
   PackageSearch,
+  RefreshCw,
   Send,
   Search,
   TriangleAlert,
@@ -34,6 +35,10 @@ import {
   getProductionOrders,
 } from "../../services/productionService";
 
+import {
+  getBusinessSettings,
+} from "../../services/settingsService";
+
 import type {
   StockMovementResponse,
   StockSummaryItem,
@@ -43,6 +48,9 @@ import type {
 import type {
   ProductionOrder,
 } from "../../types/production";
+
+
+const FALLBACK_PAGE_SIZE = 10;
 
 
 const EMPTY_SUMMARY: StockSummaryResponse = {
@@ -65,31 +73,48 @@ const EMPTY_MOVEMENTS: StockMovementResponse = {
 };
 
 
+/* ================================================================
+   HELPERS
+================================================================ */
+
 function formatNumber(
-  value: string | number | null
+  value:
+    string |
+    number |
+    null
 ) {
+
   if (
-    value === null ||
+    value === null
+    ||
     value === undefined
   ) {
     return "0";
   }
 
+
   const numericValue =
-    Number(value);
+    Number(
+      value
+    );
+
 
   if (
     Number.isNaN(
       numericValue
     )
   ) {
-    return String(value);
+    return String(
+      value
+    );
   }
+
 
   return new Intl.NumberFormat(
     "en-IN",
     {
-      maximumFractionDigits: 2,
+      maximumFractionDigits:
+        2,
     }
   ).format(
     numericValue
@@ -98,10 +123,16 @@ function formatNumber(
 
 
 function formatCurrency(
-  value: string | number
+  value:
+    string |
+    number
 ) {
+
   const numericValue =
-    Number(value);
+    Number(
+      value
+    );
+
 
   if (
     Number.isNaN(
@@ -111,12 +142,18 @@ function formatCurrency(
     return `₹${value}`;
   }
 
+
   return new Intl.NumberFormat(
     "en-IN",
     {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 2,
+      style:
+        "currency",
+
+      currency:
+        "INR",
+
+      maximumFractionDigits:
+        2,
     }
   ).format(
     numericValue
@@ -125,10 +162,15 @@ function formatCurrency(
 
 
 function formatDateTime(
-  value: string
+  value:
+    string
 ) {
+
   const date =
-    new Date(value);
+    new Date(
+      value
+    );
+
 
   if (
     Number.isNaN(
@@ -138,6 +180,7 @@ function formatDateTime(
     return value;
   }
 
+
   return date.toLocaleString(
     "en-IN"
   );
@@ -145,8 +188,10 @@ function formatDateTime(
 
 
 function getStockStatusClass(
-  status: string
+  status:
+    string
 ) {
+
   const normalized =
     status
       .toLowerCase()
@@ -155,12 +200,14 @@ function getStockStatusClass(
         "-"
       );
 
+
   if (
     normalized ===
     "in-stock"
   ) {
     return "in-stock";
   }
+
 
   if (
     normalized ===
@@ -169,12 +216,14 @@ function getStockStatusClass(
     return "low-stock";
   }
 
+
   if (
     normalized ===
     "out-of-stock"
   ) {
     return "out-of-stock";
   }
+
 
   if (
     normalized ===
@@ -183,15 +232,20 @@ function getStockStatusClass(
     return "over-stock";
   }
 
+
   return "default";
 }
 
 
 function getMovementClass(
-  movementType: string
+  movementType:
+    string
 ) {
+
   const normalized =
-    movementType.toLowerCase();
+    movementType
+      .toLowerCase();
+
 
   if (
     normalized.includes(
@@ -201,6 +255,7 @@ function getMovementClass(
     return "purchase";
   }
 
+
   if (
     normalized.includes(
       "finished"
@@ -209,62 +264,98 @@ function getMovementClass(
     return "finished";
   }
 
+
   if (
     normalized.includes(
       "shop"
     )
+    ||
+    normalized.includes(
+      "issue"
+    )
   ) {
     return "issue";
   }
+
 
   return "default";
 }
 
 
 function getApiErrorMessage(
-  error: unknown,
-  fallback: string
+  error:
+    unknown,
+  fallback:
+    string
 ) {
+
   if (
     axios.isAxiosError(
       error
     )
   ) {
+
     const detail =
       error.response
         ?.data
         ?.detail;
 
+
     if (
-      typeof detail ===
+      typeof detail
+      ===
       "string"
     ) {
       return detail;
     }
+
   }
 
+
   if (
-    error instanceof Error &&
+    error instanceof Error
+    &&
     error.message
   ) {
     return error.message;
   }
 
+
   return fallback;
 }
 
 
+/* ================================================================
+   MODAL STYLES
+================================================================ */
+
 const modalBackdropStyle:
 React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 9999,
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  padding: "24px",
+
+  position:
+    "fixed",
+
+  inset:
+    0,
+
+  zIndex:
+    9999,
+
+  display:
+    "flex",
+
+  justifyContent:
+    "center",
+
+  alignItems:
+    "center",
+
+  padding:
+    "24px",
+
   background:
     "rgba(26, 47, 79, 0.58)",
+
   backdropFilter:
     "blur(3px)",
 };
@@ -272,13 +363,25 @@ React.CSSProperties = {
 
 const modalStyle:
 React.CSSProperties = {
-  width: "min(1100px, 94vw)",
-  maxHeight: "88vh",
-  overflowY: "auto",
-  borderRadius: "18px",
-  background: "#ffffff",
+
+  width:
+    "min(1100px, 94vw)",
+
+  maxHeight:
+    "88vh",
+
+  overflowY:
+    "auto",
+
+  borderRadius:
+    "18px",
+
+  background:
+    "#ffffff",
+
   border:
     "1px solid #dce6f2",
+
   boxShadow:
     "0 24px 70px rgba(20, 45, 80, 0.22)",
 };
@@ -286,13 +389,22 @@ React.CSSProperties = {
 
 const modalHeaderStyle:
 React.CSSProperties = {
-  display: "flex",
+
+  display:
+    "flex",
+
   justifyContent:
     "space-between",
+
   alignItems:
     "flex-start",
-  gap: "20px",
-  padding: "22px 24px",
+
+  gap:
+    "20px",
+
+  padding:
+    "22px 24px",
+
   borderBottom:
     "1px solid #e8eef7",
 };
@@ -300,125 +412,290 @@ React.CSSProperties = {
 
 const modalCloseStyle:
 React.CSSProperties = {
-  width: "38px",
-  height: "38px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  border: "0",
-  borderRadius: "10px",
-  background: "#f3f6fb",
-  color: "#617695",
-  cursor: "pointer",
+
+  width:
+    "38px",
+
+  height:
+    "38px",
+
+  display:
+    "flex",
+
+  alignItems:
+    "center",
+
+  justifyContent:
+    "center",
+
+  border:
+    "0",
+
+  borderRadius:
+    "10px",
+
+  background:
+    "#f3f6fb",
+
+  color:
+    "#617695",
+
+  cursor:
+    "pointer",
 };
 
 
 const quantityInputStyle:
 React.CSSProperties = {
-  width: "95px",
-  minHeight: "36px",
-  padding: "0 9px",
+
+  width:
+    "95px",
+
+  minHeight:
+    "36px",
+
+  padding:
+    "0 9px",
+
   border:
     "1px solid #d9e3f0",
-  borderRadius: "9px",
-  outline: "none",
-  fontSize: "11px",
+
+  borderRadius:
+    "9px",
+
+  outline:
+    "none",
+
+  fontSize:
+    "11px",
 };
 
 
+const paginationStyle:
+React.CSSProperties = {
+
+  display:
+    "flex",
+
+  alignItems:
+    "center",
+
+  justifyContent:
+    "space-between",
+
+  gap:
+    "14px",
+
+  padding:
+    "15px 18px",
+
+  borderTop:
+    "1px solid #e8eef7",
+
+  background:
+    "#ffffff",
+};
+
+
+/* ================================================================
+   PAGE
+================================================================ */
+
 export default function StockPage() {
+
+  /* ==============================================================
+     SETTINGS
+  ============================================================== */
+
+  const [
+    pageSize,
+    setPageSize,
+  ] =
+    useState(
+      FALLBACK_PAGE_SIZE
+    );
+
+
+  /* ==============================================================
+     DATA
+  ============================================================== */
+
   const [
     summary,
     setSummary,
   ] =
-    useState<StockSummaryResponse>(
+    useState<
+      StockSummaryResponse
+    >(
       EMPTY_SUMMARY
     );
+
 
   const [
     movements,
     setMovements,
   ] =
-    useState<StockMovementResponse>(
+    useState<
+      StockMovementResponse
+    >(
       EMPTY_MOVEMENTS
     );
+
+
+  /* ==============================================================
+     STOCK FILTER
+  ============================================================== */
 
   const [
     summarySearch,
     setSummarySearch,
   ] =
-    useState("");
+    useState(
+      ""
+    );
+
 
   const [
-    stockStatus,
-    setStockStatus,
+    liveStockStatus,
+    setLiveStockStatus,
   ] =
-    useState("");
+    useState(
+      ""
+    );
+
+
+  /* ==============================================================
+     MOVEMENT FILTER
+  ============================================================== */
 
   const [
     movementType,
     setMovementType,
   ] =
-    useState("");
+    useState(
+      ""
+    );
+
 
   const [
     movementProductId,
     setMovementProductId,
   ] =
-    useState("");
+    useState(
+      ""
+    );
+
 
   const [
     movementStartDate,
     setMovementStartDate,
   ] =
-    useState("");
+    useState(
+      ""
+    );
+
 
   const [
     movementEndDate,
     setMovementEndDate,
   ] =
-    useState("");
+    useState(
+      ""
+    );
+
+
+  /* ==============================================================
+     LOADING / MESSAGE
+  ============================================================== */
 
   const [
     summaryLoading,
     setSummaryLoading,
   ] =
-    useState(true);
+    useState(
+      true
+    );
+
 
   const [
     movementLoading,
     setMovementLoading,
   ] =
-    useState(true);
+    useState(
+      true
+    );
+
 
   const [
     error,
     setError,
   ] =
-    useState<string | null>(
+    useState<
+      string |
+      null
+    >(
       null
     );
+
 
   const [
     success,
     setSuccess,
   ] =
-    useState<string | null>(
+    useState<
+      string |
+      null
+    >(
       null
     );
 
 
-  /* =========================================================
-     MATERIAL ISSUE STATES
-  ========================================================= */
+  /* ==============================================================
+     PAGINATION
+  ============================================================== */
+
+  const [
+    liveStockPage,
+    setLiveStockPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    outOfStockPage,
+    setOutOfStockPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    movementPage,
+    setMovementPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  /* ==============================================================
+     MATERIAL ISSUE
+  ============================================================== */
 
   const [
     issueQuantities,
     setIssueQuantities,
   ] =
     useState<
-      Record<number, string>
+      Record<
+        number,
+        string
+      >
     >({});
+
 
   const [
     selectedMaterial,
@@ -431,17 +708,24 @@ export default function StockPage() {
       null
     );
 
+
   const [
     selectedIssueQuantity,
     setSelectedIssueQuantity,
   ] =
-    useState(0);
+    useState(
+      0
+    );
+
 
   const [
     issueModalOpen,
     setIssueModalOpen,
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     productionOrders,
@@ -451,11 +735,15 @@ export default function StockPage() {
       ProductionOrder[]
     >([]);
 
+
   const [
     productionLoading,
     setProductionLoading,
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     selectedProductionOrderId,
@@ -468,17 +756,24 @@ export default function StockPage() {
       null
     );
 
+
   const [
     issueRemarks,
     setIssueRemarks,
   ] =
-    useState("");
+    useState(
+      ""
+    );
+
 
   const [
     issuingMaterial,
     setIssuingMaterial,
   ] =
-    useState(false);
+    useState(
+      false
+    );
+
 
   const [
     issueError,
@@ -492,41 +787,107 @@ export default function StockPage() {
     );
 
 
-  /* =========================================================
+  /* ==============================================================
+     BUSINESS SETTINGS
+  ============================================================== */
+
+  async function loadPageSize() {
+
+    try {
+
+      const settings =
+        await getBusinessSettings();
+
+
+      const configuredPageSize =
+        Number(
+          settings.default_page_size
+        );
+
+
+      if (
+        Number.isInteger(
+          configuredPageSize
+        )
+        &&
+        configuredPageSize >= 5
+        &&
+        configuredPageSize <= 100
+      ) {
+
+        setPageSize(
+          configuredPageSize
+        );
+
+      } else {
+
+        setPageSize(
+          FALLBACK_PAGE_SIZE
+        );
+
+      }
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        "Unable to load default page size:",
+        err
+      );
+
+
+      setPageSize(
+        FALLBACK_PAGE_SIZE
+      );
+
+    }
+
+  }
+
+
+  /* ==============================================================
      LOAD STOCK SUMMARY
-  ========================================================= */
+  ============================================================== */
 
   async function loadSummary(
-    search = summarySearch,
-    status = stockStatus
+    search =
+      summarySearch
   ) {
+
     try {
+
       setSummaryLoading(
         true
       );
+
 
       setError(
         null
       );
 
+
       const data =
         await getStockSummary({
           search:
-            search ||
-            undefined,
-
-          stock_status:
-            status ||
-            undefined,
+            search.trim()
+              ? search.trim()
+              : undefined,
         });
+
 
       setSummary(
         data
       );
-    } catch (err) {
+
+    } catch (
+      err
+    ) {
+
       console.error(
         err
       );
+
 
       setError(
         getApiErrorMessage(
@@ -534,27 +895,35 @@ export default function StockPage() {
           "Unable to load stock summary."
         )
       );
+
     } finally {
+
       setSummaryLoading(
         false
       );
+
     }
+
   }
 
 
-  /* =========================================================
-     LOAD STOCK MOVEMENTS
-  ========================================================= */
+  /* ==============================================================
+     LOAD MOVEMENTS
+  ============================================================== */
 
   async function loadMovements() {
+
     try {
+
       setMovementLoading(
         true
       );
 
+
       setError(
         null
       );
+
 
       const productId =
         movementProductId
@@ -563,10 +932,12 @@ export default function StockPage() {
             )
           : undefined;
 
+
       const data =
         await getStockMovements({
           product_id:
-            productId &&
+            productId
+            &&
             !Number.isNaN(
               productId
             )
@@ -574,25 +945,34 @@ export default function StockPage() {
               : undefined,
 
           movement_type:
-            movementType ||
+            movementType
+            ||
             undefined,
 
           start_date:
-            movementStartDate ||
+            movementStartDate
+            ||
             undefined,
 
           end_date:
-            movementEndDate ||
+            movementEndDate
+            ||
             undefined,
         });
+
 
       setMovements(
         data
       );
-    } catch (err) {
+
+    } catch (
+      err
+    ) {
+
       console.error(
         err
       );
+
 
       setError(
         getApiErrorMessage(
@@ -600,18 +980,28 @@ export default function StockPage() {
           "Unable to load stock movements."
         )
       );
+
     } finally {
+
       setMovementLoading(
         false
       );
+
     }
+
   }
 
 
+  /* ==============================================================
+     INITIAL LOAD
+  ============================================================== */
+
   useEffect(
     () => {
+
+      void loadPageSize();
+
       void loadSummary(
-        "",
         ""
       );
 
@@ -619,89 +1009,533 @@ export default function StockPage() {
 
       // Initial load only.
       // eslint-disable-next-line react-hooks/exhaustive-deps
+
     },
     []
   );
 
 
-  /* =========================================================
-     SUMMARY FILTER
-  ========================================================= */
+  /* ==============================================================
+     LIVE / OUT-OF-STOCK DERIVATION
+  ============================================================== */
+
+  const liveStockItems =
+    useMemo(
+      () => {
+
+        return summary.items.filter(
+          item => {
+
+            const current =
+              Number(
+                item.current_stock
+              );
+
+
+            if (
+              Number.isNaN(
+                current
+              )
+              ||
+              current <= 0
+            ) {
+              return false;
+            }
+
+
+            if (
+              !liveStockStatus
+            ) {
+              return true;
+            }
+
+
+            return (
+              item.stock_status
+                .trim()
+                .toLowerCase()
+              ===
+              liveStockStatus
+                .trim()
+                .toLowerCase()
+            );
+
+          }
+        );
+
+      },
+      [
+        summary.items,
+        liveStockStatus,
+      ]
+    );
+
+
+  const outOfStockItems =
+    useMemo(
+      () => {
+
+        return summary.items.filter(
+          item => {
+
+            const current =
+              Number(
+                item.current_stock
+              );
+
+
+            return (
+              !Number.isNaN(
+                current
+              )
+              &&
+              current <= 0
+            );
+
+          }
+        );
+
+      },
+      [
+        summary.items,
+      ]
+    );
+
+
+  /* ==============================================================
+     LIVE STOCK PAGINATION
+  ============================================================== */
+
+  const liveStockTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        liveStockItems.length
+        /
+        pageSize
+      )
+    );
+
+
+  const paginatedLiveStock =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            liveStockPage
+            -
+            1
+          )
+          *
+          pageSize;
+
+
+        return liveStockItems.slice(
+          start,
+          start
+          +
+          pageSize
+        );
+
+      },
+      [
+        liveStockItems,
+        liveStockPage,
+        pageSize,
+      ]
+    );
+
+
+  const liveFirstRecord =
+    liveStockItems.length
+    >
+    0
+      ? (
+          (
+            liveStockPage
+            -
+            1
+          )
+          *
+          pageSize
+        )
+        +
+        1
+      : 0;
+
+
+  const liveLastRecord =
+    Math.min(
+      liveStockPage
+      *
+      pageSize,
+      liveStockItems.length
+    );
+
+
+  /* ==============================================================
+     OUT-OF-STOCK PAGINATION
+  ============================================================== */
+
+  const outOfStockTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        outOfStockItems.length
+        /
+        pageSize
+      )
+    );
+
+
+  const paginatedOutOfStock =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            outOfStockPage
+            -
+            1
+          )
+          *
+          pageSize;
+
+
+        return outOfStockItems.slice(
+          start,
+          start
+          +
+          pageSize
+        );
+
+      },
+      [
+        outOfStockItems,
+        outOfStockPage,
+        pageSize,
+      ]
+    );
+
+
+  const outFirstRecord =
+    outOfStockItems.length
+    >
+    0
+      ? (
+          (
+            outOfStockPage
+            -
+            1
+          )
+          *
+          pageSize
+        )
+        +
+        1
+      : 0;
+
+
+  const outLastRecord =
+    Math.min(
+      outOfStockPage
+      *
+      pageSize,
+      outOfStockItems.length
+    );
+
+
+  /* ==============================================================
+     MOVEMENT PAGINATION
+  ============================================================== */
+
+  const movementTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        movements.items.length
+        /
+        pageSize
+      )
+    );
+
+
+  const paginatedMovements =
+    useMemo(
+      () => {
+
+        const start =
+          (
+            movementPage
+            -
+            1
+          )
+          *
+          pageSize;
+
+
+        return movements.items.slice(
+          start,
+          start
+          +
+          pageSize
+        );
+
+      },
+      [
+        movements.items,
+        movementPage,
+        pageSize,
+      ]
+    );
+
+
+  const movementFirstRecord =
+    movements.items.length
+    >
+    0
+      ? (
+          (
+            movementPage
+            -
+            1
+          )
+          *
+          pageSize
+        )
+        +
+        1
+      : 0;
+
+
+  const movementLastRecord =
+    Math.min(
+      movementPage
+      *
+      pageSize,
+      movements.items.length
+    );
+
+
+  /* ==============================================================
+     RESET / CLAMP PAGINATION
+  ============================================================== */
+
+  useEffect(
+    () => {
+
+      setLiveStockPage(
+        1
+      );
+
+      setOutOfStockPage(
+        1
+      );
+
+    },
+    [
+      summarySearch,
+      liveStockStatus,
+      pageSize,
+    ]
+  );
+
+
+  useEffect(
+    () => {
+
+      if (
+        liveStockPage
+        >
+        liveStockTotalPages
+      ) {
+
+        setLiveStockPage(
+          liveStockTotalPages
+        );
+
+      }
+
+
+      if (
+        outOfStockPage
+        >
+        outOfStockTotalPages
+      ) {
+
+        setOutOfStockPage(
+          outOfStockTotalPages
+        );
+
+      }
+
+    },
+    [
+      liveStockPage,
+      liveStockTotalPages,
+      outOfStockPage,
+      outOfStockTotalPages,
+    ]
+  );
+
+
+  useEffect(
+    () => {
+
+      if (
+        movementPage
+        >
+        movementTotalPages
+      ) {
+
+        setMovementPage(
+          movementTotalPages
+        );
+
+      }
+
+    },
+    [
+      movementPage,
+      movementTotalPages,
+    ]
+  );
+
+
+  /* ==============================================================
+     STOCK SEARCH
+  ============================================================== */
 
   async function handleSummarySearch(
-    event: React.FormEvent
+    event:
+      React.FormEvent
   ) {
+
     event.preventDefault();
 
+
+    setLiveStockPage(
+      1
+    );
+
+
+    setOutOfStockPage(
+      1
+    );
+
+
     await loadSummary();
+
   }
 
 
   async function handleClearSummary() {
+
     setSummarySearch(
       ""
     );
 
-    setStockStatus(
+
+    setLiveStockStatus(
       ""
     );
 
+
+    setLiveStockPage(
+      1
+    );
+
+
+    setOutOfStockPage(
+      1
+    );
+
+
     await loadSummary(
-      "",
       ""
     );
+
   }
 
 
-  /* =========================================================
+  /* ==============================================================
      MOVEMENT FILTER
-  ========================================================= */
+  ============================================================== */
 
   async function handleMovementFilter(
-    event: React.FormEvent
+    event:
+      React.FormEvent
   ) {
+
     event.preventDefault();
 
+
+    setMovementPage(
+      1
+    );
+
+
     await loadMovements();
+
   }
 
 
   async function handleClearMovement() {
+
     setMovementType(
       ""
     );
+
 
     setMovementProductId(
       ""
     );
 
+
     setMovementStartDate(
       ""
     );
+
 
     setMovementEndDate(
       ""
     );
 
+
+    setMovementPage(
+      1
+    );
+
+
     try {
+
       setMovementLoading(
         true
       );
+
 
       setError(
         null
       );
 
+
       const data =
         await getStockMovements();
+
 
       setMovements(
         data
       );
-    } catch (err) {
+
+    } catch (
+      err
+    ) {
+
       console.error(
         err
       );
+
 
       setError(
         getApiErrorMessage(
@@ -709,50 +1543,80 @@ export default function StockPage() {
           "Unable to load stock movements."
         )
       );
+
     } finally {
+
       setMovementLoading(
         false
       );
+
     }
+
   }
 
 
-  /* =========================================================
+  /* ==============================================================
+     REFRESH
+  ============================================================== */
+
+  async function handleRefresh() {
+
+    setSuccess(
+      null
+    );
+
+
+    await Promise.all([
+      loadPageSize(),
+      loadSummary(),
+      loadMovements(),
+    ]);
+
+  }
+
+
+  /* ==============================================================
      ACTIVE PRODUCTION ORDERS
-  ========================================================= */
+  ============================================================== */
 
   const activeProductionOrders =
     useMemo(
-      () =>
-        productionOrders.filter(
-          (
-            order
-          ) =>
+      () => {
+
+        return productionOrders.filter(
+          order =>
             order.status
               .trim()
-              .toLowerCase() ===
+              .toLowerCase()
+            ===
             "in progress"
-        ),
+        );
+
+      },
       [
         productionOrders,
       ]
     );
 
 
-  /* =========================================================
-     OPEN ISSUE MATERIAL POPUP
-  ========================================================= */
+  /* ==============================================================
+     OPEN MATERIAL ISSUE
+  ============================================================== */
 
   async function openIssueMaterial(
-    item: StockSummaryItem
+    item:
+      StockSummaryItem
   ) {
+
     setSuccess(
       null
     );
 
+
     setIssueError(
       null
     );
+
 
     const quantity =
       Number(
@@ -760,6 +1624,7 @@ export default function StockPage() {
           item.product_id
         ]
       );
+
 
     const available =
       Number(
@@ -770,21 +1635,26 @@ export default function StockPage() {
     if (
       Number.isNaN(
         quantity
-      ) ||
+      )
+      ||
       quantity <= 0
     ) {
+
       setError(
         `Enter the quantity to issue for ${item.product_name}.`
       );
 
       return;
+
     }
 
 
     if (
-      quantity >
+      quantity
+      >
       available
     ) {
+
       setError(
         `Issue quantity cannot exceed available stock of ${formatNumber(
           available
@@ -792,6 +1662,7 @@ export default function StockPage() {
       );
 
       return;
+
     }
 
 
@@ -799,21 +1670,26 @@ export default function StockPage() {
       null
     );
 
+
     setSelectedMaterial(
       item
     );
+
 
     setSelectedIssueQuantity(
       quantity
     );
 
+
     setSelectedProductionOrderId(
       null
     );
 
+
     setIssueRemarks(
       ""
     );
+
 
     setIssueModalOpen(
       true
@@ -821,20 +1697,28 @@ export default function StockPage() {
 
 
     try {
+
       setProductionLoading(
         true
       );
 
+
       const data =
         await getProductionOrders();
+
 
       setProductionOrders(
         data
       );
-    } catch (err) {
+
+    } catch (
+      err
+    ) {
+
       console.error(
         err
       );
+
 
       setIssueError(
         getApiErrorMessage(
@@ -842,48 +1726,60 @@ export default function StockPage() {
           "Unable to load active Production Orders."
         )
       );
+
     } finally {
+
       setProductionLoading(
         false
       );
+
     }
+
   }
 
 
   function closeIssueModal() {
+
     if (
       issuingMaterial
     ) {
       return;
     }
 
+
     setIssueModalOpen(
       false
     );
+
 
     setSelectedMaterial(
       null
     );
 
+
     setSelectedProductionOrderId(
       null
     );
+
 
     setIssueRemarks(
       ""
     );
 
+
     setIssueError(
       null
     );
+
   }
 
 
-  /* =========================================================
-     FINAL ISSUE
-  ========================================================= */
+  /* ==============================================================
+     ISSUE MATERIAL
+  ============================================================== */
 
   async function handleIssueMaterial() {
+
     if (
       !selectedMaterial
     ) {
@@ -892,40 +1788,45 @@ export default function StockPage() {
 
 
     if (
-      selectedProductionOrderId ===
+      selectedProductionOrderId
+      ===
       null
     ) {
+
       setIssueError(
         "Select a Production Order first."
       );
 
       return;
+
     }
 
 
     try {
+
       setIssuingMaterial(
         true
       );
 
+
       setIssueError(
         null
       );
+
 
       const result =
         await issueStockToProductionOrder(
           selectedProductionOrderId,
           {
             product_id:
-              selectedMaterial
-                .product_id,
+              selectedMaterial.product_id,
 
             quantity:
               selectedIssueQuantity,
 
             remarks:
-              issueRemarks
-                .trim() ||
+              issueRemarks.trim()
+              ||
               null,
           }
         );
@@ -935,15 +1836,14 @@ export default function StockPage() {
         false
       );
 
+
       setSelectedProductionOrderId(
         null
       );
 
 
       setIssueQuantities(
-        (
-          current
-        ) => ({
+        current => ({
           ...current,
 
           [selectedMaterial.product_id]:
@@ -968,16 +1868,19 @@ export default function StockPage() {
       );
 
 
-      await Promise.all(
-        [
-          loadSummary(),
-          loadMovements(),
-        ]
-      );
-    } catch (err) {
+      await Promise.all([
+        loadSummary(),
+        loadMovements(),
+      ]);
+
+    } catch (
+      err
+    ) {
+
       console.error(
         err
       );
+
 
       setIssueError(
         getApiErrorMessage(
@@ -985,20 +1888,163 @@ export default function StockPage() {
           "Unable to issue material."
         )
       );
+
     } finally {
+
       setIssuingMaterial(
         false
       );
+
     }
+
   }
 
+
+  /* ==============================================================
+     PAGINATION COMPONENT
+  ============================================================== */
+
+  function renderPagination(
+    currentPage:
+      number,
+    totalPages:
+      number,
+    firstRecord:
+      number,
+    lastRecord:
+      number,
+    totalRecords:
+      number,
+    setPage:
+      React.Dispatch<
+        React.SetStateAction<number>
+      >
+  ) {
+
+    return (
+      <div style={paginationStyle}>
+
+        <div className="stock-section-subtitle">
+
+          Showing{" "}
+
+          <strong>
+            {firstRecord}
+          </strong>
+
+          {"–"}
+
+          <strong>
+            {lastRecord}
+          </strong>
+
+          {" of "}
+
+          <strong>
+            {totalRecords}
+          </strong>
+
+          {" records"}
+
+          {" • "}
+
+          {pageSize}
+          {" per page"}
+
+        </div>
+
+
+        <div
+          style={{
+            display:
+              "flex",
+
+            alignItems:
+              "center",
+
+            gap:
+              "10px",
+          }}
+        >
+
+          <button
+            type="button"
+            className="stock-secondary-button"
+            disabled={
+              currentPage <= 1
+            }
+            onClick={
+              () =>
+                setPage(
+                  page =>
+                    Math.max(
+                      1,
+                      page - 1
+                    )
+                )
+            }
+          >
+            Previous
+          </button>
+
+
+          <span className="stock-section-subtitle">
+
+            Page{" "}
+
+            <strong>
+              {currentPage}
+            </strong>
+
+            {" of "}
+
+            <strong>
+              {totalPages}
+            </strong>
+
+          </span>
+
+
+          <button
+            type="button"
+            className="stock-secondary-button"
+            disabled={
+              currentPage
+              >=
+              totalPages
+            }
+            onClick={
+              () =>
+                setPage(
+                  page =>
+                    Math.min(
+                      totalPages,
+                      page + 1
+                    )
+                )
+            }
+          >
+            Next
+          </button>
+
+        </div>
+
+      </div>
+    );
+
+  }
+
+
+  /* ==============================================================
+     PAGE
+  ============================================================== */
 
   return (
     <div className="stock-page">
 
-      {/* =====================================================
+      {/* ======================================================
           HEADER
-      ===================================================== */}
+      ====================================================== */}
 
       <div className="stock-page-header">
 
@@ -1008,65 +2054,100 @@ export default function StockPage() {
             INVENTORY CONTROL
           </div>
 
+
           <h1 className="stock-title">
             Stock Management
           </h1>
+
 
           <p className="stock-subtitle">
             Monitor purchased inventory,
             issue Store materials directly
             to active Production Orders,
-            and maintain stock movement
-            history.
+            and maintain stock movement history.
           </p>
 
         </div>
 
+
+        <button
+          type="button"
+          className="stock-secondary-button"
+          onClick={
+            () =>
+              void handleRefresh()
+          }
+        >
+
+          <RefreshCw
+            size={15}
+          />
+
+          Refresh
+
+        </button>
+
       </div>
 
 
-      {error && (
-        <div className="stock-error">
-          {error}
-        </div>
-      )}
+      {
+        error
+        &&
+        (
+          <div className="stock-error">
+            {error}
+          </div>
+        )
+      }
 
 
-      {success && (
-        <div
-          style={{
-            padding:
-              "12px 14px",
-            border:
-              "1px solid #bfe7cf",
-            borderRadius:
-              "10px",
-            background:
-              "#effaf4",
-            color:
-              "#18794e",
-            fontSize:
-              "12px",
-          }}
-        >
-          <CheckCircle2
-            size={15}
+      {
+        success
+        &&
+        (
+          <div
             style={{
-              verticalAlign:
-                "middle",
-              marginRight:
-                "7px",
+              padding:
+                "12px 14px",
+
+              border:
+                "1px solid #bfe7cf",
+
+              borderRadius:
+                "10px",
+
+              background:
+                "#effaf4",
+
+              color:
+                "#18794e",
+
+              fontSize:
+                "12px",
             }}
-          />
+          >
 
-          {success}
-        </div>
-      )}
+            <CheckCircle2
+              size={15}
+              style={{
+                verticalAlign:
+                  "middle",
+
+                marginRight:
+                  "7px",
+              }}
+            />
+
+            {success}
+
+          </div>
+        )
+      }
 
 
-      {/* =====================================================
+      {/* ======================================================
           KPI
-      ===================================================== */}
+      ====================================================== */}
 
       <div className="stock-kpi-grid">
 
@@ -1079,18 +2160,18 @@ export default function StockPage() {
             </div>
 
             <div className="stock-kpi-value">
-              {
-                summary
-                  .total_products
-              }
+              {summary.total_products}
             </div>
 
           </div>
 
+
           <div className="stock-kpi-icon blue">
+
             <Boxes
               size={20}
             />
+
           </div>
 
         </div>
@@ -1105,18 +2186,24 @@ export default function StockPage() {
             </div>
 
             <div className="stock-kpi-value">
-              {formatNumber(
-                summary
-                  .total_stock_quantity
-              )}
+
+              {
+                formatNumber(
+                  summary.total_stock_quantity
+                )
+              }
+
             </div>
 
           </div>
 
+
           <div className="stock-kpi-icon lavender">
+
             <PackageSearch
               size={20}
             />
+
           </div>
 
         </div>
@@ -1131,18 +2218,24 @@ export default function StockPage() {
             </div>
 
             <div className="stock-kpi-value">
-              {formatCurrency(
-                summary
-                  .total_stock_value
-              )}
+
+              {
+                formatCurrency(
+                  summary.total_stock_value
+                )
+              }
+
             </div>
 
           </div>
 
+
           <div className="stock-kpi-icon green">
+
             <ArrowDownToLine
               size={20}
             />
+
           </div>
 
         </div>
@@ -1157,18 +2250,18 @@ export default function StockPage() {
             </div>
 
             <div className="stock-kpi-value">
-              {
-                summary
-                  .low_stock_products
-              }
+              {summary.low_stock_products}
             </div>
 
           </div>
 
+
           <div className="stock-kpi-icon amber">
+
             <TriangleAlert
               size={20}
             />
+
           </div>
 
         </div>
@@ -1183,18 +2276,18 @@ export default function StockPage() {
             </div>
 
             <div className="stock-kpi-value">
-              {
-                summary
-                  .out_of_stock_products
-              }
+              {summary.out_of_stock_products}
             </div>
 
           </div>
 
+
           <div className="stock-kpi-icon rose">
+
             <ArrowUpFromLine
               size={20}
             />
+
           </div>
 
         </div>
@@ -1202,9 +2295,9 @@ export default function StockPage() {
       </div>
 
 
-      {/* =====================================================
-          STOCK SUMMARY
-      ===================================================== */}
+      {/* ======================================================
+          LIVE STOCK
+      ====================================================== */}
 
       <div className="stock-section">
 
@@ -1213,15 +2306,27 @@ export default function StockPage() {
           <div>
 
             <div className="stock-section-title">
-              Stock Summary
+              Live Stock
             </div>
 
+
             <div className="stock-section-subtitle">
-              Select a material,
-              enter the quantity,
-              then issue it directly
-              to an active Production Order.
+              Only materials with available stock are shown here.
+              Materials automatically leave this list when stock
+              reaches zero and return when they are restocked.
             </div>
+
+          </div>
+
+
+          <div className="stock-section-badge">
+
+            <Boxes
+              size={13}
+            />
+
+            {liveStockItems.length}
+            {" live"}
 
           </div>
 
@@ -1241,19 +2346,17 @@ export default function StockPage() {
               size={16}
             />
 
+
             <input
               type="text"
               value={
                 summarySearch
               }
-              onChange={(
-                event
-              ) =>
-                setSummarySearch(
-                  event
-                    .target
-                    .value
-                )
+              onChange={
+                event =>
+                  setSummarySearch(
+                    event.target.value
+                  )
               }
               placeholder="Search product code, name, category or HSN..."
             />
@@ -1264,21 +2367,25 @@ export default function StockPage() {
           <select
             className="stock-select"
             value={
-              stockStatus
+              liveStockStatus
             }
-            onChange={(
-              event
-            ) =>
-              setStockStatus(
-                event
-                  .target
-                  .value
-              )
+            onChange={
+              event => {
+
+                setLiveStockStatus(
+                  event.target.value
+                );
+
+                setLiveStockPage(
+                  1
+                );
+
+              }
             }
           >
 
             <option value="">
-              All Stock Status
+              All Live Stock
             </option>
 
             <option value="In Stock">
@@ -1287,10 +2394,6 @@ export default function StockPage() {
 
             <option value="Low Stock">
               Low Stock
-            </option>
-
-            <option value="Out of Stock">
-              Out of Stock
             </option>
 
             <option value="Over Stock">
@@ -1304,11 +2407,13 @@ export default function StockPage() {
             type="submit"
             className="stock-primary-button"
           >
+
             <Filter
               size={15}
             />
 
             Apply
+
           </button>
 
 
@@ -1316,7 +2421,8 @@ export default function StockPage() {
             type="button"
             className="stock-secondary-button"
             onClick={
-              handleClearSummary
+              () =>
+                void handleClearSummary()
             }
           >
             Clear
@@ -1325,302 +2431,533 @@ export default function StockPage() {
         </form>
 
 
-        {summaryLoading ? (
-          <div className="stock-loading-state">
+        {
+          summaryLoading
+            ? (
+                <div className="stock-loading-state">
 
-            <Loader2
-              size={22}
-              className="stock-spin"
-            />
+                  <Loader2
+                    size={22}
+                    className="stock-spin"
+                  />
 
-            Loading stock summary...
+                  Loading live stock...
 
-          </div>
-        ) : summary.items.length ===
-          0 ? (
-          <div className="stock-empty-state">
+                </div>
+              )
+            : liveStockItems.length
+              ===
+              0
+                ? (
+                    <div className="stock-empty-state">
 
-            <Boxes
-              size={25}
-            />
+                      <Boxes
+                        size={25}
+                      />
 
-            No stock records found.
+                      No live stock records found.
 
-          </div>
-        ) : (
-          <div className="stock-table-wrap">
+                    </div>
+                  )
+                : (
+                    <>
 
-            <table className="stock-table">
+                      <div className="stock-table-wrap">
 
-              <thead>
+                        <table className="stock-table">
 
-                <tr>
+                          <thead>
 
-                  <th>
-                    Product
-                  </th>
+                            <tr>
 
-                  <th>
-                    Category
-                  </th>
+                              <th>
+                                Product
+                              </th>
 
-                  <th>
-                    Unit
-                  </th>
+                              <th>
+                                Category
+                              </th>
 
-                  <th>
-                    Current
-                  </th>
+                              <th>
+                                Unit
+                              </th>
 
-                  <th>
-                    Minimum
-                  </th>
+                              <th>
+                                Current
+                              </th>
 
-                  <th>
-                    Maximum
-                  </th>
+                              <th>
+                                Minimum
+                              </th>
 
-                  <th>
-                    Purchase Price
-                  </th>
+                              <th>
+                                Maximum
+                              </th>
 
-                  <th>
-                    Stock Value
-                  </th>
+                              <th>
+                                Purchase Price
+                              </th>
 
-                  <th>
-                    Status
-                  </th>
+                              <th>
+                                Stock Value
+                              </th>
 
-                  <th>
-                    Qty to Issue
-                  </th>
+                              <th>
+                                Status
+                              </th>
 
-                  <th>
-                    Action
-                  </th>
+                              <th>
+                                Qty to Issue
+                              </th>
 
-                </tr>
+                              <th>
+                                Action
+                              </th>
 
-              </thead>
+                            </tr>
+
+                          </thead>
 
 
-              <tbody>
+                          <tbody>
 
-                {summary.items.map(
-                  (
-                    item
-                  ) => {
-                    const available =
-                      Number(
-                        item.current_stock
-                      );
-
-                    const outOfStock =
-                      available <= 0;
-
-                    return (
-                      <tr
-                        key={
-                          item.product_id
-                        }
-                      >
-
-                        <td>
-
-                          <div className="stock-product-name">
                             {
-                              item
-                                .product_name
-                            }
-                          </div>
+                              paginatedLiveStock.map(
+                                item => (
 
-                          <div className="stock-product-code">
-                            {
-                              item
-                                .product_code
-                            }
-                          </div>
+                                  <tr
+                                    key={
+                                      item.product_id
+                                    }
+                                  >
 
-                        </td>
+                                    <td>
 
+                                      <div className="stock-product-name">
+                                        {item.product_name}
+                                      </div>
 
-                        <td>
-                          {
-                            item.category ||
-                            "-"
-                          }
-                        </td>
+                                      <div className="stock-product-code">
+                                        {item.product_code}
+                                      </div>
 
-
-                        <td>
-                          {
-                            item.unit
-                          }
-                        </td>
+                                    </td>
 
 
-                        <td>
-
-                          <strong>
-                            {formatNumber(
-                              item
-                                .current_stock
-                            )}
-                          </strong>
-
-                        </td>
+                                    <td>
+                                      {item.category || "-"}
+                                    </td>
 
 
-                        <td>
-                          {formatNumber(
-                            item
-                              .minimum_stock
-                          )}
-                        </td>
+                                    <td>
+                                      {item.unit}
+                                    </td>
 
 
-                        <td>
-                          {formatNumber(
-                            item
-                              .maximum_stock
-                          )}
-                        </td>
+                                    <td>
+
+                                      <strong>
+                                        {
+                                          formatNumber(
+                                            item.current_stock
+                                          )
+                                        }
+                                      </strong>
+
+                                    </td>
 
 
-                        <td>
-                          {formatCurrency(
-                            item
-                              .purchase_price
-                          )}
-                        </td>
+                                    <td>
+                                      {
+                                        formatNumber(
+                                          item.minimum_stock
+                                        )
+                                      }
+                                    </td>
 
 
-                        <td>
-
-                          <strong>
-                            {formatCurrency(
-                              item
-                                .stock_value
-                            )}
-                          </strong>
-
-                        </td>
+                                    <td>
+                                      {
+                                        formatNumber(
+                                          item.maximum_stock
+                                        )
+                                      }
+                                    </td>
 
 
-                        <td>
-
-                          <span
-                            className={`stock-status ${getStockStatusClass(
-                              item
-                                .stock_status
-                            )}`}
-                          >
-                            {
-                              item
-                                .stock_status
-                            }
-                          </span>
-
-                        </td>
+                                    <td>
+                                      {
+                                        formatCurrency(
+                                          item.purchase_price
+                                        )
+                                      }
+                                    </td>
 
 
-                        <td>
+                                    <td>
 
-                          <input
-                            type="number"
-                            min="0"
-                            max={
-                              item.current_stock
-                            }
-                            step="0.01"
-                            disabled={
-                              outOfStock
-                            }
-                            value={
-                              issueQuantities[
-                                item.product_id
-                              ] ??
-                              ""
-                            }
-                            onChange={(
-                              event
-                            ) =>
-                              setIssueQuantities(
-                                (
-                                  current
-                                ) => ({
-                                  ...current,
+                                      <strong>
+                                        {
+                                          formatCurrency(
+                                            item.stock_value
+                                          )
+                                        }
+                                      </strong>
 
-                                  [item.product_id]:
-                                    event
-                                      .target
-                                      .value,
-                                })
+                                    </td>
+
+
+                                    <td>
+
+                                      <span
+                                        className={
+                                          `stock-status ${getStockStatusClass(
+                                            item.stock_status
+                                          )}`
+                                        }
+                                      >
+                                        {item.stock_status}
+                                      </span>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max={
+                                          item.current_stock
+                                        }
+                                        step="0.01"
+                                        value={
+                                          issueQuantities[
+                                            item.product_id
+                                          ]
+                                          ??
+                                          ""
+                                        }
+                                        onChange={
+                                          event =>
+                                            setIssueQuantities(
+                                              current => ({
+                                                ...current,
+
+                                                [item.product_id]:
+                                                  event.target.value,
+                                              })
+                                            )
+                                        }
+                                        placeholder="Qty"
+                                        style={
+                                          quantityInputStyle
+                                        }
+                                      />
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <button
+                                        type="button"
+                                        className="stock-primary-button"
+                                        onClick={
+                                          () =>
+                                            void openIssueMaterial(
+                                              item
+                                            )
+                                        }
+                                        style={{
+                                          minHeight:
+                                            "36px",
+                                        }}
+                                      >
+
+                                        <Send
+                                          size={14}
+                                        />
+
+                                        Issue Material
+
+                                      </button>
+
+                                    </td>
+
+                                  </tr>
+
+                                )
                               )
                             }
-                            placeholder="Qty"
-                            style={
-                              quantityInputStyle
-                            }
-                          />
 
-                        </td>
+                          </tbody>
+
+                        </table>
+
+                      </div>
 
 
-                        <td>
+                      {
+                        renderPagination(
+                          liveStockPage,
+                          liveStockTotalPages,
+                          liveFirstRecord,
+                          liveLastRecord,
+                          liveStockItems.length,
+                          setLiveStockPage
+                        )
+                      }
 
-                          <button
-                            type="button"
-                            className="stock-primary-button"
-                            disabled={
-                              outOfStock
-                            }
-                            onClick={() =>
-                              void openIssueMaterial(
-                                item
-                              )
-                            }
-                            style={{
-                              minHeight:
-                                "36px",
-                              opacity:
-                                outOfStock
-                                  ? 0.45
-                                  : 1,
-                              cursor:
-                                outOfStock
-                                  ? "not-allowed"
-                                  : "pointer",
-                            }}
-                          >
-                            <Send
-                              size={14}
-                            />
-
-                            Issue Material
-                          </button>
-
-                        </td>
-
-                      </tr>
-                    );
-                  }
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-        )}
+                    </>
+                  )
+        }
 
       </div>
 
 
-      {/* =====================================================
-          STOCK MOVEMENTS
-      ===================================================== */}
+      {/* ======================================================
+          OUT OF STOCK
+      ====================================================== */}
+
+      <div className="stock-section">
+
+        <div className="stock-section-header">
+
+          <div>
+
+            <div className="stock-section-title">
+              Out of Stock
+            </div>
+
+
+            <div className="stock-section-subtitle">
+              Products with zero available quantity.
+              When a Purchase Bill restocks one of these products,
+              it automatically returns to Live Stock.
+            </div>
+
+          </div>
+
+
+          <div className="stock-section-badge">
+
+            <TriangleAlert
+              size={13}
+            />
+
+            {outOfStockItems.length}
+            {" out"}
+
+          </div>
+
+        </div>
+
+
+        {
+          summaryLoading
+            ? (
+                <div className="stock-loading-state">
+
+                  <Loader2
+                    size={22}
+                    className="stock-spin"
+                  />
+
+                  Loading out-of-stock products...
+
+                </div>
+              )
+            : outOfStockItems.length
+              ===
+              0
+                ? (
+                    <div className="stock-empty-state">
+
+                      <CheckCircle2
+                        size={25}
+                      />
+
+                      No products are currently out of stock.
+
+                    </div>
+                  )
+                : (
+                    <>
+
+                      <div className="stock-table-wrap">
+
+                        <table className="stock-table">
+
+                          <thead>
+
+                            <tr>
+
+                              <th>
+                                Product
+                              </th>
+
+                              <th>
+                                Category
+                              </th>
+
+                              <th>
+                                Unit
+                              </th>
+
+                              <th>
+                                Current
+                              </th>
+
+                              <th>
+                                Minimum
+                              </th>
+
+                              <th>
+                                Maximum
+                              </th>
+
+                              <th>
+                                Purchase Price
+                              </th>
+
+                              <th>
+                                Stock Value
+                              </th>
+
+                              <th>
+                                Status
+                              </th>
+
+                            </tr>
+
+                          </thead>
+
+
+                          <tbody>
+
+                            {
+                              paginatedOutOfStock.map(
+                                item => (
+
+                                  <tr
+                                    key={
+                                      item.product_id
+                                    }
+                                  >
+
+                                    <td>
+
+                                      <div className="stock-product-name">
+                                        {item.product_name}
+                                      </div>
+
+                                      <div className="stock-product-code">
+                                        {item.product_code}
+                                      </div>
+
+                                    </td>
+
+
+                                    <td>
+                                      {item.category || "-"}
+                                    </td>
+
+
+                                    <td>
+                                      {item.unit}
+                                    </td>
+
+
+                                    <td>
+
+                                      <strong>
+                                        0
+                                      </strong>
+
+                                    </td>
+
+
+                                    <td>
+                                      {
+                                        formatNumber(
+                                          item.minimum_stock
+                                        )
+                                      }
+                                    </td>
+
+
+                                    <td>
+                                      {
+                                        formatNumber(
+                                          item.maximum_stock
+                                        )
+                                      }
+                                    </td>
+
+
+                                    <td>
+                                      {
+                                        formatCurrency(
+                                          item.purchase_price
+                                        )
+                                      }
+                                    </td>
+
+
+                                    <td>
+                                      {
+                                        formatCurrency(
+                                          item.stock_value
+                                        )
+                                      }
+                                    </td>
+
+
+                                    <td>
+
+                                      <span
+                                        className="stock-status out-of-stock"
+                                      >
+                                        Out of Stock
+                                      </span>
+
+                                    </td>
+
+                                  </tr>
+
+                                )
+                              )
+                            }
+
+                          </tbody>
+
+                        </table>
+
+                      </div>
+
+
+                      {
+                        renderPagination(
+                          outOfStockPage,
+                          outOfStockTotalPages,
+                          outFirstRecord,
+                          outLastRecord,
+                          outOfStockItems.length,
+                          setOutOfStockPage
+                        )
+                      }
+
+                    </>
+                  )
+        }
+
+      </div>
+
+
+      {/* ======================================================
+          STOCK MOVEMENT HISTORY
+      ====================================================== */}
 
       <div className="stock-section">
 
@@ -1632,8 +2969,10 @@ export default function StockPage() {
               Stock Movement History
             </div>
 
+
             <div className="stock-section-subtitle">
               Purchase receipts,
+              purchase reversals,
               production issues,
               and other inventory movements.
             </div>
@@ -1647,12 +2986,8 @@ export default function StockPage() {
               size={13}
             />
 
-            {
-              movements
-                .total_movements
-            }
-            {" "}
-            movements
+            {movements.total_movements}
+            {" movements"}
 
           </div>
 
@@ -1672,20 +3007,18 @@ export default function StockPage() {
               Product ID
             </span>
 
+
             <input
               type="number"
               min="1"
               value={
                 movementProductId
               }
-              onChange={(
-                event
-              ) =>
-                setMovementProductId(
-                  event
-                    .target
-                    .value
-                )
+              onChange={
+                event =>
+                  setMovementProductId(
+                    event.target.value
+                  )
               }
               placeholder="e.g. 1"
             />
@@ -1699,18 +3032,16 @@ export default function StockPage() {
               Movement Type
             </span>
 
+
             <select
               value={
                 movementType
               }
-              onChange={(
-                event
-              ) =>
-                setMovementType(
-                  event
-                    .target
-                    .value
-                )
+              onChange={
+                event =>
+                  setMovementType(
+                    event.target.value
+                  )
               }
             >
 
@@ -1720,6 +3051,10 @@ export default function StockPage() {
 
               <option value="Purchase">
                 Purchase
+              </option>
+
+              <option value="Purchase Reversal">
+                Purchase Reversal
               </option>
 
               <option value="Shop Floor Issue">
@@ -1741,19 +3076,17 @@ export default function StockPage() {
               Start Date
             </span>
 
+
             <input
               type="datetime-local"
               value={
                 movementStartDate
               }
-              onChange={(
-                event
-              ) =>
-                setMovementStartDate(
-                  event
-                    .target
-                    .value
-                )
+              onChange={
+                event =>
+                  setMovementStartDate(
+                    event.target.value
+                  )
               }
             />
 
@@ -1766,19 +3099,17 @@ export default function StockPage() {
               End Date
             </span>
 
+
             <input
               type="datetime-local"
               value={
                 movementEndDate
               }
-              onChange={(
-                event
-              ) =>
-                setMovementEndDate(
-                  event
-                    .target
-                    .value
-                )
+              onChange={
+                event =>
+                  setMovementEndDate(
+                    event.target.value
+                  )
               }
             />
 
@@ -1791,11 +3122,13 @@ export default function StockPage() {
               type="submit"
               className="stock-primary-button"
             >
+
               <Filter
                 size={15}
               />
 
               Apply
+
             </button>
 
 
@@ -1803,7 +3136,8 @@ export default function StockPage() {
               type="button"
               className="stock-secondary-button"
               onClick={
-                handleClearMovement
+                () =>
+                  void handleClearMovement()
               }
             >
               Clear
@@ -1823,10 +3157,11 @@ export default function StockPage() {
             </span>
 
             <strong>
-              {formatNumber(
-                movements
-                  .total_quantity_in
-              )}
+              {
+                formatNumber(
+                  movements.total_quantity_in
+                )
+              }
             </strong>
 
           </div>
@@ -1839,10 +3174,11 @@ export default function StockPage() {
             </span>
 
             <strong>
-              {formatNumber(
-                movements
-                  .total_quantity_out
-              )}
+              {
+                formatNumber(
+                  movements.total_quantity_out
+                )
+              }
             </strong>
 
           </div>
@@ -1855,10 +3191,11 @@ export default function StockPage() {
             </span>
 
             <strong>
-              {formatCurrency(
-                movements
-                  .total_in_value
-              )}
+              {
+                formatCurrency(
+                  movements.total_in_value
+                )
+              }
             </strong>
 
           </div>
@@ -1871,10 +3208,11 @@ export default function StockPage() {
             </span>
 
             <strong>
-              {formatCurrency(
-                movements
-                  .total_out_value
-              )}
+              {
+                formatCurrency(
+                  movements.total_out_value
+                )
+              }
             </strong>
 
           </div>
@@ -1882,540 +3220,9 @@ export default function StockPage() {
         </div>
 
 
-        {movementLoading ? (
-          <div className="stock-loading-state">
-
-            <Loader2
-              size={22}
-              className="stock-spin"
-            />
-
-            Loading stock movements...
-
-          </div>
-        ) : movements.items.length ===
-          0 ? (
-          <div className="stock-empty-state">
-
-            <History
-              size={25}
-            />
-
-            No stock movements found.
-
-          </div>
-        ) : (
-          <div className="stock-table-wrap">
-
-            <table className="stock-table stock-movement-table">
-
-              <thead>
-
-                <tr>
-
-                  <th>
-                    Date
-                  </th>
-
-                  <th>
-                    Type
-                  </th>
-
-                  <th>
-                    Reference
-                  </th>
-
-                  <th>
-                    Product
-                  </th>
-
-                  <th>
-                    Qty In
-                  </th>
-
-                  <th>
-                    Qty Out
-                  </th>
-
-                  <th>
-                    Before
-                  </th>
-
-                  <th>
-                    After
-                  </th>
-
-                  <th>
-                    Unit Cost
-                  </th>
-
-                  <th>
-                    Value
-                  </th>
-
-                  <th>
-                    Remarks
-                  </th>
-
-                </tr>
-
-              </thead>
-
-
-              <tbody>
-
-                {movements.items.map(
-                  (
-                    item,
-                    index
-                  ) => (
-                    <tr
-                      key={`${item.reference_id}-${item.product_id}-${item.movement_date}-${index}`}
-                    >
-
-                      <td>
-                        {formatDateTime(
-                          item
-                            .movement_date
-                        )}
-                      </td>
-
-
-                      <td>
-
-                        <span
-                          className={`stock-movement-type ${getMovementClass(
-                            item
-                              .movement_type
-                          )}`}
-                        >
-                          {
-                            item
-                              .movement_type
-                          }
-                        </span>
-
-                      </td>
-
-
-                      <td>
-
-                        <div className="stock-reference">
-                          {
-                            item
-                              .reference_number
-                          }
-                        </div>
-
-                      </td>
-
-
-                      <td>
-
-                        <div className="stock-product-name">
-                          {
-                            item
-                              .product_name
-                          }
-                        </div>
-
-                        <div className="stock-product-code">
-                          {
-                            item
-                              .product_code
-                          }
-                        </div>
-
-                      </td>
-
-
-                      <td className="stock-qty-in">
-                        {formatNumber(
-                          item
-                            .quantity_in
-                        )}
-                      </td>
-
-
-                      <td className="stock-qty-out">
-                        {formatNumber(
-                          item
-                            .quantity_out
-                        )}
-                      </td>
-
-
-                      <td>
-                        {
-                          item.stock_before !==
-                          null
-                            ? formatNumber(
-                                item
-                                  .stock_before
-                              )
-                            : "-"
-                        }
-                      </td>
-
-
-                      <td>
-                        {
-                          item.stock_after !==
-                          null
-                            ? formatNumber(
-                                item
-                                  .stock_after
-                              )
-                            : "-"
-                        }
-                      </td>
-
-
-                      <td>
-                        {formatCurrency(
-                          item
-                            .unit_cost
-                        )}
-                      </td>
-
-
-                      <td>
-                        {formatCurrency(
-                          item
-                            .movement_value
-                        )}
-                      </td>
-
-
-                      <td>
-
-                        <span className="stock-remarks">
-                          {
-                            item.remarks ||
-                            "-"
-                          }
-                        </span>
-
-                      </td>
-
-                    </tr>
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-        )}
-
-      </div>
-
-
-      {/* =====================================================
-          ISSUE MATERIAL MODAL
-      ===================================================== */}
-
-      {issueModalOpen &&
-        selectedMaterial && (
-        <div
-          style={
-            modalBackdropStyle
-          }
-        >
-
-          <div
-            style={
-              modalStyle
-            }
-          >
-
-            <div
-              style={
-                modalHeaderStyle
-              }
-            >
-
-              <div>
-
-                <div className="stock-eyebrow">
-                  STORE MATERIAL ISSUE
-                </div>
-
-                <div
-                  style={{
-                    color:
-                      "#172b4d",
-                    fontSize:
-                      "20px",
-                    fontWeight:
-                      850,
-                  }}
-                >
-                  Issue Material To Production
-                </div>
-
-                <div
-                  style={{
-                    marginTop:
-                      "5px",
-                    color:
-                      "#8292aa",
-                    fontSize:
-                      "11px",
-                  }}
-                >
-                  Select which active Production Order
-                  should receive this material.
-                </div>
-
-              </div>
-
-
-              <button
-                type="button"
-                style={
-                  modalCloseStyle
-                }
-                onClick={
-                  closeIssueModal
-                }
-                disabled={
-                  issuingMaterial
-                }
-              >
-                <X
-                  size={18}
-                />
-              </button>
-
-            </div>
-
-
-            {issueError && (
-              <div
-                className="stock-error"
-                style={{
-                  margin:
-                    "18px 20px 0",
-                }}
-              >
-                {issueError}
-              </div>
-            )}
-
-
-            {/* ================================================
-                SELECTED MATERIAL
-            ================================================ */}
-
-            <div
-              style={{
-                margin:
-                  "20px",
-                padding:
-                  "18px",
-                border:
-                  "1px solid #dfe7f2",
-                borderRadius:
-                  "14px",
-                background:
-                  "#f8fbff",
-              }}
-            >
-
-              <div
-                style={{
-                  marginBottom:
-                    "14px",
-                  color:
-                    "#263c5e",
-                  fontSize:
-                    "12px",
-                  fontWeight:
-                    800,
-                }}
-              >
-                Selected Material
-              </div>
-
-
-              <div
-                style={{
-                  display:
-                    "grid",
-                  gridTemplateColumns:
-                    "repeat(6, minmax(0, 1fr))",
-                  gap:
-                    "14px",
-                }}
-              >
-
-                <div>
-                  <div className="stock-product-code">
-                    Material
-                  </div>
-
-                  <div className="stock-product-name">
-                    {
-                      selectedMaterial
-                        .product_name
-                    }
-                  </div>
-                </div>
-
-
-                <div>
-                  <div className="stock-product-code">
-                    Code
-                  </div>
-
-                  <strong>
-                    {
-                      selectedMaterial
-                        .product_code
-                    }
-                  </strong>
-                </div>
-
-
-                <div>
-                  <div className="stock-product-code">
-                    Available
-                  </div>
-
-                  <strong>
-                    {formatNumber(
-                      selectedMaterial
-                        .current_stock
-                    )}
-                    {" "}
-                    {
-                      selectedMaterial
-                        .unit
-                    }
-                  </strong>
-                </div>
-
-
-                <div>
-                  <div className="stock-product-code">
-                    Issue Quantity
-                  </div>
-
-                  <strong>
-                    {formatNumber(
-                      selectedIssueQuantity
-                    )}
-                    {" "}
-                    {
-                      selectedMaterial
-                        .unit
-                    }
-                  </strong>
-                </div>
-
-
-                <div>
-                  <div className="stock-product-code">
-                    Unit Cost
-                  </div>
-
-                  <strong>
-                    {formatCurrency(
-                      selectedMaterial
-                        .purchase_price
-                    )}
-                  </strong>
-                </div>
-
-
-                <div>
-                  <div className="stock-product-code">
-                    Issue Value
-                  </div>
-
-                  <strong>
-                    {formatCurrency(
-                      Number(
-                        selectedMaterial
-                          .purchase_price
-                      ) *
-                      selectedIssueQuantity
-                    )}
-                  </strong>
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* ================================================
-                PRODUCTION ORDERS
-            ================================================ */}
-
-            <div
-              style={{
-                margin:
-                  "0 20px",
-                border:
-                  "1px solid #dfe7f2",
-                borderRadius:
-                  "14px",
-                overflow:
-                  "hidden",
-              }}
-            >
-
-              <div
-                style={{
-                  display:
-                    "flex",
-                  justifyContent:
-                    "space-between",
-                  alignItems:
-                    "center",
-                  padding:
-                    "15px 17px",
-                  borderBottom:
-                    "1px solid #e8eef7",
-                  background:
-                    "#fbfdff",
-                }}
-              >
-
-                <div>
-
-                  <div className="stock-section-title">
-                    Active Production Orders
-                  </div>
-
-                  <div className="stock-section-subtitle">
-                    Only Production Orders currently
-                    In Progress can receive materials.
-                  </div>
-
-                </div>
-
-
-                <div className="stock-section-badge">
-                  <Factory
-                    size={13}
-                  />
-
-                  {
-                    activeProductionOrders
-                      .length
-                  }
-                  {" "}
-                  active
-                </div>
-
-              </div>
-
-
-              {productionLoading ? (
+        {
+          movementLoading
+            ? (
                 <div className="stock-loading-state">
 
                   <Loader2
@@ -2423,340 +3230,995 @@ export default function StockPage() {
                     className="stock-spin"
                   />
 
-                  Loading Production Orders...
+                  Loading stock movements...
 
                 </div>
-              ) : activeProductionOrders.length ===
-                0 ? (
-                <div className="stock-empty-state">
+              )
+            : movements.items.length
+              ===
+              0
+                ? (
+                    <div className="stock-empty-state">
 
-                  <Factory
-                    size={25}
-                  />
+                      <History
+                        size={25}
+                      />
 
-                  No Production Orders are currently In Progress.
+                      No stock movements found.
 
-                </div>
-              ) : (
-                <div className="stock-table-wrap">
+                    </div>
+                  )
+                : (
+                    <>
 
-                  <table className="stock-table">
+                      <div className="stock-table-wrap">
 
-                    <thead>
+                        <table className="stock-table stock-movement-table">
 
-                      <tr>
+                          <thead>
 
-                        <th>
-                          Production Order
-                        </th>
+                            <tr>
 
-                        <th>
-                          Proforma
-                        </th>
+                              <th>
+                                Date
+                              </th>
 
-                        <th>
-                          Product ID
-                        </th>
+                              <th>
+                                Type
+                              </th>
 
-                        <th>
-                          Production Qty
-                        </th>
+                              <th>
+                                Reference
+                              </th>
 
-                        <th>
-                          Actual Start
-                        </th>
+                              <th>
+                                Product
+                              </th>
 
-                        <th>
-                          Status
-                        </th>
+                              <th>
+                                Qty In
+                              </th>
 
-                        <th>
-                          Select
-                        </th>
+                              <th>
+                                Qty Out
+                              </th>
 
-                      </tr>
+                              <th>
+                                Before
+                              </th>
 
-                    </thead>
+                              <th>
+                                After
+                              </th>
 
+                              <th>
+                                Unit Cost
+                              </th>
 
-                    <tbody>
+                              <th>
+                                Value
+                              </th>
 
-                      {activeProductionOrders.map(
-                        (
-                          order
-                        ) => {
-                          const selected =
-                            selectedProductionOrderId ===
-                            order.id;
-
-                          return (
-                            <tr
-                              key={
-                                order.id
-                              }
-                              style={
-                                selected
-                                  ? {
-                                      background:
-                                        "#f0f6ff",
-                                    }
-                                  : undefined
-                              }
-                            >
-
-                              <td>
-
-                                <strong>
-                                  {
-                                    order
-                                      .production_number
-                                  }
-                                </strong>
-
-                                <div className="stock-product-code">
-                                  ID #
-                                  {
-                                    order.id
-                                  }
-                                </div>
-
-                              </td>
-
-
-                              <td>
-                                PF #
-                                {
-                                  order
-                                    .proforma_id
-                                }
-                              </td>
-
-
-                              <td>
-                                {
-                                  order
-                                    .product_id
-                                }
-                              </td>
-
-
-                              <td>
-                                {
-                                  order
-                                    .quantity
-                                }
-                              </td>
-
-
-                              <td>
-                                {
-                                  order
-                                    .actual_start_date ||
-                                  "-"
-                                }
-                              </td>
-
-
-                              <td>
-
-                                <span
-                                  style={{
-                                    display:
-                                      "inline-flex",
-                                    padding:
-                                      "5px 9px",
-                                    borderRadius:
-                                      "999px",
-                                    background:
-                                      "#fff6df",
-                                    color:
-                                      "#a36a00",
-                                    fontSize:
-                                      "9px",
-                                    fontWeight:
-                                      800,
-                                  }}
-                                >
-                                  {
-                                    order
-                                      .status
-                                  }
-                                </span>
-
-                              </td>
-
-
-                              <td>
-
-                                <button
-                                  type="button"
-                                  className={
-                                    selected
-                                      ? "stock-primary-button"
-                                      : "stock-secondary-button"
-                                  }
-                                  onClick={() =>
-                                    setSelectedProductionOrderId(
-                                      order.id
-                                    )
-                                  }
-                                  style={{
-                                    minHeight:
-                                      "34px",
-                                  }}
-                                >
-                                  {
-                                    selected
-                                      ? "Selected"
-                                      : "Select"
-                                  }
-                                </button>
-
-                              </td>
+                              <th>
+                                Remarks
+                              </th>
 
                             </tr>
-                          );
-                        }
-                      )}
 
-                    </tbody>
-
-                  </table>
-
-                </div>
-              )}
-
-            </div>
+                          </thead>
 
 
-            {/* ================================================
-                REMARKS
-            ================================================ */}
+                          <tbody>
+
+                            {
+                              paginatedMovements.map(
+                                (
+                                  item,
+                                  index
+                                ) => (
+
+                                  <tr
+                                    key={
+                                      `${item.reference_id}-${item.product_id}-${item.movement_date}-${index}`
+                                    }
+                                  >
+
+                                    <td>
+                                      {
+                                        formatDateTime(
+                                          item.movement_date
+                                        )
+                                      }
+                                    </td>
+
+
+                                    <td>
+
+                                      <span
+                                        className={
+                                          `stock-movement-type ${getMovementClass(
+                                            item.movement_type
+                                          )}`
+                                        }
+                                      >
+                                        {item.movement_type}
+                                      </span>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <div className="stock-reference">
+                                        {item.reference_number}
+                                      </div>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <div className="stock-product-name">
+                                        {item.product_name}
+                                      </div>
+
+                                      <div className="stock-product-code">
+                                        {item.product_code}
+                                      </div>
+
+                                    </td>
+
+
+                                    <td className="stock-qty-in">
+
+                                      {
+                                        formatNumber(
+                                          item.quantity_in
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td className="stock-qty-out">
+
+                                      {
+                                        formatNumber(
+                                          item.quantity_out
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        item.stock_before
+                                        !==
+                                        null
+                                          ? formatNumber(
+                                              item.stock_before
+                                            )
+                                          : "-"
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        item.stock_after
+                                        !==
+                                        null
+                                          ? formatNumber(
+                                              item.stock_after
+                                            )
+                                          : "-"
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        formatCurrency(
+                                          item.unit_cost
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      {
+                                        formatCurrency(
+                                          item.movement_value
+                                        )
+                                      }
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <span className="stock-remarks">
+
+                                        {
+                                          item.remarks
+                                          ||
+                                          "-"
+                                        }
+
+                                      </span>
+
+                                    </td>
+
+                                  </tr>
+
+                                )
+                              )
+                            }
+
+                          </tbody>
+
+                        </table>
+
+                      </div>
+
+
+                      {
+                        renderPagination(
+                          movementPage,
+                          movementTotalPages,
+                          movementFirstRecord,
+                          movementLastRecord,
+                          movements.items.length,
+                          setMovementPage
+                        )
+                      }
+
+                    </>
+                  )
+        }
+
+      </div>
+
+
+      {/* ======================================================
+          MATERIAL ISSUE MODAL
+      ====================================================== */}
+
+      {
+        issueModalOpen
+        &&
+        selectedMaterial
+        &&
+        (
+          <div
+            style={
+              modalBackdropStyle
+            }
+          >
 
             <div
-              style={{
-                margin:
-                  "18px 20px 0",
-              }}
+              style={
+                modalStyle
+              }
             >
 
-              <label className="stock-field">
+              {/* ==============================================
+                  MODAL HEADER
+              ============================================== */}
 
-                <span>
-                  Remarks
-                </span>
-
-                <input
-                  type="text"
-                  value={
-                    issueRemarks
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setIssueRemarks(
-                      event
-                        .target
-                        .value
-                    )
-                  }
-                  placeholder="Optional issue remarks..."
-                />
-
-              </label>
-
-            </div>
-
-
-            {/* ================================================
-                ACTIONS
-            ================================================ */}
-
-            <div
-              style={{
-                display:
-                  "flex",
-                justifyContent:
-                  "flex-end",
-                gap:
-                  "10px",
-                padding:
-                  "20px",
-                marginTop:
-                  "18px",
-                borderTop:
-                  "1px solid #e8eef7",
-              }}
-            >
-
-              <button
-                type="button"
-                className="stock-secondary-button"
-                onClick={
-                  closeIssueModal
-                }
-                disabled={
-                  issuingMaterial
+              <div
+                style={
+                  modalHeaderStyle
                 }
               >
-                Cancel
-              </button>
+
+                <div>
+
+                  <div className="stock-eyebrow">
+                    STORE MATERIAL ISSUE
+                  </div>
 
 
-              <button
-                type="button"
-                className="stock-primary-button"
-                onClick={() =>
-                  void handleIssueMaterial()
-                }
-                disabled={
-                  selectedProductionOrderId ===
-                    null ||
-                  issuingMaterial
-                }
+                  <div
+                    style={{
+                      color:
+                        "#172b4d",
+
+                      fontSize:
+                        "20px",
+
+                      fontWeight:
+                        850,
+                    }}
+                  >
+                    Issue Material To Production
+                  </div>
+
+
+                  <div
+                    style={{
+                      marginTop:
+                        "5px",
+
+                      color:
+                        "#8292aa",
+
+                      fontSize:
+                        "11px",
+                    }}
+                  >
+                    Select which active Production Order
+                    should receive this material.
+                  </div>
+
+                </div>
+
+
+                <button
+                  type="button"
+                  style={
+                    modalCloseStyle
+                  }
+                  onClick={
+                    closeIssueModal
+                  }
+                  disabled={
+                    issuingMaterial
+                  }
+                >
+
+                  <X
+                    size={18}
+                  />
+
+                </button>
+
+              </div>
+
+
+              {
+                issueError
+                &&
+                (
+                  <div
+                    className="stock-error"
+                    style={{
+                      margin:
+                        "18px 20px 0",
+                    }}
+                  >
+                    {issueError}
+                  </div>
+                )
+              }
+
+
+              {/* ==============================================
+                  SELECTED MATERIAL
+              ============================================== */}
+
+              <div
                 style={{
-                  opacity:
-                    selectedProductionOrderId ===
-                      null ||
-                    issuingMaterial
-                      ? 0.5
-                      : 1,
-                  cursor:
-                    selectedProductionOrderId ===
-                      null ||
-                    issuingMaterial
-                      ? "not-allowed"
-                      : "pointer",
+                  margin:
+                    "20px",
+
+                  padding:
+                    "18px",
+
+                  border:
+                    "1px solid #dfe7f2",
+
+                  borderRadius:
+                    "14px",
+
+                  background:
+                    "#f8fbff",
                 }}
               >
 
-                {issuingMaterial ? (
-                  <>
-                    <Loader2
-                      size={15}
-                      className="stock-spin"
+                <div
+                  style={{
+                    marginBottom:
+                      "14px",
+
+                    color:
+                      "#263c5e",
+
+                    fontSize:
+                      "12px",
+
+                    fontWeight:
+                      800,
+                  }}
+                >
+                  Selected Material
+                </div>
+
+
+                <div
+                  style={{
+                    display:
+                      "grid",
+
+                    gridTemplateColumns:
+                      "repeat(6, minmax(0, 1fr))",
+
+                    gap:
+                      "14px",
+                  }}
+                >
+
+                  <div>
+
+                    <div className="stock-product-code">
+                      Material
+                    </div>
+
+                    <div className="stock-product-name">
+                      {selectedMaterial.product_name}
+                    </div>
+
+                  </div>
+
+
+                  <div>
+
+                    <div className="stock-product-code">
+                      Code
+                    </div>
+
+                    <strong>
+                      {selectedMaterial.product_code}
+                    </strong>
+
+                  </div>
+
+
+                  <div>
+
+                    <div className="stock-product-code">
+                      Available
+                    </div>
+
+                    <strong>
+
+                      {
+                        formatNumber(
+                          selectedMaterial.current_stock
+                        )
+                      }
+
+                      {" "}
+
+                      {selectedMaterial.unit}
+
+                    </strong>
+
+                  </div>
+
+
+                  <div>
+
+                    <div className="stock-product-code">
+                      Issue Quantity
+                    </div>
+
+                    <strong>
+
+                      {
+                        formatNumber(
+                          selectedIssueQuantity
+                        )
+                      }
+
+                      {" "}
+
+                      {selectedMaterial.unit}
+
+                    </strong>
+
+                  </div>
+
+
+                  <div>
+
+                    <div className="stock-product-code">
+                      Unit Cost
+                    </div>
+
+                    <strong>
+
+                      {
+                        formatCurrency(
+                          selectedMaterial.purchase_price
+                        )
+                      }
+
+                    </strong>
+
+                  </div>
+
+
+                  <div>
+
+                    <div className="stock-product-code">
+                      Issue Value
+                    </div>
+
+                    <strong>
+
+                      {
+                        formatCurrency(
+                          Number(
+                            selectedMaterial.purchase_price
+                          )
+                          *
+                          selectedIssueQuantity
+                        )
+                      }
+
+                    </strong>
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* ==============================================
+                  PRODUCTION ORDERS
+              ============================================== */}
+
+              <div
+                style={{
+                  margin:
+                    "0 20px",
+
+                  border:
+                    "1px solid #dfe7f2",
+
+                  borderRadius:
+                    "14px",
+
+                  overflow:
+                    "hidden",
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+
+                    justifyContent:
+                      "space-between",
+
+                    alignItems:
+                      "center",
+
+                    padding:
+                      "15px 17px",
+
+                    borderBottom:
+                      "1px solid #e8eef7",
+
+                    background:
+                      "#fbfdff",
+                  }}
+                >
+
+                  <div>
+
+                    <div className="stock-section-title">
+                      Active Production Orders
+                    </div>
+
+
+                    <div className="stock-section-subtitle">
+                      Only Production Orders currently
+                      In Progress can receive materials.
+                    </div>
+
+                  </div>
+
+
+                  <div className="stock-section-badge">
+
+                    <Factory
+                      size={13}
                     />
 
-                    Issuing...
-                  </>
-                ) : (
-                  <>
-                    <Send
-                      size={15}
-                    />
+                    {activeProductionOrders.length}
+                    {" active"}
 
-                    Issue Material
-                  </>
-                )}
+                  </div>
 
-              </button>
+                </div>
+
+
+                {
+                  productionLoading
+                    ? (
+                        <div className="stock-loading-state">
+
+                          <Loader2
+                            size={22}
+                            className="stock-spin"
+                          />
+
+                          Loading Production Orders...
+
+                        </div>
+                      )
+                    : activeProductionOrders.length
+                      ===
+                      0
+                        ? (
+                            <div className="stock-empty-state">
+
+                              <Factory
+                                size={25}
+                              />
+
+                              No Production Orders are currently In Progress.
+
+                            </div>
+                          )
+                        : (
+                            <div className="stock-table-wrap">
+
+                              <table className="stock-table">
+
+                                <thead>
+
+                                  <tr>
+
+                                    <th>
+                                      Production Order
+                                    </th>
+
+                                    <th>
+                                      Proforma
+                                    </th>
+
+                                    <th>
+                                      Finished Product / Machine
+                                    </th>
+
+                                    <th>
+                                      Production Qty
+                                    </th>
+
+                                    <th>
+                                      Actual Start
+                                    </th>
+
+                                    <th>
+                                      Status
+                                    </th>
+
+                                    <th>
+                                      Select
+                                    </th>
+
+                                  </tr>
+
+                                </thead>
+
+
+                                <tbody>
+
+                                  {
+                                    activeProductionOrders.map(
+                                      order => {
+
+                                        const selected =
+                                          selectedProductionOrderId
+                                          ===
+                                          order.id;
+
+
+                                        return (
+                                          <tr
+                                            key={
+                                              order.id
+                                            }
+                                            style={
+                                              selected
+                                                ? {
+                                                    background:
+                                                      "#f0f6ff",
+                                                  }
+                                                : undefined
+                                            }
+                                          >
+
+                                            <td>
+
+                                              <strong>
+                                                {order.production_number}
+                                              </strong>
+
+                                            </td>
+
+
+                                            <td>
+
+                                              PF #
+                                              {order.proforma_id}
+
+                                            </td>
+
+
+                                            <td>
+
+                                              <strong>
+                                                {order.product_name}
+                                              </strong>
+
+                                            </td>
+
+
+                                            <td>
+
+                                              {
+                                                formatNumber(
+                                                  order.quantity
+                                                )
+                                              }
+
+                                              {" "}
+
+                                              {order.unit}
+
+                                            </td>
+
+
+                                            <td>
+                                              {
+                                                order.actual_start_date
+                                                ||
+                                                "-"
+                                              }
+                                            </td>
+
+
+                                            <td>
+
+                                              <span
+                                                style={{
+                                                  display:
+                                                    "inline-flex",
+
+                                                  padding:
+                                                    "5px 9px",
+
+                                                  borderRadius:
+                                                    "999px",
+
+                                                  background:
+                                                    "#fff6df",
+
+                                                  color:
+                                                    "#a36a00",
+
+                                                  fontSize:
+                                                    "9px",
+
+                                                  fontWeight:
+                                                    800,
+                                                }}
+                                              >
+                                                {order.status}
+                                              </span>
+
+                                            </td>
+
+
+                                            <td>
+
+                                              <button
+                                                type="button"
+                                                className={
+                                                  selected
+                                                    ? "stock-primary-button"
+                                                    : "stock-secondary-button"
+                                                }
+                                                onClick={
+                                                  () =>
+                                                    setSelectedProductionOrderId(
+                                                      order.id
+                                                    )
+                                                }
+                                                style={{
+                                                  minHeight:
+                                                    "34px",
+                                                }}
+                                              >
+                                                {
+                                                  selected
+                                                    ? "Selected"
+                                                    : "Select"
+                                                }
+                                              </button>
+
+                                            </td>
+
+                                          </tr>
+                                        );
+
+                                      }
+                                    )
+                                  }
+
+                                </tbody>
+
+                              </table>
+
+                            </div>
+                          )
+                }
+
+              </div>
+
+
+              {/* ==============================================
+                  REMARKS
+              ============================================== */}
+
+              <div
+                style={{
+                  margin:
+                    "18px 20px 0",
+                }}
+              >
+
+                <label className="stock-field">
+
+                  <span>
+                    Remarks
+                  </span>
+
+
+                  <input
+                    type="text"
+                    value={
+                      issueRemarks
+                    }
+                    onChange={
+                      event =>
+                        setIssueRemarks(
+                          event.target.value
+                        )
+                    }
+                    placeholder="Optional issue remarks..."
+                  />
+
+                </label>
+
+              </div>
+
+
+              {/* ==============================================
+                  MODAL ACTIONS
+              ============================================== */}
+
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  justifyContent:
+                    "flex-end",
+
+                  gap:
+                    "10px",
+
+                  padding:
+                    "20px",
+
+                  marginTop:
+                    "18px",
+
+                  borderTop:
+                    "1px solid #e8eef7",
+                }}
+              >
+
+                <button
+                  type="button"
+                  className="stock-secondary-button"
+                  onClick={
+                    closeIssueModal
+                  }
+                  disabled={
+                    issuingMaterial
+                  }
+                >
+                  Cancel
+                </button>
+
+
+                <button
+                  type="button"
+                  className="stock-primary-button"
+                  onClick={
+                    () =>
+                      void handleIssueMaterial()
+                  }
+                  disabled={
+                    selectedProductionOrderId
+                    ===
+                    null
+                    ||
+                    issuingMaterial
+                  }
+                  style={{
+                    opacity:
+                      selectedProductionOrderId
+                      ===
+                      null
+                      ||
+                      issuingMaterial
+                        ? 0.5
+                        : 1,
+
+                    cursor:
+                      selectedProductionOrderId
+                      ===
+                      null
+                      ||
+                      issuingMaterial
+                        ? "not-allowed"
+                        : "pointer",
+                  }}
+                >
+
+                  {
+                    issuingMaterial
+                      ? (
+                          <>
+
+                            <Loader2
+                              size={15}
+                              className="stock-spin"
+                            />
+
+                            Issuing...
+
+                          </>
+                        )
+                      : (
+                          <>
+
+                            <Send
+                              size={15}
+                            />
+
+                            Issue Material
+
+                          </>
+                        )
+                  }
+
+                </button>
+
+              </div>
 
             </div>
 
           </div>
-
-        </div>
-      )}
+        )
+      }
 
     </div>
   );
