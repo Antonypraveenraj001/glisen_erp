@@ -9,6 +9,9 @@ import SecuritySettings
 import BackupRecoverySettings
   from "./BackupRecoverySettings";
 
+import FinancialYearSettings
+  from "./FinancialYearSettings";
+
 import {
   useEffect,
   useRef,
@@ -4380,82 +4383,13 @@ export default function SettingsPage() {
             canViewFinancialYear
             &&
             (
-              <SettingsStagePlaceholder
-                icon={
-                  <CalendarDays
-                    size={24}
-                  />
-                }
-                title="Financial Year & Transition"
-                description="Financial-year validation, final annual backup, opening stock, live-production WIP, carry-forward review and year-close history will be implemented here."
-                bossOnly
-              />
+              <FinancialYearSettings />
             )
           }
 
         </div>
 
       </section>
-
-    </div>
-  );
-}
-
-
-/* ================================================================
-   BUILD-STAGE PLACEHOLDER
-================================================================ */
-
-function SettingsStagePlaceholder(
-  props: {
-    icon:
-      React.ReactNode;
-
-    title:
-      string;
-
-    description:
-      string;
-
-    bossOnly:
-      boolean;
-  }
-) {
-
-  return (
-    <div className="settings-stage-placeholder">
-
-      <div className="settings-stage-icon">
-        {props.icon}
-      </div>
-
-
-      <div>
-
-        <div className="settings-stage-label">
-          SETTINGS MODULE — NEXT BUILD STAGE
-        </div>
-
-        <h2>
-          {props.title}
-        </h2>
-
-        <p>
-          {props.description}
-        </p>
-
-
-        {
-          props.bossOnly
-          &&
-          (
-            <span className="settings-stage-badge">
-              Boss-only protected section
-            </span>
-          )
-        }
-
-      </div>
 
     </div>
   );

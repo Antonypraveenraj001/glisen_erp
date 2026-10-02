@@ -417,6 +417,7 @@ class BackupService:
         db: Session,
         backup_type: str,
         created_by: int | None,
+        financial_year_id: int | None = None,
     ) -> BackupLog:
         normalized_type = (
             str(backup_type or "")
@@ -427,6 +428,7 @@ class BackupService:
         if normalized_type not in {
             "MANUAL",
             "AUTOMATIC",
+            "FY_FINAL",
         }:
             raise ValueError(
                 "Unsupported standard backup type."
@@ -518,6 +520,9 @@ class BackupService:
                     else None
                 ),
                 status="STARTED",
+                financial_year_id=(
+                    financial_year_id
+                ),
                 created_by=created_by,
                 app_version=settings.APP_VERSION,
                 schema_revision=(
@@ -579,6 +584,8 @@ class BackupService:
                             .MANIFEST_VERSION,
                         "backup_type":
                             normalized_type,
+                        "financial_year_id":
+                            financial_year_id,
                         "database_name":
                             settings.DB_NAME,
                         "created_at_utc":
@@ -806,6 +813,25 @@ class BackupService:
                 db=db,
                 backup_type="AUTOMATIC",
                 created_by=created_by,
+            )
+        )
+
+
+    @staticmethod
+    def create_fy_final_backup(
+        db: Session,
+        created_by: int,
+        financial_year_id: int,
+    ) -> BackupLog:
+        return (
+            BackupService
+            .create_standard_backup(
+                db=db,
+                backup_type="FY_FINAL",
+                created_by=created_by,
+                financial_year_id=(
+                    financial_year_id
+                ),
             )
         )
 

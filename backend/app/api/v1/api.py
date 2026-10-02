@@ -48,6 +48,10 @@ from app.api.v1.financial_analyzer import (
     router as financial_analyzer_router,
 )
 
+from app.api.v1.financial_years import (
+    router as financial_years_router,
+)
+
 from app.api.v1.finished_goods_receipts import (
     router as finished_goods_receipts_router,
 )
@@ -185,6 +189,10 @@ api_router.include_router(
 
 api_router.include_router(
     backup_recovery_router
+)
+
+api_router.include_router(
+    financial_years_router
 )
 
 api_router.include_router(

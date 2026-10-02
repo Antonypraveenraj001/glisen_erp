@@ -10,6 +10,9 @@ from app.services.backup_scheduler import (
     start_backup_scheduler,
     stop_backup_scheduler,
 )
+from app.services.financial_year_service import (
+    FinancialYearService,
+)
 
 logger = setup_logging()
 
@@ -35,11 +38,11 @@ app.add_middleware(
 
 
 # ========================================
-# RESTORE MAINTENANCE GUARD
+# PROTECTED MAINTENANCE / FY WRITE GUARD
 # ========================================
 
 @app.middleware("http")
-async def restore_maintenance_guard(
+async def protected_operation_guard(
     request,
     call_next,
 ):
@@ -52,6 +55,71 @@ async def restore_maintenance_guard(
                 "detail":
                     "Glisen ERP database restore is in progress. "
                     "Please retry after recovery completes."
+            },
+        )
+
+    if (
+        FinancialYearService
+        .TRANSITION_IN_PROGRESS
+    ):
+        return JSONResponse(
+            status_code=503,
+            content={
+                "detail":
+                    "Financial Year transition is in progress. "
+                    "Please retry after it completes."
+            },
+        )
+
+    method = (
+        request.method
+        .upper()
+    )
+
+    path = (
+        request.url.path
+    )
+
+    protected_write = (
+        method
+        in {
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+        }
+    )
+
+    allowed_during_due_transition = (
+        path
+        ==
+        "/api/v1/auth/login"
+        or
+        path.startswith(
+            "/api/v1/financial-years"
+        )
+        or
+        path.startswith(
+            "/api/v1/backup-recovery"
+        )
+    )
+
+    if (
+        protected_write
+        and
+        not allowed_during_due_transition
+        and
+        FinancialYearService
+        .transition_required_now()
+    ):
+        return JSONResponse(
+            status_code=423,
+            content={
+                "detail":
+                    "The active Financial Year has ended. "
+                    "Business changes are temporarily locked "
+                    "until the Boss completes Financial Year "
+                    "transition in Settings."
             },
         )
 
@@ -73,6 +141,7 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def startup_event():
+    FinancialYearService.recover_stale_transition_state()
     logger.info("Glisen ERP Backend Started")
 
 

@@ -1,0 +1,388 @@
+.fy-current-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #dce6f3;
+  border-radius: 15px;
+  background: #ffffff;
+}
+
+.fy-current-icon {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: #eef4ff;
+  color: #3978ec;
+}
+
+.fy-current-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fy-current-main span {
+  color: #3973df;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
+.fy-current-main strong {
+  color: #1f3658;
+  font-size: 18px;
+}
+
+.fy-current-main small,
+.fy-current-status small {
+  color: #8495aa;
+  font-size: 8px;
+}
+
+.fy-current-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.fy-pill {
+  display: inline-flex;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 7px;
+  font-weight: 850;
+}
+
+.fy-pill.active,
+.fy-pill.completed,
+.fy-pill.verified {
+  background: #eaf8f0;
+  color: #218458;
+}
+
+.fy-pill.closed,
+.fy-pill.ready {
+  background: #eef4ff;
+  color: #3973df;
+}
+
+.fy-pill.failed {
+  background: #fff0ee;
+  color: #b42318;
+}
+
+.fy-pill.validating,
+.fy-pill.running {
+  background: #fff7e7;
+  color: #946319;
+}
+
+.fy-readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.fy-readiness-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.fy-readiness-card svg {
+  margin-bottom: 4px;
+  color: #4b7cbc;
+}
+
+.fy-readiness-card span {
+  color: #8998ac;
+  font-size: 8px;
+}
+
+.fy-readiness-card strong {
+  color: #304c70;
+  font-size: 10px;
+}
+
+.fy-readiness-card small {
+  color: #8797ac;
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.fy-good {
+  color: #218458 !important;
+}
+
+.fy-warning {
+  color: #9a6817 !important;
+}
+
+.fy-bad {
+  color: #b42318 !important;
+}
+
+.fy-preparation-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.fy-preparation-grid > div:not(.fy-preparation-arrow) {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid #e0e8f2;
+  border-radius: 11px;
+  background: #fbfdff;
+}
+
+.fy-preparation-grid span,
+.fy-final-backup-box span {
+  color: #8998ac;
+  font-size: 8px;
+}
+
+.fy-preparation-grid strong,
+.fy-final-backup-box strong {
+  color: #304c70;
+  font-size: 10px;
+}
+
+.fy-preparation-grid small,
+.fy-final-backup-box small {
+  color: #8797ac;
+  font-size: 7px;
+  line-height: 1.5;
+}
+
+.fy-preparation-arrow {
+  color: #6f8fb8;
+}
+
+.fy-final-backup-box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 13px;
+  margin-bottom: 14px;
+  border: 1px solid #dbe6f4;
+  border-radius: 11px;
+  background: #f8fbff;
+}
+
+.fy-final-backup-box > div:first-child {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #eef4ff;
+  color: #3978ec;
+}
+
+.fy-final-backup-box > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fy-ready-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #ccebd9;
+  border-radius: 10px;
+  background: #effbf4;
+  color: #23764a;
+  font-size: 9px;
+}
+
+.fy-blocker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fy-blocker-list > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 11px;
+  border: 1px solid #f3d7b0;
+  border-radius: 9px;
+  background: #fff9ef;
+  color: #946319;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.fy-blocker-list svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.fy-carry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #edf2f7;
+}
+
+.fy-carry-list > strong {
+  margin-bottom: 2px;
+  color: #304c70;
+  font-size: 9px;
+}
+
+.fy-carry-list > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: #71839d;
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.fy-carry-list svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #6f83a0;
+}
+
+.fy-protected-card {
+  border-color: #f1d2cf;
+}
+
+.fy-boss-badge {
+  margin-left: auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #fff3d6;
+  color: #966414;
+  font-size: 7px;
+  font-weight: 850;
+}
+
+.fy-transition-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #edf2f7;
+  font-size: 8px;
+}
+
+.fy-danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 8px 13px;
+  border: 0;
+  border-radius: 9px;
+  background: #b42318;
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fy-danger-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fy-history-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.fy-history-table {
+  width: 100%;
+  min-width: 650px;
+  border-collapse: collapse;
+}
+
+.fy-history-table th {
+  padding: 9px 10px;
+  border-bottom: 1px solid #dfe7f1;
+  color: #72839a;
+  font-size: 8px;
+  font-weight: 800;
+  text-align: left;
+}
+
+.fy-history-table td {
+  padding: 10px;
+  border-bottom: 1px solid #edf2f7;
+  color: #536b89;
+  font-size: 8px;
+}
+
+.fy-history-table tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 1000px) {
+  .fy-readiness-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .fy-current-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .fy-current-status {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+  }
+
+  .fy-readiness-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fy-preparation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fy-preparation-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+
+  .fy-transition-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fy-danger-button {
+    width: 100%;
+  }
+}
