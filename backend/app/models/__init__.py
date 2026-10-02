@@ -147,6 +147,9 @@ from app.models.user import (
     User,
 )
 
+from app.models.recurring_payment import (
+    RecurringPayment,
+)
 
 __all__ = [
 
@@ -199,6 +202,7 @@ __all__ = [
 
     "Expense",
     "ExpenseRecurringRate",
+    "RecurringPayment",
 
     "Staff",
     "StaffSalaryRate",
