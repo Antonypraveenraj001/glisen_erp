@@ -8,6 +8,10 @@ from app.api.v1.business_settings import (
     router as business_settings_router,
 )
 
+from app.api.v1.backup_recovery import (
+    router as backup_recovery_router,
+)
+
 from app.api.v1.company_settings import (
     router as company_settings_router,
 )
@@ -177,6 +181,10 @@ api_router.include_router(
 
 api_router.include_router(
     business_settings_router
+)
+
+api_router.include_router(
+    backup_recovery_router
 )
 
 api_router.include_router(

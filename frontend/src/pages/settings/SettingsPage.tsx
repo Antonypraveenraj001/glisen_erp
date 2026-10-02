@@ -6,6 +6,9 @@ import UsersAccessSettings
 import SecuritySettings
   from "./SecuritySettings";
 
+import BackupRecoverySettings
+  from "./BackupRecoverySettings";
+
 import {
   useEffect,
   useRef,
@@ -4365,16 +4368,7 @@ export default function SettingsPage() {
             canViewBackup
             &&
             (
-              <SettingsStagePlaceholder
-                icon={
-                  <Database
-                    size={24}
-                  />
-                }
-                title="Backup & Recovery"
-                description="Manual backup, automatic backup, primary and secondary hard-disk locations, verification, restore and disaster-recovery functions will be implemented here."
-                bossOnly
-              />
+              <BackupRecoverySettings />
             )
           }
 
