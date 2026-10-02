@@ -3,6 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy.orm import Session, joinedload
 
+from app.models.business_settings import BusinessSettings
 from app.models.company_settings import CompanySettings
 from app.models.customer import Customer
 from app.models.enquiry import Enquiry
@@ -53,13 +54,139 @@ class FinalBillService:
 
     @staticmethod
     def generate_invoice_number(
-        proforma: Proforma,
+        db: Session,
         invoice_date: date,
     ) -> str:
 
+        # ========================================================
+        # INDEPENDENT FINAL BILL SEQUENCE
+        #
+        # Original Tax Invoice numbering must never depend on
+        # Proforma ID, Production Order ID or any other module ID.
+        #
+        # Existing invoice numbers are preserved. The next number
+        # continues from the highest numeric suffix already used
+        # by an original Tax Invoice.
+        #
+        # Revisions and Credit Notes keep their existing -R / -CN
+        # suffix logic and do not consume the main sequence.
+        # ========================================================
+
+        business_settings = (
+            db.query(
+                BusinessSettings
+            )
+            .with_for_update()
+            .first()
+        )
+
+        if business_settings is None:
+            business_settings = BusinessSettings(
+                financial_year_start_month=4,
+                financial_year_start_day=1,
+            )
+
+            db.add(
+                business_settings
+            )
+
+            db.flush()
+
+        invoice_prefix = (
+            business_settings.invoice_prefix
+            or "INV"
+        ).strip().upper()
+
+        configured_digits = max(
+            1,
+            int(
+                business_settings.sequence_digits
+                or 4
+            ),
+        )
+
+        existing_numbers = (
+            db.query(
+                FinalBill.invoice_number
+            )
+            .filter(
+                FinalBill.parent_invoice_id
+                .is_(
+                    None
+                ),
+
+                FinalBill.invoice_type
+                ==
+                "Tax Invoice",
+            )
+            .all()
+        )
+
+        highest_sequence = 0
+
+        sequence_width = (
+            configured_digits
+        )
+
+        for row in existing_numbers:
+            raw_number = (
+                row[0]
+                or ""
+            ).strip()
+
+            if not raw_number:
+                continue
+
+            index = (
+                len(raw_number)
+                - 1
+            )
+
+            while (
+                index >= 0
+                and
+                raw_number[index]
+                .isdigit()
+            ):
+                index -= 1
+
+            suffix = (
+                raw_number[
+                    index + 1:
+                ]
+            )
+
+            if not suffix:
+                continue
+
+            try:
+                sequence = int(
+                    suffix
+                )
+            except ValueError:
+                continue
+
+            highest_sequence = max(
+                highest_sequence,
+                sequence,
+            )
+
+            sequence_width = max(
+                sequence_width,
+                len(
+                    suffix
+                ),
+            )
+
+        next_sequence = (
+            highest_sequence
+            + 1
+        )
+
         return (
-            f"INV-{invoice_date.year}-"
-            f"{proforma.id:05d}"
+            f"{invoice_prefix}-"
+            f"{invoice_date.year}-"
+            f"{next_sequence:0{sequence_width}d}"
         )
 
     # ============================================================
@@ -773,9 +900,7 @@ class FinalBillService:
             invoice_number = (
                 FinalBillService
                 .generate_invoice_number(
-                    proforma=(
-                        proforma
-                    ),
+                    db=db,
                     invoice_date=(
                         final_invoice_date
                     ),
