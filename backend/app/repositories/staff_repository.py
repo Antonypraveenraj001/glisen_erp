@@ -44,7 +44,12 @@ class StaffRepository:
             )
             .filter(
                 Staff.id
-                == staff_id
+                == staff_id,
+
+                Staff.is_deleted
+                .is_(
+                    False
+                ),
             )
             .first()
         )
@@ -64,6 +69,12 @@ class StaffRepository:
         query = (
             db.query(
                 Staff
+            )
+            .filter(
+                Staff.is_deleted
+                .is_(
+                    False
+                )
             )
         )
 

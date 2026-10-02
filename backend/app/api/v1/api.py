@@ -108,6 +108,14 @@ from app.api.v1.staff import (
     router as staff_router,
 )
 
+from app.api.v1.staff_lifecycle import (
+    router as staff_lifecycle_router,
+)
+
+from app.api.v1.staff_salary_payments import (
+    router as staff_salary_payments_router,
+)
+
 from app.api.v1.stock_report import (
     router as stock_report_router,
 )
@@ -279,6 +287,14 @@ api_router.include_router(
 
 api_router.include_router(
     staff_router
+)
+
+api_router.include_router(
+    staff_lifecycle_router
+)
+
+api_router.include_router(
+    staff_salary_payments_router
 )
 
 api_router.include_router(

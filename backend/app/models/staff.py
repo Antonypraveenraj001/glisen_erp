@@ -68,6 +68,17 @@ class Staff(Base):
         index=True,
     )
 
+    # Hidden from Staff Master after the user chooses Delete.
+    # The row itself is retained so old salary/payment history
+    # remains relationally traceable.
+    is_deleted = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+        index=True,
+    )
+
     notes = Column(
         Text,
         nullable=True,

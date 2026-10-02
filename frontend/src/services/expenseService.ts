@@ -148,6 +148,35 @@ export async function updateExpense(
 }
 
 
+
+
+/* =========================================================
+   ARCHIVE COMPANY OVERHEAD
+========================================================= */
+
+export async function archiveCompanyOverhead(
+  expenseId: number,
+  stopFromMonth: string
+): Promise<Expense> {
+
+  const response =
+    await axios.post<Expense>(
+      `${API_BASE_URL}/expenses/${expenseId}/archive`,
+      null,
+      {
+        headers:
+          getAuthHeaders(),
+
+        params: {
+          stop_from_month:
+            stopFromMonth,
+        },
+      }
+    );
+
+  return response.data;
+}
+
 /* =========================================================
    DELETE EXPENSE
 ========================================================= */

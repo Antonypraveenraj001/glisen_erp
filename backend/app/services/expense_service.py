@@ -13,6 +13,9 @@ from app.models.expense_recurring_rate import (
 from app.models.production_order import (
     ProductionOrder,
 )
+from app.models.recurring_payment import (
+    RecurringPayment,
+)
 from app.repositories.expense_repository import (
     ExpenseRepository,
 )
@@ -610,6 +613,19 @@ class ExpenseService:
         )
 
 
+        if (
+            expense.expense_type
+            == "OVERHEAD"
+            and
+            expense.is_archived
+        ):
+
+            raise ValueError(
+                "Archived Company Overhead history "
+                "cannot be edited."
+            )
+
+
         # ========================================================
         # COST TYPE MUST NOT CHANGE
         #
@@ -968,6 +984,186 @@ class ExpenseService:
 
             raise
 
+
+    # ============================================================
+    # ARCHIVE RECURRING OVERHEAD
+    # ============================================================
+
+    @staticmethod
+    def archive_overhead(
+        db: Session,
+        expense_id: int,
+        stop_from_month: date,
+    ) -> Expense:
+
+        expense = (
+            ExpenseService
+            .get_by_id(
+                db=db,
+                expense_id=expense_id,
+            )
+        )
+
+
+        if (
+            expense.expense_type
+            != "OVERHEAD"
+            or
+            not expense.is_monthly_recurring
+        ):
+
+            raise ValueError(
+                "Only recurring Company Overheads "
+                "can be removed from the overhead master."
+            )
+
+
+        if expense.is_archived:
+
+            raise ValueError(
+                "This Company Overhead has already been removed."
+            )
+
+
+        if stop_from_month.day != 1:
+
+            raise ValueError(
+                "Stop From Month must use the first day "
+                "of the selected month."
+            )
+
+
+        current_month = (
+            ExpenseService
+            .month_start(
+                date.today()
+            )
+        )
+
+
+        if stop_from_month > current_month:
+
+            raise ValueError(
+                "A future stop month cannot be scheduled here. "
+                "Choose the current month or an earlier month."
+            )
+
+
+        if (
+            expense.effective_from
+            is not None
+            and
+            stop_from_month
+            <
+            expense.effective_from
+        ):
+
+            raise ValueError(
+                "Stop From Month cannot be before "
+                "this overhead originally started."
+            )
+
+
+        latest_payment = (
+            db.query(
+                RecurringPayment
+            )
+            .filter(
+                RecurringPayment.expense_id
+                == expense.id,
+
+                RecurringPayment.payment_kind
+                == "OVERHEAD",
+            )
+            .order_by(
+                RecurringPayment.period_start.desc(),
+                RecurringPayment.id.desc(),
+            )
+            .first()
+        )
+
+
+        if (
+            latest_payment is not None
+            and
+            latest_payment.period_start
+            >= stop_from_month
+        ):
+
+            raise ValueError(
+                "A payment already exists for "
+                f"{latest_payment.period_start.strftime('%b %Y')} "
+                "or a later selected stop period. "
+                "Choose a Stop From Month after the latest "
+                "recorded overhead payment."
+            )
+
+
+        stop_end = (
+            stop_from_month
+            -
+            timedelta(
+                days=1
+            )
+        )
+
+
+        rates = (
+            db.query(
+                ExpenseRecurringRate
+            )
+            .filter(
+                ExpenseRecurringRate.expense_id
+                == expense.id
+            )
+            .order_by(
+                ExpenseRecurringRate.effective_from.asc(),
+                ExpenseRecurringRate.id.asc(),
+            )
+            .all()
+        )
+
+
+        try:
+
+            for rate in rates:
+
+                if (
+                    rate.effective_from
+                    >= stop_from_month
+                ):
+
+                    db.delete(
+                        rate
+                    )
+
+                elif (
+                    rate.effective_to is None
+                    or
+                    rate.effective_to
+                    >= stop_from_month
+                ):
+
+                    rate.effective_to = stop_end
+
+
+            expense.is_archived = True
+            expense.effective_to = stop_end
+
+
+            db.commit()
+            db.refresh(
+                expense
+            )
+
+            return expense
+
+
+        except Exception:
+
+            db.rollback()
+            raise
+
     # ============================================================
     # DELETE
     # ============================================================
@@ -988,6 +1184,26 @@ class ExpenseService:
                 ),
             )
         )
+
+
+        # --------------------------------------------------------
+        # EXPENSE HISTORY MUST NOT BE DESTROYED
+        # --------------------------------------------------------
+
+        if (
+            expense.expense_type
+            in {
+                "GENERAL",
+                "DIRECT_PRODUCTION",
+            }
+        ):
+
+            raise ValueError(
+                "Expense history cannot be deleted. "
+                "General and Direct Production expense "
+                "records must remain available for audit "
+                "and costing history."
+            )
 
 
         # --------------------------------------------------------

@@ -95,6 +95,18 @@ class Expense(Base):
     )
 
     # ========================================================
+    # ARCHIVED OVERHEAD MASTER
+    # ========================================================
+
+    is_archived = Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+        index=True,
+    )
+
+    # ========================================================
     # DIRECT PRODUCTION LINK
     # ========================================================
 

@@ -55,6 +55,8 @@ export interface Expense {
 
   amount: string;
 
+  is_archived: boolean;
+
   /*
    * Internal Production Order relationship.
    *

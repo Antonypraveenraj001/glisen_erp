@@ -393,6 +393,8 @@ class ExpenseResponse(
 
     id: int
 
+    is_archived: bool
+
     created_by: int | None
 
     created_at: datetime

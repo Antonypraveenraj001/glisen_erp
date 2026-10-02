@@ -27,7 +27,10 @@ import {
 
 import "./ExpensePage.css";
 
+import RepeatPaymentsCard from "./RepeatPaymentsCard";
+
 import {
+  archiveCompanyOverhead,
   createExpense,
   deleteExpense,
   getExpenses,
@@ -40,6 +43,15 @@ import {
   getStaff,
   updateStaff,
 } from "../../services/staffService";
+
+import {
+  deleteStaffFromMaster,
+  reactivateStaff,
+} from "../../services/staffLifecycleService";
+
+import {
+  getBusinessSettings,
+} from "../../services/settingsService";
 
 import {
   getProductionOrders,
@@ -465,6 +477,32 @@ function getExpenseTypeLabel(
 }
 
 
+interface PaginationResult<T> {
+  items: T[];
+  currentPage: number;
+  totalPages: number;
+}
+
+
+function paginateItems<T>(
+  items: T[],
+  requestedPage: number,
+  pageSize: number
+): PaginationResult<T> {
+
+  const safePageSize = Math.max(1, pageSize);
+  const totalPages = Math.max(1, Math.ceil(items.length / safePageSize));
+  const currentPage = Math.min(Math.max(1, requestedPage), totalPages);
+  const startIndex = (currentPage - 1) * safePageSize;
+
+  return {
+    items: items.slice(startIndex, startIndex + safePageSize),
+    currentPage,
+    totalPages,
+  };
+}
+
+
 /* ================================================================
    PAGE
 ================================================================ */
@@ -492,6 +530,11 @@ export default function ExpensePage() {
       "staff.manage"
     );
 
+  const canCreateExpenses =
+    hasPermission(
+      "expenses.create"
+    );
+
 
   /* ==============================================================
      PAGE STATE
@@ -503,6 +546,51 @@ export default function ExpensePage() {
   ] =
     useState<ExpenseTab>(
       "overhead"
+    );
+
+
+  const [
+    defaultPageSize,
+    setDefaultPageSize,
+  ] =
+    useState(
+      10
+    );
+
+
+  const [
+    staffPage,
+    setStaffPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    overheadPage,
+    setOverheadPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    directPage,
+    setDirectPage,
+  ] =
+    useState(
+      1
+    );
+
+
+  const [
+    registerPage,
+    setRegisterPage,
+  ] =
+    useState(
+      1
     );
 
 
@@ -625,6 +713,50 @@ export default function ExpensePage() {
     );
 
 
+  const [
+    overheadArchiveTarget,
+    setOverheadArchiveTarget,
+  ] =
+    useState<
+      Expense | null
+    >(
+      null
+    );
+
+
+  const [
+    overheadArchiveMonth,
+    setOverheadArchiveMonth,
+  ] =
+    useState(
+      todayValue()
+        .slice(
+          0,
+          7
+        )
+    );
+
+
+  const [
+    overheadArchiveSaving,
+    setOverheadArchiveSaving,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    overheadArchiveError,
+    setOverheadArchiveError,
+  ] =
+    useState<
+      string | null
+    >(
+      null
+    );
+
+
   /* ==============================================================
      STAFF MODAL
   ============================================================== */
@@ -683,6 +815,28 @@ export default function ExpensePage() {
   const [
     deactivatingStaffId,
     setDeactivatingStaffId,
+  ] =
+    useState<
+      number | null
+    >(
+      null
+    );
+
+
+  const [
+    reactivatingStaffId,
+    setReactivatingStaffId,
+  ] =
+    useState<
+      number | null
+    >(
+      null
+    );
+
+
+  const [
+    deletingStaffMasterId,
+    setDeletingStaffMasterId,
   ] =
     useState<
       number | null
@@ -845,6 +999,52 @@ export default function ExpensePage() {
   );
 
 
+  useEffect(
+    () => {
+
+      let active = true;
+
+
+      void (
+        async () => {
+
+          try {
+
+            const settings = await getBusinessSettings();
+
+
+            if (
+              active
+              && Number.isFinite(settings.default_page_size)
+              && settings.default_page_size > 0
+            ) {
+
+              setDefaultPageSize(settings.default_page_size);
+
+            }
+
+          } catch (settingsError) {
+
+            console.warn(
+              "Unable to load default page size. Using 10.",
+              settingsError
+            );
+
+          }
+
+        }
+      )();
+
+
+      return () => {
+        active = false;
+      };
+
+    },
+    []
+  );
+
+
   /*
    * If Staff access is removed while this page is open,
    * immediately leave the Staff tab and clear Staff data.
@@ -1002,6 +1202,8 @@ export default function ExpensePage() {
           expense =>
             expense.expense_type
             === "OVERHEAD"
+            &&
+            !expense.is_archived
         ),
 
       [
@@ -1207,6 +1409,48 @@ export default function ExpensePage() {
     );
 
 
+  useEffect(
+    () => {
+      setRegisterPage(1);
+    },
+    [
+      search,
+      typeFilter,
+      categoryFilter,
+      startDate,
+      endDate,
+    ]
+  );
+
+
+  const staffPagination =
+    useMemo(
+      () => paginateItems(staff, staffPage, defaultPageSize),
+      [staff, staffPage, defaultPageSize]
+    );
+
+
+  const overheadPagination =
+    useMemo(
+      () => paginateItems(overheadExpenses, overheadPage, defaultPageSize),
+      [overheadExpenses, overheadPage, defaultPageSize]
+    );
+
+
+  const directPagination =
+    useMemo(
+      () => paginateItems(directExpenses, directPage, defaultPageSize),
+      [directExpenses, directPage, defaultPageSize]
+    );
+
+
+  const registerPagination =
+    useMemo(
+      () => paginateItems(filteredRegister, registerPage, defaultPageSize),
+      [filteredRegister, registerPage, defaultPageSize]
+    );
+
+
   /* ==============================================================
      EXPENSE LOCK
   ============================================================== */
@@ -1215,6 +1459,18 @@ export default function ExpensePage() {
     expense:
       Expense
   ) {
+
+    if (
+      expense.expense_type
+      === "OVERHEAD"
+      &&
+      expense.is_archived
+    ) {
+
+      return true;
+
+    }
+
 
     if (
       expense.expense_type
@@ -2225,6 +2481,298 @@ export default function ExpensePage() {
 
 
   /* ==============================================================
+     REACTIVATE STAFF
+  ============================================================== */
+
+  async function handleReactivateStaff(
+    member:
+      Staff
+  ) {
+
+    if (
+      !canManageStaff
+    ) {
+
+      return;
+
+    }
+
+
+    const confirmed =
+      window.confirm(
+        `Reactivate "${member.staff_name}" as active staff?`
+      );
+
+
+    if (
+      !confirmed
+    ) {
+
+      return;
+
+    }
+
+
+    try {
+
+      setReactivatingStaffId(
+        member.id
+      );
+
+
+      setError(
+        null
+      );
+
+
+      await reactivateStaff(
+        member.id
+      );
+
+
+      await loadData();
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to reactivate staff."
+        )
+      );
+
+    } finally {
+
+      setReactivatingStaffId(
+        null
+      );
+
+    }
+
+  }
+
+
+  /* ==============================================================
+     DELETE STAFF FROM MASTER
+  ============================================================== */
+
+  async function handleDeleteStaffFromMaster(
+    member:
+      Staff
+  ) {
+
+    if (
+      !canManageStaff
+    ) {
+
+      return;
+
+    }
+
+
+    const confirmed =
+      window.confirm(
+        `Delete "${member.staff_name}" from Staff Master?\n\n`
+        +
+        "The employee will disappear from Staff Master and future salary previews. "
+        +
+        "Existing salary-rate and payment history will be preserved."
+      );
+
+
+    if (
+      !confirmed
+    ) {
+
+      return;
+
+    }
+
+
+    try {
+
+      setDeletingStaffMasterId(
+        member.id
+      );
+
+
+      setError(
+        null
+      );
+
+
+      await deleteStaffFromMaster(
+        member.id
+      );
+
+
+      await loadData();
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to delete staff from Staff Master."
+        )
+      );
+
+    } finally {
+
+      setDeletingStaffMasterId(
+        null
+      );
+
+    }
+
+  }
+
+
+
+  /* ==============================================================
+     ARCHIVE COMPANY OVERHEAD
+  ============================================================== */
+
+  async function openArchiveOverhead(
+    expense:
+      Expense
+  ) {
+
+    setOverheadArchiveTarget(
+      expense
+    );
+
+
+    setOverheadArchiveMonth(
+      todayValue()
+        .slice(
+          0,
+          7
+        )
+    );
+
+
+    setOverheadArchiveError(
+      null
+    );
+
+  }
+
+
+  function closeArchiveOverhead() {
+
+    if (
+      overheadArchiveSaving
+    ) {
+
+      return;
+
+    }
+
+
+    setOverheadArchiveTarget(
+      null
+    );
+
+
+    setOverheadArchiveError(
+      null
+    );
+
+  }
+
+
+  async function handleArchiveOverhead() {
+
+    if (
+      !overheadArchiveTarget
+    ) {
+
+      return;
+
+    }
+
+
+    if (
+      !overheadArchiveMonth
+    ) {
+
+      setOverheadArchiveError(
+        "Stop From Month is required."
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      setOverheadArchiveSaving(
+        true
+      );
+
+
+      setOverheadArchiveError(
+        null
+      );
+
+
+      await archiveCompanyOverhead(
+        overheadArchiveTarget.id,
+        `${overheadArchiveMonth}-01`
+      );
+
+
+      setOverheadArchiveTarget(
+        null
+      );
+
+
+      await loadData();
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+
+      setOverheadArchiveError(
+        getApiErrorMessage(
+          err,
+          "Unable to remove Company Overhead."
+        )
+      );
+
+    } finally {
+
+      setOverheadArchiveSaving(
+        false
+      );
+
+    }
+
+  }
+
+
+  /* ==============================================================
      CLEAR REGISTER FILTERS
   ============================================================== */
 
@@ -2818,6 +3366,16 @@ export default function ExpensePage() {
 
                       </div>
 
+                      <RepeatPaymentsCard
+                        kind="STAFF_SALARY"
+                        canManage={
+                          canManageStaff
+                        }
+                        pageSize={
+                          defaultPageSize
+                        }
+                      />
+
 
                       {
                         staff.length
@@ -2885,8 +3443,10 @@ export default function ExpensePage() {
                                   <tbody>
 
                                     {
-                                      staff.map(
-                                        member => (
+                                      staffPagination
+                                        .items
+                                        .map(
+                                          member => (
 
                                           <tr
                                             key={
@@ -3016,7 +3576,7 @@ export default function ExpensePage() {
                                                               member
                                                             )
                                                           }
-                                                          title="Deactivate staff"
+                                                          title="Mark staff inactive"
                                                         >
                                                           {
                                                             deactivatingStaffId
@@ -3037,6 +3597,75 @@ export default function ExpensePage() {
                                                       )
                                                     }
 
+
+                                                    {
+                                                      !member.is_active
+                                                      && (
+                                                        <button
+                                                          type="button"
+                                                          className="expense-icon-button edit"
+                                                          disabled={
+                                                            reactivatingStaffId
+                                                            === member.id
+                                                          }
+                                                          onClick={() =>
+                                                            void handleReactivateStaff(
+                                                              member
+                                                            )
+                                                          }
+                                                          title="Reactivate staff"
+                                                        >
+                                                          {
+                                                            reactivatingStaffId
+                                                            === member.id
+                                                              ? (
+                                                                  <Loader2
+                                                                    size={14}
+                                                                    className="expense-spin"
+                                                                  />
+                                                                )
+                                                              : (
+                                                                  <RefreshCw
+                                                                    size={14}
+                                                                  />
+                                                                )
+                                                          }
+                                                        </button>
+                                                      )
+                                                    }
+
+
+                                                    <button
+                                                      type="button"
+                                                      className="expense-icon-button delete"
+                                                      disabled={
+                                                        deletingStaffMasterId
+                                                        === member.id
+                                                      }
+                                                      onClick={() =>
+                                                        void handleDeleteStaffFromMaster(
+                                                          member
+                                                        )
+                                                      }
+                                                      title="Delete from Staff Master"
+                                                    >
+                                                      {
+                                                        deletingStaffMasterId
+                                                        === member.id
+                                                          ? (
+                                                              <Loader2
+                                                                size={14}
+                                                                className="expense-spin"
+                                                              />
+                                                            )
+                                                          : (
+                                                              <Trash2
+                                                                size={14}
+                                                              />
+                                                            )
+                                                      }
+                                                    </button>
+
                                                   </div>
 
                                                 </td>
@@ -3055,6 +3684,20 @@ export default function ExpensePage() {
 
                               </div>
                             )
+                      }
+
+
+                      {
+                        staff.length > 0
+                        && (
+                          <PaginationControls
+                            currentPage={staffPagination.currentPage}
+                            totalPages={staffPagination.totalPages}
+                            totalItems={staff.length}
+                            pageSize={defaultPageSize}
+                            onPageChange={setStaffPage}
+                          />
+                        )
                       }
 
                     </div>
@@ -3124,6 +3767,16 @@ export default function ExpensePage() {
 
                       </div>
 
+                      <RepeatPaymentsCard
+                        kind="OVERHEAD"
+                        canManage={
+                          canCreateExpenses
+                        }
+                        pageSize={
+                          defaultPageSize
+                        }
+                      />
+
 
                       {
                         overheadExpenses.length
@@ -3142,7 +3795,7 @@ export default function ExpensePage() {
                           : (
                               <ExpenseTable
                                 expenses={
-                                  overheadExpenses
+                                  overheadPagination.items
                                 }
                                 productionById={
                                   productionById
@@ -3157,10 +3810,24 @@ export default function ExpensePage() {
                                   openEditExpense
                                 }
                                 onDelete={
-                                  handleDeleteExpense
+                                  openArchiveOverhead
                                 }
                               />
                             )
+                      }
+
+
+                      {
+                        overheadExpenses.length > 0
+                        && (
+                          <PaginationControls
+                            currentPage={overheadPagination.currentPage}
+                            totalPages={overheadPagination.totalPages}
+                            totalItems={overheadExpenses.length}
+                            pageSize={defaultPageSize}
+                            onPageChange={setOverheadPage}
+                          />
+                        )
                       }
 
                     </div>
@@ -3264,7 +3931,7 @@ export default function ExpensePage() {
                           : (
                               <ExpenseTable
                                 expenses={
-                                  directExpenses
+                                  directPagination.items
                                 }
                                 productionById={
                                   productionById
@@ -3281,8 +3948,25 @@ export default function ExpensePage() {
                                 onDelete={
                                   handleDeleteExpense
                                 }
+                                allowDelete={
+                                  false
+                                }
                               />
                             )
+                      }
+
+
+                      {
+                        directExpenses.length > 0
+                        && (
+                          <PaginationControls
+                            currentPage={directPagination.currentPage}
+                            totalPages={directPagination.totalPages}
+                            totalItems={directExpenses.length}
+                            pageSize={defaultPageSize}
+                            onPageChange={setDirectPage}
+                          />
+                        )
                       }
 
                     </div>
@@ -3516,7 +4200,7 @@ export default function ExpensePage() {
                           : (
                               <ExpenseTable
                                 expenses={
-                                  filteredRegister
+                                  registerPagination.items
                                 }
                                 productionById={
                                   productionById
@@ -3533,9 +4217,26 @@ export default function ExpensePage() {
                                 onDelete={
                                   handleDeleteExpense
                                 }
+                                allowDelete={
+                                  false
+                                }
                                 showType
                               />
                             )
+                      }
+
+
+                      {
+                        filteredRegister.length > 0
+                        && (
+                          <PaginationControls
+                            currentPage={registerPagination.currentPage}
+                            totalPages={registerPagination.totalPages}
+                            totalItems={filteredRegister.length}
+                            pageSize={defaultPageSize}
+                            onPageChange={setRegisterPage}
+                          />
+                        )
                       }
 
                     </div>
@@ -4091,6 +4792,206 @@ export default function ExpensePage() {
       }
 
 
+
+
+      {/* ========================================================
+          ARCHIVE COMPANY OVERHEAD MODAL
+      ======================================================== */}
+
+      {
+        overheadArchiveTarget
+        && (
+          <div className="expense-modal-backdrop">
+
+            <div className="expense-modal expense-staff-modal">
+
+              <div className="expense-modal-header">
+
+                <div>
+
+                  <div className="expense-modal-eyebrow">
+                    COMPANY OVERHEAD
+                  </div>
+
+
+                  <div className="expense-modal-title">
+                    Remove Recurring Overhead
+                  </div>
+
+
+                  <div className="expense-modal-subtitle">
+                    Remove this item from the active overhead
+                    master without deleting historical payment
+                    or expense records.
+                  </div>
+
+                </div>
+
+
+                <button
+                  type="button"
+                  className="expense-modal-close"
+                  onClick={
+                    closeArchiveOverhead
+                  }
+                  disabled={
+                    overheadArchiveSaving
+                  }
+                >
+                  <X
+                    size={18}
+                  />
+                </button>
+
+              </div>
+
+
+              <div className="expense-form">
+
+                {
+                  overheadArchiveError
+                  && (
+                    <div className="expense-form-error">
+                      {
+                        overheadArchiveError
+                      }
+                    </div>
+                  )
+                }
+
+
+                <div className="expense-info-strip overhead">
+
+                  <Building2
+                    size={17}
+                  />
+
+                  <div>
+
+                    <strong>
+                      {
+                        overheadArchiveTarget
+                          .description
+                      }
+                    </strong>
+
+                    <span>
+                      Current amount:
+                      {" "}
+                      {
+                        formatCurrency(
+                          overheadArchiveTarget
+                            .amount
+                        )
+                      }
+                    </span>
+
+                  </div>
+
+                </div>
+
+
+                <div className="expense-form-grid">
+
+                  <label className="expense-form-field">
+
+                    <span>
+                      Stop Recurring From Month *
+                    </span>
+
+                    <input
+                      type="month"
+                      required
+                      max={
+                        todayValue()
+                          .slice(
+                            0,
+                            7
+                          )
+                      }
+                      value={
+                        overheadArchiveMonth
+                      }
+                      onChange={
+                        event =>
+                          setOverheadArchiveMonth(
+                            event.target.value
+                          )
+                      }
+                    />
+
+                    <small className="expense-field-help">
+                      The selected month and all future months
+                      will no longer count as recurring overhead.
+                      Earlier history remains unchanged.
+                    </small>
+
+                  </label>
+
+                </div>
+
+
+                <div className="expense-warning-strip">
+                  If a payment is already recorded for the
+                  selected month, choose the following month.
+                  Old payment history will never be deleted.
+                </div>
+
+
+                <div className="expense-form-actions">
+
+                  <button
+                    type="button"
+                    className="expense-cancel-button"
+                    onClick={
+                      closeArchiveOverhead
+                    }
+                    disabled={
+                      overheadArchiveSaving
+                    }
+                  >
+                    Cancel
+                  </button>
+
+
+                  <button
+                    type="button"
+                    className="expense-save-button"
+                    disabled={
+                      overheadArchiveSaving
+                      ||
+                      !overheadArchiveMonth
+                    }
+                    onClick={() =>
+                      void handleArchiveOverhead()
+                    }
+                  >
+
+                    {
+                      overheadArchiveSaving
+                      && (
+                        <Loader2
+                          size={15}
+                          className="expense-spin"
+                        />
+                      )
+                    }
+
+                    Remove Overhead
+
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        )
+      }
+
+
       {/* ========================================================
           STAFF MODAL
       ======================================================== */}
@@ -4415,6 +5316,66 @@ export default function ExpensePage() {
 
 
 /* ================================================================
+   PAGINATION
+================================================================ */
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+
+  const firstRecord =
+    totalItems === 0
+      ? 0
+      : ((currentPage - 1) * pageSize) + 1;
+
+  const lastRecord =
+    Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="expense-pagination">
+
+      <div className="expense-pagination-summary">
+        Showing <strong>{firstRecord}</strong>–<strong>{lastRecord}</strong> of <strong>{totalItems}</strong>
+      </div>
+
+      <div className="expense-pagination-actions">
+        <button
+          type="button"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
+        >
+          Previous
+        </button>
+
+        <span>
+          Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+        </span>
+
+        <button
+          type="button"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+        >
+          Next
+        </button>
+      </div>
+
+    </div>
+  );
+}
+
+
+/* ================================================================
    EXPENSE TABLE
 ================================================================ */
 
@@ -4425,6 +5386,7 @@ function ExpenseTable({
   isExpenseLocked,
   onEdit,
   onDelete,
+  allowDelete = true,
   showType = false,
 }: {
   expenses:
@@ -4456,6 +5418,9 @@ function ExpenseTable({
       expense:
         Expense
     ) => Promise<void>;
+
+  allowDelete?:
+    boolean;
 
   showType?:
     boolean;
@@ -4725,36 +5690,46 @@ function ExpenseTable({
                                 </button>
 
 
-                                <button
-                                  type="button"
-                                  className="expense-icon-button delete"
-                                  disabled={
-                                    deletingExpenseId
-                                    === expense.id
-                                  }
-                                  onClick={() =>
-                                    void onDelete(
-                                      expense
-                                    )
-                                  }
-                                  title="Delete expense"
-                                >
-                                  {
-                                    deletingExpenseId
-                                    === expense.id
-                                      ? (
-                                          <Loader2
-                                            size={14}
-                                            className="expense-spin"
-                                          />
+                                {
+                                  allowDelete
+                                  && (
+                                    <button
+                                      type="button"
+                                      className="expense-icon-button delete"
+                                      disabled={
+                                        deletingExpenseId
+                                        === expense.id
+                                      }
+                                      onClick={() =>
+                                        void onDelete(
+                                          expense
                                         )
-                                      : (
-                                          <Trash2
-                                            size={14}
-                                          />
-                                        )
+                                      }
+                                      title={
+                                    expense.expense_type
+                                    === "OVERHEAD"
+                                      ? "Remove from Company Overheads"
+                                      : "Delete expense"
                                   }
-                                </button>
+                                    >
+                                      {
+                                        deletingExpenseId
+                                        === expense.id
+                                          ? (
+                                              <Loader2
+                                                size={14}
+                                                className="expense-spin"
+                                              />
+                                            )
+                                          : (
+                                              <Trash2
+                                                size={14}
+                                              />
+                                            )
+                                      }
+                                    </button>
+                                  )
+                                }
 
                               </div>
                             )

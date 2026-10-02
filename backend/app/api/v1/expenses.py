@@ -306,6 +306,60 @@ def update_expense(
         ) from exc
 
 
+
+
+# ================================================================
+# ARCHIVE COMPANY OVERHEAD
+# ================================================================
+
+@router.post(
+    "/{expense_id}/archive",
+    response_model=ExpenseResponse,
+)
+def archive_company_overhead(
+    expense_id: int,
+
+    stop_from_month: date = Query(
+        ...,
+        description=(
+            "First day of the month from which this "
+            "overhead should stop recurring."
+        ),
+    ),
+
+    db: Session = Depends(
+        get_db
+    ),
+
+    current_user: User = Depends(
+        require_permission(
+            "expenses.delete"
+        )
+    ),
+):
+
+    try:
+
+        return (
+            ExpenseService
+            .archive_overhead(
+                db=db,
+                expense_id=expense_id,
+                stop_from_month=stop_from_month,
+            )
+        )
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=str(
+                exc
+            ),
+        ) from exc
+
 # ================================================================
 # DELETE EXPENSE
 #

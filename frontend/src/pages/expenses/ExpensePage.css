@@ -1500,3 +1500,50 @@
   }
 
 }
+
+/* EXPENSE PAGINATION CHECKPOINT */
+.expense-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 2px 2px;
+  flex-wrap: wrap;
+}
+
+.expense-pagination-summary {
+  font-size: 13px;
+  color: #667085;
+}
+
+.expense-pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.expense-pagination-actions button {
+  border: 1px solid #d0d5dd;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.expense-pagination-actions button:hover:not(:disabled) {
+  background: #f9fafb;
+}
+
+.expense-pagination-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .expense-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
