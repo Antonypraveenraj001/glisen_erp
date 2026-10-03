@@ -1,5 +1,6 @@
 export interface StockSummaryItem {
   product_id: number;
+  hsn_code: string;
   product_code: string;
   product_name: string;
   category: string | null;
@@ -68,6 +69,13 @@ export interface StockMovementResponse {
 
 
 export interface StockSummaryFilters {
+  search?: string;
+  stock_status?: string;
+}
+
+
+export interface StockExcelExportFilters {
+  scope: "filtered" | "whole";
   search?: string;
   stock_status?: string;
 }

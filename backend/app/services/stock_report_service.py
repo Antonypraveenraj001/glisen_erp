@@ -25,10 +25,6 @@ class StockReportService:
             )
         )
 
-        # ========================================================
-        # SEARCH FILTER
-        # ========================================================
-
         if search:
             keyword = f"%{search.strip()}%"
 
@@ -65,10 +61,6 @@ class StockReportService:
             .all()
         )
 
-        # ========================================================
-        # PREPARE RESULT
-        # ========================================================
-
         items: list[StockSummaryItem] = []
 
         total_stock_quantity = Decimal(
@@ -80,7 +72,6 @@ class StockReportService:
         )
 
         low_stock_products = 0
-
         out_of_stock_products = 0
 
         requested_status = None
@@ -91,10 +82,6 @@ class StockReportService:
                 .strip()
                 .lower()
             )
-
-        # ========================================================
-        # PROCESS PRODUCTS
-        # ========================================================
 
         for product in products:
 
@@ -133,10 +120,6 @@ class StockReportService:
                 Decimal("0.01")
             )
 
-            # ====================================================
-            # STOCK STATUS
-            # ====================================================
-
             if current_stock <= Decimal(
                 "0.00"
             ):
@@ -169,10 +152,6 @@ class StockReportService:
                     "In Stock"
                 )
 
-            # ====================================================
-            # STATUS FILTER
-            # ====================================================
-
             if (
                 requested_status
                 and calculated_status.lower()
@@ -180,37 +159,22 @@ class StockReportService:
             ):
                 continue
 
-            # ====================================================
-            # KPIs FOR FILTERED RESULT
-            # ====================================================
-
-            if (
-                calculated_status
-                == "Low Stock"
-            ):
+            if calculated_status == "Low Stock":
                 low_stock_products += 1
 
-            if (
-                calculated_status
-                == "Out of Stock"
-            ):
+            if calculated_status == "Out of Stock":
                 out_of_stock_products += 1
 
-            total_stock_quantity += (
-                current_stock
-            )
-
-            total_stock_value += (
-                stock_value
-            )
-
-            # ====================================================
-            # ITEM
-            # ====================================================
+            total_stock_quantity += current_stock
+            total_stock_value += stock_value
 
             items.append(
                 StockSummaryItem(
                     product_id=product.id,
+                    hsn_code=(
+                        product.hsn_code
+                        or ""
+                    ),
                     product_code=(
                         product.product_code
                     ),
@@ -241,10 +205,6 @@ class StockReportService:
                     ),
                 )
             )
-
-        # ========================================================
-        # RESPONSE
-        # ========================================================
 
         return StockSummaryResponse(
             total_products=len(items),

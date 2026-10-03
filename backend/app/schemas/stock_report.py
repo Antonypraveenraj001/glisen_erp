@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class StockSummaryItem(BaseModel):
     product_id: int
+    hsn_code: str
     product_code: str
     product_name: str
     category: str | None

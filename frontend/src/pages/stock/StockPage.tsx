@@ -11,14 +11,17 @@ import {
   ArrowUpFromLine,
   Boxes,
   CheckCircle2,
+  Download,
   Factory,
   Filter,
   History,
   Loader2,
   PackageSearch,
+  Printer,
   RefreshCw,
   Send,
   Search,
+  Trash2,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -26,6 +29,8 @@ import {
 import "./StockPage.css";
 
 import {
+  deleteOutOfStockProduct,
+  downloadLiveStockExcel,
   getStockMovements,
   getStockSummary,
   issueStockToProductionOrder,
@@ -37,6 +42,9 @@ import {
 
 import {
   getBusinessSettings,
+  getCompanyLogoBlob,
+  getCompanySettings,
+  getDocumentSettings,
 } from "../../services/settingsService";
 
 import type {
@@ -48,6 +56,29 @@ import type {
 import type {
   ProductionOrder,
 } from "../../types/production";
+
+import type {
+  CompanySettings,
+  DocumentSettings,
+} from "../../types/settings";
+
+
+type StockReportScope =
+  | "filtered"
+  | "whole";
+
+
+interface StockPrintAssets {
+  company:
+    CompanySettings;
+
+  document:
+    DocumentSettings;
+
+  logoDataUrl:
+    string |
+    null;
+}
 
 
 const FALLBACK_PAGE_SIZE = 10;
@@ -322,6 +353,558 @@ function getApiErrorMessage(
 
 
   return fallback;
+}
+
+
+
+function escapeHtml(
+  value:
+    string |
+    number |
+    null |
+    undefined
+) {
+
+  const map:
+    Record<
+      string,
+      string
+    > = {
+      "&":
+        "&amp;",
+
+      "<":
+        "&lt;",
+
+      ">":
+        "&gt;",
+
+      '"':
+        "&quot;",
+
+      "'":
+        "&#039;",
+    };
+
+
+  return String(
+    value
+    ??
+    ""
+  ).replace(
+    /[&<>"']/g,
+    character =>
+      map[
+        character
+      ]
+      ||
+      character
+  );
+}
+
+
+function blobToDataUrl(
+  blob:
+    Blob
+):
+Promise<string> {
+
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+
+      const reader =
+        new FileReader();
+
+
+      reader.onload =
+        () => {
+
+          if (
+            typeof reader.result
+            ===
+            "string"
+          ) {
+
+            resolve(
+              reader.result
+            );
+
+          } else {
+
+            reject(
+              new Error(
+                "Unable to read company logo."
+              )
+            );
+
+          }
+
+        };
+
+
+      reader.onerror =
+        () =>
+          reject(
+            new Error(
+              "Unable to read company logo."
+            )
+          );
+
+
+      reader.readAsDataURL(
+        blob
+      );
+
+    }
+  );
+}
+
+
+function buildStockPrintDocumentHtml(
+  items:
+    StockSummaryItem[],
+  assets:
+    StockPrintAssets,
+  scopeLabel:
+    string
+) {
+
+  const {
+    company,
+    document,
+    logoDataUrl,
+  } =
+    assets;
+
+
+  const letterheadMode =
+    document.default_print_mode
+    ===
+    "letterhead";
+
+
+  const topSpace =
+    Math.max(
+      0,
+      Number(
+        document
+          .letterhead_top_space_mm
+      )
+      ||
+      0
+    );
+
+
+  const companyAddress =
+    [
+      company.address,
+      company.state_name,
+    ]
+      .filter(
+        Boolean
+      )
+      .join(
+        ", "
+      );
+
+
+  const companyContact =
+    [
+      company.phone,
+      company.email,
+      company.website,
+    ]
+      .filter(
+        Boolean
+      )
+      .join(
+        " • "
+      );
+
+
+  const totalQuantity =
+    items.reduce(
+      (
+        total,
+        item
+      ) =>
+        total
+        +
+        (
+          Number(
+            item.current_stock
+          )
+          ||
+          0
+        ),
+      0
+    );
+
+
+  const totalValue =
+    items.reduce(
+      (
+        total,
+        item
+      ) =>
+        total
+        +
+        (
+          Number(
+            item.stock_value
+          )
+          ||
+          0
+        ),
+      0
+    );
+
+
+  const rows =
+    items.map(
+      item => `
+        <tr>
+          <td>${escapeHtml(
+            item.hsn_code
+            ||
+            "-"
+          )}</td>
+          <td><strong>${escapeHtml(
+            item.product_name
+          )}</strong></td>
+          <td>${escapeHtml(
+            item.product_code
+          )}</td>
+          <td>${escapeHtml(
+            item.unit
+          )}</td>
+          <td class="number">${escapeHtml(
+            formatNumber(
+              item.current_stock
+            )
+          )}</td>
+          <td class="number">${escapeHtml(
+            formatCurrency(
+              item.purchase_price
+            )
+          )}</td>
+          <td class="number">${escapeHtml(
+            formatCurrency(
+              item.stock_value
+            )
+          )}</td>
+          <td>${escapeHtml(
+            item.stock_status
+          )}</td>
+        </tr>
+      `
+    )
+    .join(
+      ""
+    );
+
+
+  const companyHeader =
+    letterheadMode
+      ? ""
+      : `
+          <div class="company-header">
+            <div class="company-main">
+              ${
+                (
+                  document.show_logo
+                  &&
+                  logoDataUrl
+                )
+                  ? `
+                      <img
+                        class="company-logo"
+                        src="${logoDataUrl}"
+                        alt="Company Logo"
+                      />
+                    `
+                  : ""
+              }
+
+              <div>
+                <div class="company-name">
+                  ${escapeHtml(
+                    company.company_name
+                  )}
+                </div>
+
+                ${
+                  companyAddress
+                    ? `
+                        <div class="company-line">
+                          ${escapeHtml(
+                            companyAddress
+                          )}
+                        </div>
+                      `
+                    : ""
+                }
+
+                ${
+                  (
+                    document.show_contact_details
+                    &&
+                    companyContact
+                  )
+                    ? `
+                        <div class="company-line">
+                          ${escapeHtml(
+                            companyContact
+                          )}
+                        </div>
+                      `
+                    : ""
+                }
+
+                ${
+                  (
+                    document.show_gst_number
+                    &&
+                    company.gst_number
+                  )
+                    ? `
+                        <div class="company-line">
+                          GSTIN:
+                          ${escapeHtml(
+                            company.gst_number
+                          )}
+                        </div>
+                      `
+                    : ""
+                }
+              </div>
+            </div>
+          </div>
+        `;
+
+
+  const letterheadSpacer =
+    letterheadMode
+      ? `
+          <div
+            style="
+              height:${topSpace}mm;
+            "
+          ></div>
+        `
+      : "";
+
+
+  return `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Live Stock Report</title>
+
+        <style>
+          @page {
+            size: A4 landscape;
+            margin: 12mm;
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: #1f3554;
+            font-size: 10px;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .company-header {
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+            border-bottom: 2px solid #2f67d8;
+          }
+
+          .company-main {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+          }
+
+          .company-logo {
+            width: 58px;
+            height: 58px;
+            object-fit: contain;
+          }
+
+          .company-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #183a66;
+            margin-bottom: 4px;
+          }
+
+          .company-line {
+            color: #526b89;
+            line-height: 1.45;
+          }
+
+          .report-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: flex-end;
+            margin-bottom: 12px;
+          }
+
+          .report-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1e4f98;
+          }
+
+          .report-meta {
+            text-align: right;
+            color: #617695;
+            line-height: 1.5;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+          }
+
+          th,
+          td {
+            border: 1px solid #dce5f1;
+            padding: 7px 6px;
+            vertical-align: middle;
+            word-wrap: break-word;
+          }
+
+          th {
+            background: #eaf1ff;
+            color: #274d83;
+            font-size: 9px;
+            text-transform: uppercase;
+          }
+
+          .number {
+            text-align: right;
+          }
+
+          .totals {
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 22px;
+            font-weight: 700;
+            color: #274d83;
+          }
+
+          .footer {
+            margin-top: 16px;
+            padding-top: 8px;
+            border-top: 1px solid #e1e8f2;
+            text-align: center;
+            color: #74869e;
+            font-size: 9px;
+          }
+        </style>
+      </head>
+
+      <body>
+        ${letterheadSpacer}
+        ${companyHeader}
+
+        <div class="report-header">
+          <div>
+            <div class="report-title">
+              LIVE STOCK REPORT
+            </div>
+            <div>
+              ${escapeHtml(
+                scopeLabel
+              )}
+            </div>
+          </div>
+
+          <div class="report-meta">
+            <div>
+              Generated:
+              ${escapeHtml(
+                new Date()
+                  .toLocaleString(
+                    "en-IN"
+                  )
+              )}
+            </div>
+            <div>
+              Records:
+              ${items.length}
+            </div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>HSN</th>
+              <th>Product</th>
+              <th>Product Code</th>
+              <th>Unit</th>
+              <th>Current Stock</th>
+              <th>Purchase Price</th>
+              <th>Stock Value</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+
+        <div class="totals">
+          <div>
+            Total Quantity:
+            ${escapeHtml(
+              formatNumber(
+                totalQuantity
+              )
+            )}
+          </div>
+
+          <div>
+            Total Stock Value:
+            ${escapeHtml(
+              formatCurrency(
+                totalValue
+              )
+            )}
+          </div>
+        </div>
+
+        ${
+          document.footer_text
+            ? `
+                <div class="footer">
+                  ${escapeHtml(
+                    document.footer_text
+                  )}
+                </div>
+              `
+            : ""
+        }
+      </body>
+    </html>
+  `;
 }
 
 
@@ -788,6 +1371,51 @@ export default function StockPage() {
 
 
   /* ==============================================================
+     STOCK REPORT / DELETE
+  ============================================================== */
+
+  const [
+    reportScope,
+    setReportScope,
+  ] =
+    useState<
+      StockReportScope
+    >(
+      "filtered"
+    );
+
+
+  const [
+    reportBusy,
+    setReportBusy,
+  ] =
+    useState(
+      false
+    );
+
+
+  const [
+    deletingProductId,
+    setDeletingProductId,
+  ] =
+    useState<
+      number |
+      null
+    >(
+      null
+    );
+
+
+  const [
+    appliedSummarySearch,
+    setAppliedSummarySearch,
+  ] =
+    useState(
+      ""
+    );
+
+
+  /* ==============================================================
      BUSINESS SETTINGS
   ============================================================== */
 
@@ -867,17 +1495,26 @@ export default function StockPage() {
       );
 
 
+      const normalizedSearch =
+        search.trim();
+
+
       const data =
         await getStockSummary({
           search:
-            search.trim()
-              ? search.trim()
+            normalizedSearch
+              ? normalizedSearch
               : undefined,
         });
 
 
       setSummary(
         data
+      );
+
+
+      setAppliedSummarySearch(
+        normalizedSearch
       );
 
     } catch (
@@ -1455,6 +2092,484 @@ export default function StockPage() {
     await loadSummary(
       ""
     );
+
+  }
+
+
+  /* ==============================================================
+     STOCK REPORT PRINT / EXCEL
+  ============================================================== */
+
+  async function loadStockPrintAssets():
+  Promise<StockPrintAssets> {
+
+    const [
+      company,
+      document,
+    ] =
+      await Promise.all([
+        getCompanySettings(),
+        getDocumentSettings(),
+      ]);
+
+
+    let logoDataUrl:
+      string |
+      null =
+      null;
+
+
+    if (
+      document.show_logo
+      &&
+      company.logo_path
+    ) {
+
+      try {
+
+        const logoBlob =
+          await getCompanyLogoBlob();
+
+
+        logoDataUrl =
+          await blobToDataUrl(
+            logoBlob
+          );
+
+      } catch (
+        err
+      ) {
+
+        console.error(
+          "Unable to load company logo for Stock print:",
+          err
+        );
+
+      }
+
+    }
+
+
+    return {
+      company,
+      document,
+      logoDataUrl,
+    };
+
+  }
+
+
+  async function getReportItems():
+  Promise<StockSummaryItem[]> {
+
+    if (
+      reportScope
+      ===
+      "filtered"
+    ) {
+      return liveStockItems;
+    }
+
+
+    const wholeSummary =
+      await getStockSummary();
+
+
+    return wholeSummary.items.filter(
+      item => {
+
+        const current =
+          Number(
+            item.current_stock
+          );
+
+
+        return (
+          !Number.isNaN(
+            current
+          )
+          &&
+          current > 0
+        );
+
+      }
+    );
+
+  }
+
+
+  async function handlePrintStock() {
+
+    const printWindow =
+      window.open(
+        "",
+        "_blank",
+        "width=1200,height=850"
+      );
+
+
+    if (
+      !printWindow
+    ) {
+
+      setError(
+        "The browser blocked the print window. "
+        +
+        "Allow pop-ups for this ERP and try again."
+      );
+
+      return;
+    }
+
+
+    printWindow.document.write(
+      `
+        <html>
+          <body
+            style="
+              font-family:Arial,sans-serif;
+              padding:30px;
+            "
+          >
+            Preparing Live Stock report...
+          </body>
+        </html>
+      `
+    );
+
+
+    try {
+
+      setReportBusy(
+        true
+      );
+
+
+      setError(
+        null
+      );
+
+
+      const [
+        items,
+        assets,
+      ] =
+        await Promise.all([
+          getReportItems(),
+          loadStockPrintAssets(),
+        ]);
+
+
+      if (
+        items.length
+        ===
+        0
+      ) {
+
+        throw new Error(
+          "There are no Live Stock records to print for the selected scope."
+        );
+
+      }
+
+
+      const scopeLabel =
+        reportScope
+        ===
+        "filtered"
+          ? "Filtered Live Stock"
+          : "Whole Live Stock";
+
+
+      const html =
+        buildStockPrintDocumentHtml(
+          items,
+          assets,
+          scopeLabel
+        );
+
+
+      printWindow.document.open();
+      printWindow.document.write(
+        html
+      );
+      printWindow.document.close();
+
+
+      const printDocument =
+        () => {
+
+          printWindow.focus();
+
+
+          window.setTimeout(
+            () => {
+
+              printWindow.print();
+
+            },
+            250
+          );
+
+        };
+
+
+      if (
+        printWindow.document
+          .readyState
+        ===
+        "complete"
+      ) {
+
+        printDocument();
+
+      } else {
+
+        printWindow.onload =
+          printDocument;
+
+      }
+
+    } catch (
+      err
+    ) {
+
+      printWindow.close();
+
+
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to prepare Live Stock report for printing."
+        )
+      );
+
+    } finally {
+
+      setReportBusy(
+        false
+      );
+
+    }
+
+  }
+
+
+  async function handleDownloadStockExcel() {
+
+    try {
+
+      setReportBusy(
+        true
+      );
+
+
+      setError(
+        null
+      );
+
+
+      const blob =
+        await downloadLiveStockExcel({
+          scope:
+            reportScope,
+
+          search:
+            reportScope
+            ===
+            "filtered"
+              ? (
+                  appliedSummarySearch
+                  ||
+                  undefined
+                )
+              : undefined,
+
+          stock_status:
+            reportScope
+            ===
+            "filtered"
+              ? (
+                  liveStockStatus
+                  ||
+                  undefined
+                )
+              : undefined,
+        });
+
+
+      const url =
+        URL.createObjectURL(
+          blob
+        );
+
+
+      const link =
+        document.createElement(
+          "a"
+        );
+
+
+      const datePart =
+        new Date()
+          .toISOString()
+          .slice(
+            0,
+            10
+          );
+
+
+      link.href =
+        url;
+
+      link.download =
+        `glisen_live_stock_${reportScope}_${datePart}.xlsx`;
+
+
+      document.body.appendChild(
+        link
+      );
+
+      link.click();
+      link.remove();
+
+      URL.revokeObjectURL(
+        url
+      );
+
+
+      setSuccess(
+        reportScope
+        ===
+        "filtered"
+          ? "Filtered Live Stock Excel downloaded."
+          : "Whole Live Stock Excel downloaded."
+      );
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to download Live Stock Excel."
+        )
+      );
+
+    } finally {
+
+      setReportBusy(
+        false
+      );
+
+    }
+
+  }
+
+
+  async function handleDeleteOutOfStockProduct(
+    item:
+      StockSummaryItem
+  ) {
+
+    const currentStock =
+      Number(
+        item.current_stock
+      );
+
+
+    if (
+      Number.isNaN(
+        currentStock
+      )
+      ||
+      currentStock > 0
+    ) {
+
+      setError(
+        "Only an out-of-stock product can be deleted from this list."
+      );
+
+      return;
+    }
+
+
+    const confirmed =
+      window.confirm(
+        `Delete "${item.product_name}" from active Products and Stock?\n\n`
+        +
+        "The product will disappear from the Out of Stock list, "
+        +
+        "but existing Purchase Bill and Stock Movement history will be preserved."
+      );
+
+
+    if (
+      !confirmed
+    ) {
+      return;
+    }
+
+
+    try {
+
+      setDeletingProductId(
+        item.product_id
+      );
+
+
+      setError(
+        null
+      );
+
+      setSuccess(
+        null
+      );
+
+
+      await deleteOutOfStockProduct(
+        item.product_id
+      );
+
+
+      setSuccess(
+        `${item.product_name} removed from active stock. Historical transactions were preserved.`
+      );
+
+
+      await loadSummary(
+        appliedSummarySearch
+      );
+
+    } catch (
+      err
+    ) {
+
+      console.error(
+        err
+      );
+
+
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to delete the out-of-stock product."
+        )
+      );
+
+    } finally {
+
+      setDeletingProductId(
+        null
+      );
+
+    }
 
   }
 
@@ -2319,14 +3434,135 @@ export default function StockPage() {
           </div>
 
 
-          <div className="stock-section-badge">
+          <div
+            style={{
+              display:
+                "flex",
 
-            <Boxes
-              size={13}
-            />
+              alignItems:
+                "center",
 
-            {liveStockItems.length}
-            {" live"}
+              justifyContent:
+                "flex-end",
+
+              gap:
+                "8px",
+
+              flexWrap:
+                "wrap",
+            }}
+          >
+
+            <select
+              className="stock-select"
+              value={
+                reportScope
+              }
+              onChange={
+                event => {
+
+                  const value =
+                    event.target.value;
+
+
+                  if (
+                    value
+                    ===
+                    "filtered"
+                    ||
+                    value
+                    ===
+                    "whole"
+                  ) {
+
+                    setReportScope(
+                      value
+                    );
+
+                  }
+
+                }
+              }
+              disabled={
+                reportBusy
+              }
+              title="Choose whether Print / Excel uses the current filtered result or all Live Stock."
+            >
+
+              <option value="filtered">
+                Filtered Result
+              </option>
+
+              <option value="whole">
+                Whole Live Stock
+              </option>
+
+            </select>
+
+
+            <button
+              type="button"
+              className="stock-secondary-button"
+              onClick={
+                () =>
+                  void handlePrintStock()
+              }
+              disabled={
+                reportBusy
+              }
+            >
+
+              {
+                reportBusy
+                  ? (
+                      <Loader2
+                        size={15}
+                        className="stock-spin"
+                      />
+                    )
+                  : (
+                      <Printer
+                        size={15}
+                      />
+                    )
+              }
+
+              Print
+
+            </button>
+
+
+            <button
+              type="button"
+              className="stock-secondary-button"
+              onClick={
+                () =>
+                  void handleDownloadStockExcel()
+              }
+              disabled={
+                reportBusy
+              }
+            >
+
+              <Download
+                size={15}
+              />
+
+              Download Excel
+
+            </button>
+
+
+            <div className="stock-section-badge">
+
+              <Boxes
+                size={13}
+              />
+
+              {liveStockItems.length}
+              {" live"}
+
+            </div>
 
           </div>
 
@@ -2358,7 +3594,7 @@ export default function StockPage() {
                     event.target.value
                   )
               }
-              placeholder="Search product code, name, category or HSN..."
+              placeholder="Search HSN, product code or product name..."
             />
 
           </div>
@@ -2471,11 +3707,11 @@ export default function StockPage() {
                             <tr>
 
                               <th>
-                                Product
+                                HSN
                               </th>
 
                               <th>
-                                Category
+                                Product
                               </th>
 
                               <th>
@@ -2484,14 +3720,6 @@ export default function StockPage() {
 
                               <th>
                                 Current
-                              </th>
-
-                              <th>
-                                Minimum
-                              </th>
-
-                              <th>
-                                Maximum
                               </th>
 
                               <th>
@@ -2532,6 +3760,11 @@ export default function StockPage() {
                                   >
 
                                     <td>
+                                      {item.hsn_code || "-"}
+                                    </td>
+
+
+                                    <td>
 
                                       <div className="stock-product-name">
                                         {item.product_name}
@@ -2541,11 +3774,6 @@ export default function StockPage() {
                                         {item.product_code}
                                       </div>
 
-                                    </td>
-
-
-                                    <td>
-                                      {item.category || "-"}
                                     </td>
 
 
@@ -2564,24 +3792,6 @@ export default function StockPage() {
                                         }
                                       </strong>
 
-                                    </td>
-
-
-                                    <td>
-                                      {
-                                        formatNumber(
-                                          item.minimum_stock
-                                        )
-                                      }
-                                    </td>
-
-
-                                    <td>
-                                      {
-                                        formatNumber(
-                                          item.maximum_stock
-                                        )
-                                      }
                                     </td>
 
 
@@ -2794,11 +4004,11 @@ export default function StockPage() {
                             <tr>
 
                               <th>
-                                Product
+                                HSN
                               </th>
 
                               <th>
-                                Category
+                                Product
                               </th>
 
                               <th>
@@ -2807,14 +4017,6 @@ export default function StockPage() {
 
                               <th>
                                 Current
-                              </th>
-
-                              <th>
-                                Minimum
-                              </th>
-
-                              <th>
-                                Maximum
                               </th>
 
                               <th>
@@ -2827,6 +4029,10 @@ export default function StockPage() {
 
                               <th>
                                 Status
+                              </th>
+
+                              <th>
+                                Action
                               </th>
 
                             </tr>
@@ -2847,6 +4053,11 @@ export default function StockPage() {
                                   >
 
                                     <td>
+                                      {item.hsn_code || "-"}
+                                    </td>
+
+
+                                    <td>
 
                                       <div className="stock-product-name">
                                         {item.product_name}
@@ -2856,11 +4067,6 @@ export default function StockPage() {
                                         {item.product_code}
                                       </div>
 
-                                    </td>
-
-
-                                    <td>
-                                      {item.category || "-"}
                                     </td>
 
 
@@ -2875,24 +4081,6 @@ export default function StockPage() {
                                         0
                                       </strong>
 
-                                    </td>
-
-
-                                    <td>
-                                      {
-                                        formatNumber(
-                                          item.minimum_stock
-                                        )
-                                      }
-                                    </td>
-
-
-                                    <td>
-                                      {
-                                        formatNumber(
-                                          item.maximum_stock
-                                        )
-                                      }
                                     </td>
 
 
@@ -2921,6 +4109,61 @@ export default function StockPage() {
                                       >
                                         Out of Stock
                                       </span>
+
+                                    </td>
+
+
+                                    <td>
+
+                                      <button
+                                        type="button"
+                                        className="stock-secondary-button"
+                                        onClick={
+                                          () =>
+                                            void handleDeleteOutOfStockProduct(
+                                              item
+                                            )
+                                        }
+                                        disabled={
+                                          deletingProductId
+                                          ===
+                                          item.product_id
+                                        }
+                                        style={{
+                                          minHeight:
+                                            "34px",
+
+                                          color:
+                                            "#b4232d",
+
+                                          borderColor:
+                                            "#efc8cc",
+
+                                          background:
+                                            "#fff8f8",
+                                        }}
+                                      >
+
+                                        {
+                                          deletingProductId
+                                          ===
+                                          item.product_id
+                                            ? (
+                                                <Loader2
+                                                  size={14}
+                                                  className="stock-spin"
+                                                />
+                                              )
+                                            : (
+                                                <Trash2
+                                                  size={14}
+                                                />
+                                              )
+                                        }
+
+                                        Delete
+
+                                      </button>
 
                                     </td>
 

@@ -16,7 +16,6 @@ import {
   FileText,
   Gauge,
   LogOut,
-  Package,
   PackageCheck,
   ReceiptText,
   Settings,
@@ -138,7 +137,6 @@ export default function MainLayout() {
      Enquiries         -> enquiries.view
      Proformas         -> proformas.view
      Purchase Bills    -> purchase_bills.view
-     Products          -> products.view
      Suppliers         -> suppliers.view
      Customers         -> customers.view
      Stock             -> stock.view
@@ -218,57 +216,6 @@ export default function MainLayout() {
 
         icon:
           <ReceiptText
-            size={17}
-          />,
-      },
-
-
-      {
-        label:
-          "Products",
-
-        path:
-          "/products",
-
-        permission:
-          "products.view",
-
-        icon:
-          <Package
-            size={17}
-          />,
-      },
-
-
-      {
-        label:
-          "Suppliers",
-
-        path:
-          "/suppliers",
-
-        permission:
-          "suppliers.view",
-
-        icon:
-          <ShoppingCart
-            size={17}
-          />,
-      },
-
-
-      {
-        label:
-          "Customers",
-
-        path:
-          "/customers",
-
-        permission:
-          "customers.view",
-
-        icon:
-          <Users
             size={17}
           />,
       },
@@ -388,6 +335,40 @@ export default function MainLayout() {
 
         icon:
           <WalletCards
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Customers",
+
+        path:
+          "/customers",
+
+        permission:
+          "customers.view",
+
+        icon:
+          <Users
+            size={17}
+          />,
+      },
+
+
+      {
+        label:
+          "Suppliers",
+
+        path:
+          "/suppliers",
+
+        permission:
+          "suppliers.view",
+
+        icon:
+          <ShoppingCart
             size={17}
           />,
       },

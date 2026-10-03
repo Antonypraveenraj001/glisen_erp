@@ -3,6 +3,7 @@ import axios from "axios";
 import type {
   DirectStockIssuePayload,
   DirectStockIssueResponse,
+  StockExcelExportFilters,
   StockMovementFilters,
   StockMovementResponse,
   StockSummaryFilters,
@@ -62,6 +63,67 @@ export async function getStockSummary(
 }
 
 
+export async function downloadLiveStockExcel(
+  filters: StockExcelExportFilters
+): Promise<Blob> {
+
+  const response =
+    await axios.get(
+      `${API_BASE_URL}/stock-report/live-stock/excel`,
+      {
+        headers:
+          getAuthHeaders(),
+
+        params: {
+          scope:
+            filters.scope,
+
+          search:
+            filters.scope
+            ===
+            "filtered"
+              ? (
+                  filters.search?.trim()
+                  ||
+                  undefined
+                )
+              : undefined,
+
+          stock_status:
+            filters.scope
+            ===
+            "filtered"
+              ? (
+                  filters.stock_status
+                  ||
+                  undefined
+                )
+              : undefined,
+        },
+
+        responseType:
+          "blob",
+      }
+    );
+
+  return response.data;
+}
+
+
+export async function deleteOutOfStockProduct(
+  productId: number
+): Promise<void> {
+
+  await axios.delete(
+    `${API_BASE_URL}/products/${productId}`,
+    {
+      headers:
+        getAuthHeaders(),
+    }
+  );
+}
+
+
 export async function getStockMovements(
   filters: StockMovementFilters = {}
 ): Promise<StockMovementResponse> {
@@ -98,10 +160,6 @@ export async function getStockMovements(
   return response.data;
 }
 
-
-/* =========================================================
-   ISSUE STOCK TO PRODUCTION
-========================================================= */
 
 export async function issueStockToProductionOrder(
   productionOrderId: number,
