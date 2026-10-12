@@ -520,7 +520,9 @@ export default function PurchaseBillList() {
         +
         "Cancelling this Purchase Bill will reverse the stock "
         +
-        "that was added by this bill.\n\n"
+        "that was added by this bill and restore the latest "
+        +
+        "valid purchase price where history permits.\n\n"
         +
         "This action will not permanently delete the Purchase Bill."
       );
@@ -562,8 +564,13 @@ export default function PurchaseBillList() {
         `Purchase Bill ${bill.bill_number} cancelled successfully.`
       );
 
-
       await fetchPurchaseBills();
+
+      // Reloading the list clears the generic error state, so surface
+      // historical-price review warnings only after the refresh.
+      if (result.warnings?.length) {
+        setError(`Purchase price review required: ${result.warnings.join(" ")}`);
+      }
 
     } catch (
       err

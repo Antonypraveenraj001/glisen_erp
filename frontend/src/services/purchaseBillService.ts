@@ -518,11 +518,13 @@ export async function deactivatePurchaseBill(
 ):
 Promise<{
   message: string;
+  warnings?: string[];
 }> {
 
   const response =
     await axios.delete<{
       message: string;
+      warnings?: string[];
     }>(
       `${API_BASE_URL}/purchase-bills/${purchaseBillId}`,
       {

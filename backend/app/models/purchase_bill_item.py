@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import (
     DateTime,
@@ -43,6 +44,13 @@ class PurchaseBillItem(Base):
     purchase_price: Mapped[float] = mapped_column(
         Numeric(12, 2),
         nullable=False,
+    )
+
+    # Frozen product-master price immediately before this purchase line.
+    # NULL for pre-migration rows: never fabricate their historical price.
+    previous_purchase_price: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
     )
 
     gst_percentage: Mapped[float] = mapped_column(

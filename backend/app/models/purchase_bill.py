@@ -30,8 +30,17 @@ class PurchaseBill(Base):
 
     bill_number: Mapped[str] = mapped_column(
         String(100),
-        unique=True,
         nullable=False,
+        index=True,
+    )
+
+    # The original number is kept on cancelled bills for audit purposes.
+    # NULL for cancelled bills (MySQL allows multiple NULLs in a unique index).
+    # All active bills must set this to bill_number.
+    active_bill_number: Mapped[str | None] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=True,
         index=True,
     )
 

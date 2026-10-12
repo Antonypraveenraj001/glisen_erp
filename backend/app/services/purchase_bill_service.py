@@ -127,6 +127,9 @@ class PurchaseBillService:
                 bill_number=(
                     purchase_bill.bill_number
                 ),
+                active_bill_number=(
+                    purchase_bill.bill_number
+                ),
                 supplier_id=(
                     purchase_bill.supplier_id
                 ),
@@ -299,6 +302,9 @@ class PurchaseBillService:
                     ),
                     purchase_price=(
                         purchase_price
+                    ),
+                    previous_purchase_price=Decimal(
+                        str(product.purchase_price or Decimal("0.00"))
                     ),
                     gst_percentage=(
                         gst_percentage
@@ -595,6 +601,11 @@ class PurchaseBillService:
         PurchaseBillItem so duplicate product lines remain
         independently auditable.
 
+        Prices are restored from the latest still-active purchase
+        (highest item ID), or from the earliest recorded pre-purchase
+        price when no active purchases remain. Legacy missing
+        snapshots are reported rather than guessed.
+
         Purchase Bills with supplier payments cannot be
         cancelled until a payment reversal workflow exists.
 
@@ -873,6 +884,53 @@ class PurchaseBillService:
             # ====================================================
 
             purchase_bill.is_active = False
+            purchase_bill.active_bill_number = None
+
+            # Flush the cancellation before looking for the most recent
+            # remaining ACTIVE purchase. The whole operation remains in
+            # the same transaction and can still be rolled back.
+            db.flush()
+
+            price_warnings: list[str] = []
+
+            for product_id, product in locked_products.items():
+                latest_active = (
+                    db.query(PurchaseBillItem.purchase_price)
+                    .join(
+                        PurchaseBill,
+                        PurchaseBill.id == PurchaseBillItem.purchase_bill_id,
+                    )
+                    .filter(
+                        PurchaseBillItem.product_id == product_id,
+                        PurchaseBill.is_active == True,
+                    )
+                    .order_by(PurchaseBillItem.id.desc())
+                    .first()
+                )
+
+                if latest_active is not None:
+                    product.purchase_price = Decimal(str(latest_active[0]))
+                    continue
+
+                # If no valid purchases remain, use the ORIGINAL price
+                # saved before the first-ever bill item for this product.
+                # Do not use a newer snapshot if an older legacy bill had
+                # no snapshot: that would preserve a cancelled price.
+                first_purchase = (
+                    db.query(PurchaseBillItem.previous_purchase_price)
+                    .filter(PurchaseBillItem.product_id == product_id)
+                    .order_by(PurchaseBillItem.id.asc())
+                    .first()
+                )
+
+                if first_purchase is not None and first_purchase[0] is not None:
+                    product.purchase_price = Decimal(str(first_purchase[0]))
+                else:
+                    price_warnings.append(
+                        f"Product ID {product_id}: no remaining active "
+                        "purchase or reliable pre-purchase price; "
+                        "please review its purchase price manually."
+                    )
 
             # ====================================================
             # SINGLE COMMIT
@@ -883,6 +941,9 @@ class PurchaseBillService:
             db.refresh(
                 purchase_bill
             )
+
+            # Transient response-only audit warning (no schema alteration).
+            purchase_bill.price_restore_warnings = price_warnings
 
             return purchase_bill
 

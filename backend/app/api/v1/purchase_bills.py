@@ -391,5 +391,6 @@ def deactivate_purchase_bill(
     return {
         "message": (
             "Purchase Bill cancelled successfully."
-        )
+        ),
+        "warnings": getattr(purchase_bill, "price_restore_warnings", []),
     }

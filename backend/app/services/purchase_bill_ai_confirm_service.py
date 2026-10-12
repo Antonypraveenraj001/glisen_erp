@@ -425,6 +425,9 @@ class PurchaseBillAIConfirmService:
                     .bill_number
                     or ""
                 ),
+                active_bill_number=(
+                    purchase_bill_data.bill_number or ""
+                ),
                 supplier_id=(
                     supplier.id
                 ),
@@ -565,13 +568,10 @@ class PurchaseBillAIConfirmService:
                                 .gst_percentage
                             )
                         ),
-                        purchase_price=(
-                            PurchaseBillAIConfirmService
-                            .money(
-                                product_data
-                                .purchase_price
-                            )
-                        ),
+                        # No purchase existed before this AI-created product.
+                        # The confirmed bill sets the actual price below;
+                        # a later cancellation can then restore zero safely.
+                        purchase_price=Decimal("0.00"),
                         selling_price=Decimal(
                             "0.00"
                         ),
@@ -744,6 +744,9 @@ class PurchaseBillAIConfirmService:
                         ),
                         purchase_price=(
                             purchase_price
+                        ),
+                        previous_purchase_price=Decimal(
+                            str(product.purchase_price or Decimal("0.00"))
                         ),
                         gst_percentage=(
                             gst_percentage
