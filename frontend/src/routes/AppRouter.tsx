@@ -84,6 +84,9 @@ import FinancialAnalyzerPage
 import SettingsPage
   from "../pages/settings/SettingsPage";
 
+import InternationalBillsPage
+  from "../pages/settings/InternationalBillsPage";
+
 
 /* ================================================================
    DEFAULT MODULE ORDER
@@ -823,6 +826,15 @@ export default function AppRouter() {
 
                 <SettingsPage />
 
+              </PermissionRoute>
+            }
+          />
+
+          <Route
+            path="/settings/international-bills"
+            element={
+              <PermissionRoute permission="settings.business.manage">
+                <InternationalBillsPage />
               </PermissionRoute>
             }
           />

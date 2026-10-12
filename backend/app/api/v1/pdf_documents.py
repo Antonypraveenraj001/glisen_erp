@@ -58,6 +58,7 @@ async def render_pdf_document(
         require_any_permission(
             "proformas.view",
             "final_billing.view",
+            "settings.business.manage",
         )
     ),
 ):

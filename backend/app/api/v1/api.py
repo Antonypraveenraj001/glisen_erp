@@ -68,6 +68,10 @@ from app.api.v1.health import (
     router as health_router,
 )
 
+from app.api.v1.international_bills import (
+    router as international_bills_router,
+)
+
 from app.api.v1.pdf_documents import (
     router as pdf_documents_router,
 )
@@ -185,6 +189,11 @@ api_router.include_router(
 
 api_router.include_router(
     business_settings_router
+)
+
+# Standalone international billing: outside the domestic sales pipeline.
+api_router.include_router(
+    international_bills_router
 )
 
 api_router.include_router(

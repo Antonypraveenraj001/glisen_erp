@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { useLocation, useNavigate } from "react-router-dom";
+
 import UsersAccessSettings
   from "./UsersAccessSettings";
 
@@ -20,7 +22,7 @@ import {
 } from "react";
 
 import {
-  BadgeIndianRupee,
+  Globe2,
   Building2,
   CalendarDays,
   CheckCircle2,
@@ -571,6 +573,9 @@ BusinessForm {
 
 export default function SettingsPage() {
 
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const {
     user,
   } =
@@ -582,7 +587,9 @@ export default function SettingsPage() {
     setActiveTab,
   ] =
     useState<SettingsTab>(
-      "company"
+      new URLSearchParams(location.search).get("tab") === "business"
+        ? "business"
+        : "company"
     );
 
 
@@ -3693,7 +3700,7 @@ export default function SettingsPage() {
 
                     <div className="settings-card-icon green">
 
-                      <BadgeIndianRupee
+                      <Globe2
                         size={18}
                       />
 
@@ -3706,7 +3713,7 @@ export default function SettingsPage() {
                       </h3>
 
                       <p>
-                        Default financial and display behaviour.
+                        Timezone, pagination and independent international billing.
                       </p>
 
                     </div>
@@ -3715,32 +3722,6 @@ export default function SettingsPage() {
 
 
                   <div className="settings-form-grid">
-
-                    <label className="settings-field">
-
-                      <span>
-                        Currency
-                      </span>
-
-                      <input
-                        value={
-                          businessForm.currency_code
-                        }
-                        disabled={
-                          !canManageBusiness
-                        }
-                        maxLength={3}
-                        onChange={
-                          event =>
-                            updateBusinessField(
-                              "currency_code",
-                              event.target.value
-                            )
-                        }
-                      />
-
-                    </label>
-
 
                     <label className="settings-field">
 
@@ -3759,35 +3740,6 @@ export default function SettingsPage() {
                           event =>
                             updateBusinessField(
                               "timezone",
-                              event.target.value
-                            )
-                        }
-                      />
-
-                    </label>
-
-
-                    <label className="settings-field">
-
-                      <span>
-                        Default GST %
-                      </span>
-
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={
-                          businessForm.default_gst_percent
-                        }
-                        disabled={
-                          !canManageBusiness
-                        }
-                        onChange={
-                          event =>
-                            updateBusinessField(
-                              "default_gst_percent",
                               event.target.value
                             )
                         }
@@ -3823,6 +3775,23 @@ export default function SettingsPage() {
 
                     </label>
 
+                  </div>
+
+                  <div className="settings-info-box settings-top-gap">
+                    <strong>International Bills</strong>
+                    <p>
+                      Create manual international invoices using finished-product costs.
+                      These invoices are stored separately from the regular ERP sales,
+                      GST and accounting workflow.
+                    </p>
+                    <button
+                      type="button"
+                      className="settings-primary-button"
+                      onClick={() => navigate("/settings/international-bills")}
+                    >
+                      <Globe2 size={16} />
+                      International Bills
+                    </button>
                   </div>
 
                 </div>

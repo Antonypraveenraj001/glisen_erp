@@ -62,6 +62,11 @@ from app.models.finished_product import (
     FinishedProduct,
 )
 
+from app.models.international_bill import (
+    InternationalBill,
+    InternationalBillItem,
+)
+
 from app.models.number_audit_log import (
     NumberAuditLog,
 )
@@ -192,6 +197,8 @@ __all__ = [
 
     "FinishedGoodsReceipt",
     "FinishedProduct",
+    "InternationalBill",
+    "InternationalBillItem",
     "StockMovement",
 
     "PurchaseBill",
