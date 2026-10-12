@@ -53,7 +53,7 @@ async def protected_operation_guard(
             status_code=503,
             content={
                 "detail":
-                    "Glisen ERP database restore is in progress. "
+                    "CASTLE database restore is in progress. "
                     "Please retry after recovery completes."
             },
         )

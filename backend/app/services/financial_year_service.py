@@ -184,7 +184,7 @@ class FinancialYearService:
             opened_by=opened_by,
             notes=(
                 "Financial Year master created "
-                "automatically by Glisen ERP."
+                "automatically by CASTLE."
             ),
         )
 
@@ -304,7 +304,7 @@ class FinancialYearService:
                 )
                 record.error_message = (
                     "Transition was interrupted before completion. "
-                    "Glisen ERP cleared the stale transition lock "
+                    "CASTLE cleared the stale transition lock "
                     "when the backend restarted."
                 )
                 changed = True

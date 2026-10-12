@@ -2951,14 +2951,14 @@ export default function ExpensePage() {
                       Manage staff salary,
                       company overheads and costs
                       belonging directly to machines
-                      being manufactured by Glisen.
+                      being manufactured by your company.
                     </>
                   )
                 : (
                     <>
                       Manage company overheads and costs
                       belonging directly to machines
-                      being manufactured by Glisen.
+                      being manufactured by your company.
                     </>
                   )
             }

@@ -1967,7 +1967,7 @@ export default function UsersAccessSettings() {
             </h3>
 
             <p>
-              Existing Glisen ERP roles are preserved.
+              Existing CASTLE roles are preserved.
             </p>
 
           </div>
@@ -2087,7 +2087,7 @@ export default function UsersAccessSettings() {
                     {
                       editingUser
                         ? "Update account identity and assigned role."
-                        : "Create a new account for Glisen ERP."
+                        : "Create a new account for CASTLE."
                     }
 
                   </p>

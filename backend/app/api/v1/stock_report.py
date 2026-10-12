@@ -135,7 +135,7 @@ def download_live_stock_excel(
     worksheet.freeze_panes = "A6"
 
     worksheet.merge_cells("A1:H1")
-    worksheet["A1"] = "GLISEN ERP - LIVE STOCK REPORT"
+    worksheet["A1"] = "CASTLE - LIVE STOCK REPORT"
     worksheet["A1"].font = Font(
         bold=True,
         size=16,
@@ -376,7 +376,7 @@ def download_live_stock_excel(
     )
 
     filename = (
-        "glisen_live_stock_"
+        "castle_live_stock_"
         f"{normalized_scope}_"
         f"{timestamp}.xlsx"
     )

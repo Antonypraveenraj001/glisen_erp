@@ -82,7 +82,7 @@ interface Enquiry {
 ================================================================ */
 
 const API_BASE_URL =
-  "http://127.0.0.1:8000/api/v1";
+  (import.meta.env.PROD ? "/api/v1" : "http://127.0.0.1:8000/api/v1");
 
 
 const BLOCKED_ENQUIRY_STATUSES =
@@ -2051,7 +2051,7 @@ export default function ProformaCreatePage() {
 
                 <p>
                   Enter the machine or finished
-                  product Glisen will manufacture.
+                  product your company will manufacture.
                 </p>
 
               </div>

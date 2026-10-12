@@ -5,6 +5,7 @@ import traceback
 from datetime import (
     datetime,
     timedelta,
+    timezone,
 )
 
 from sqlalchemy.orm import Session
@@ -20,6 +21,9 @@ from app.models.system_state import (
 )
 from app.services.backup_service import (
     BackupService,
+)
+from app.services.backup_sync import (
+    BackupFallbackSync,
 )
 
 
@@ -334,6 +338,93 @@ def run_due_automatic_backup_once() -> None:
 
 
 # ================================================================
+# RECONCILE SSD FALLBACK AFTER HDD RETURNS (OPT-IN)
+#
+# This runs independently of whether today's scheduled backup is due.
+# All non-opted-in installations remain unchanged. Never sync during
+# restore or financial-year transition. The synchronization service
+# acquires BackupService.BACKUP_LOCK and verifies each copied archive.
+# ================================================================
+
+def _sync_fallback_backups_once() -> None:
+    from app.core.config import settings
+
+    configured = (
+        settings.BACKUP_HDD_MOUNT_POINT.strip(),
+        settings.BACKUP_HDD_UUID.strip(),
+        settings.BACKUP_SSD_FALLBACK_FOLDER.strip(),
+    )
+    if not any(configured):
+        return
+    if not all(configured):
+        _log("HDD/SSD backup configuration is incomplete; sync skipped.")
+        return
+    if BackupService.RESTORE_IN_PROGRESS:
+        return
+
+    db = SessionLocal()
+    try:
+        state = db.query(SystemState).first()
+        if state is not None and (
+            state.restore_in_progress
+            or state.year_transition_in_progress
+        ):
+            return
+
+        result = BackupFallbackSync.sync_pending(db=db, max_records=10)
+        if result["synced"] or result["failed"] or result["errors"]:
+            _log(
+                "SSD fallback reconciliation: "
+                f"{result['synced']} synced, "
+                f"{result['failed']} failed, "
+                f"{result['skipped']} skipped."
+            )
+            for detail in result["errors"][:5]:
+                _log(f"SSD fallback reconciliation detail: {detail}")
+    finally:
+        db.close()
+
+
+# ================================================================
+# ONE WEEKLY ISOLATED RESTORE VERIFICATION — OPT-IN ONLY
+#
+# Default is disabled. The worker itself checks both restore/financial-
+# year interlocks and acquires the common backup lock. It never calls
+# the production restore path; history is written separately.
+# ================================================================
+
+def _run_weekly_restore_verification_once() -> None:
+    from app.core.config import settings
+
+    if not settings.BACKUP_WEEKLY_RESTORE_ENABLED:
+        return
+    if BackupService.RESTORE_IN_PROGRESS:
+        return
+
+    # Import only when enabled: non-opted-in installations keep their
+    # existing scheduling behavior, including before the DB migration.
+    from app.services.backup_restore_schedule import WeeklyRestorePolicy
+    from app.services.backup_restore_worker import (
+        run_weekly_restore_verification_once,
+    )
+
+    db = SessionLocal()
+    try:
+        outcome = run_weekly_restore_verification_once(
+            db,
+            now_utc=datetime.now(timezone.utc),
+            policy=WeeklyRestorePolicy(enabled=True),
+            test_user=settings.BACKUP_WEEKLY_RESTORE_TEST_USER,
+            test_password=settings.BACKUP_WEEKLY_RESTORE_TEST_PASSWORD,
+        )
+        # Intentionally do not print account names, passwords, SQL or errors.
+        if outcome in ("PASSED", "FAILED"):
+            _log(f"Weekly isolated backup restore verification: {outcome}.")
+    finally:
+        db.close()
+
+
+# ================================================================
 # THREAD LOOP
 # ================================================================
 
@@ -365,6 +456,8 @@ def _scheduler_loop() -> None:
         try:
 
             run_due_automatic_backup_once()
+            _sync_fallback_backups_once()
+            _run_weekly_restore_verification_once()
 
 
         except Exception as exc:

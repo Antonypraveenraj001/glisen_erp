@@ -464,15 +464,28 @@ export default function MainLayout() {
 
         <div className="erp-brand">
 
-          <div className="erp-brand-mark">
-            G
+          <div
+            className="erp-brand-mark"
+            style={{ background: "transparent", boxShadow: "none" }}
+          >
+            <img
+              src="/castle-icon.png"
+              alt=""
+              aria-hidden="true"
+              style={{
+                width: "38px",
+                height: "38px",
+                objectFit: "contain",
+                display: "block",
+              }}
+            />
           </div>
 
 
           <div>
 
             <div className="erp-brand-name">
-              Glisen
+              CASTLE
             </div>
 
 
@@ -571,7 +584,7 @@ export default function MainLayout() {
           <div>
 
             <div className="erp-topbar-title">
-              Glisen ERP
+              CASTLE
             </div>
 
 

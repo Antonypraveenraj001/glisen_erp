@@ -14,7 +14,7 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+const API_BASE_URL = (import.meta.env.PROD ? "/api/v1" : "http://127.0.0.1:8000/api/v1");
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);

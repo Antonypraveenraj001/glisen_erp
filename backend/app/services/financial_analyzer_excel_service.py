@@ -122,7 +122,7 @@ class FinancialAnalyzerExcelService:
         # ====================================================
 
         summary_sheet["A1"] = (
-            "Glisen ERP - Financial Analyzer"
+            "CASTLE - Financial Analyzer"
         )
 
         summary_sheet["A1"].font = Font(

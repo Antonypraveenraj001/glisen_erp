@@ -239,7 +239,7 @@ export default function LoginPage() {
                 700,
             }}
           >
-            Glisen ERP
+            <img src="/castle-logo.png" alt="CASTLE" style={{ display: "block", width: "220px", maxWidth: "100%", height: "auto", margin: "0 auto" }} />
           </h1>
 
 

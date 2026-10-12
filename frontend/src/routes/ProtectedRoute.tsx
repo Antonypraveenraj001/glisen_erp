@@ -36,7 +36,7 @@ export default function ProtectedRoute({
           fontWeight: 500,
         }}
       >
-        Loading Glisen ERP...
+        Loading CASTLE...
       </div>
     );
   }

@@ -702,7 +702,7 @@ export default function BackupRecoverySettings() {
 
     const confirmed =
       window.confirm(
-        "Create a full Glisen ERP backup now?"
+        "Create a full CASTLE backup now?"
       );
 
     if (!confirmed) {
@@ -1026,7 +1026,7 @@ export default function BackupRecoverySettings() {
         +
         "This replaces the current ERP database with the selected backup.\n\n"
         +
-        "Glisen will first create and verify a PRE_RESTORE safety backup.\n\n"
+        "CASTLE will first create and verify a PRE_RESTORE safety backup.\n\n"
         +
         "Uploaded files will NOT be changed in this checkpoint.\n\n"
         +
@@ -1280,7 +1280,7 @@ export default function BackupRecoverySettings() {
                   )
               }
               placeholder={
-                String.raw`D:\GlisenBackups\Primary`
+                String.raw`D:\CASTLEBackups\Primary`
               }
             />
 
@@ -1342,7 +1342,7 @@ export default function BackupRecoverySettings() {
                   )
               }
               placeholder={
-                String.raw`E:\GlisenBackups\Secondary`
+                String.raw`E:\CASTLEBackups\Secondary`
               }
             />
           </label>

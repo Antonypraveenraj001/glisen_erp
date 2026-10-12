@@ -3,6 +3,10 @@ from app.models.backup import (
     BackupSettings,
 )
 
+from app.models.backup_restore_verification import (
+    BackupRestoreVerification,
+)
+
 from app.models.business_settings import (
     BusinessSettings,
 )
@@ -163,6 +167,7 @@ __all__ = [
     "BusinessSettings",
     "BackupSettings",
     "BackupLog",
+    "BackupRestoreVerification",
     "SystemState",
 
     "FinancialYear",

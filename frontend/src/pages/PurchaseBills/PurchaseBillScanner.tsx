@@ -1354,7 +1354,7 @@ export default function PurchaseBillScanner() {
         }}
       >
         Uploaded images are used only for extraction.
-        Glisen ERP stores the extracted draft information,
+        CASTLE stores the extracted draft information,
         not the original purchase bill image.
       </div>
 

@@ -1995,7 +1995,7 @@ export default function SettingsPage() {
           <p className="settings-subtitle">
             Company identity, documents, business rules,
             users, security, backup and financial-year
-            management for Glisen ERP.
+            management for CASTLE.
           </p>
 
         </div>
@@ -2697,7 +2697,7 @@ export default function SettingsPage() {
                       <p>
                         Maximum file size 5 MB. The logo file is stored
                         in the ERP upload folder and will later be included
-                        in Glisen backups.
+                        in CASTLE backups.
                       </p>
 
 

@@ -32,6 +32,11 @@ from app.models.system_state import (
 from app.schemas.backup import (
     BackupSettingsUpdate,
 )
+from app.services.backup_archive_publish import (
+    build_archive_filename,
+    publish_archive_no_overwrite,
+)
+from app.services.backup_storage import BackupStorage
 
 
 class BackupService:
@@ -59,6 +64,42 @@ class BackupService:
         return record
 
     @staticmethod
+    def select_primary_destination(
+        primary_path: str,
+    ) -> tuple[Path, bool]:
+        """Opt-in HDD/SSD selection. Existing Windows behavior is unchanged.
+
+        Returns (actual writable folder, using_ssd_fallback).
+        The configured primary path remains the HDD path in BackupSettings.
+        """
+        mount = settings.BACKUP_HDD_MOUNT_POINT.strip()
+        disk_uuid = settings.BACKUP_HDD_UUID.strip()
+        fallback = settings.BACKUP_SSD_FALLBACK_FOLDER.strip()
+
+        if not any((mount, disk_uuid, fallback)):
+            return BackupService.normalize_folder(primary_path), False
+
+        if not all((mount, disk_uuid, fallback)):
+            raise RuntimeError(
+                "HDD/SSD backup configuration is incomplete. "
+                "Set the mount point, HDD UUID and SSD fallback folder."
+            )
+
+        if not Path(primary_path).expanduser().is_absolute():
+            raise ValueError("Primary backup folder must be an absolute path.")
+
+        choice = BackupStorage.select_destination(
+            mount_point=Path(mount),
+            expected_uuid=disk_uuid,
+            hdd_folder=Path(primary_path).expanduser(),
+            ssd_fallback_folder=Path(fallback).expanduser(),
+            min_free_bytes=(
+                settings.BACKUP_FALLBACK_MIN_FREE_MB * 1024 * 1024
+            ),
+        )
+        return choice.folder, choice.using_ssd_fallback
+
+    @staticmethod
     def normalize_folder(
         value: str,
     ) -> Path:
@@ -76,7 +117,7 @@ class BackupService:
         if not folder.is_absolute():
             raise ValueError(
                 "Backup folders must use an absolute path. "
-                "Example: D:\\GlisenBackups"
+                "Example: D:\\CASTLEBackups"
             )
 
         try:
@@ -453,11 +494,9 @@ class BackupService:
                     "before creating a backup."
                 )
 
-            primary_folder = (
-                BackupService
-                .normalize_folder(
-                    backup_settings
-                    .primary_backup_path
+            primary_folder, using_ssd_fallback = (
+                BackupService.select_primary_destination(
+                    backup_settings.primary_backup_path
                 )
             )
 
@@ -484,14 +523,9 @@ class BackupService:
                     )
                 )
 
-            stamp = (
-                datetime.now(timezone.utc)
-                .strftime("%Y%m%d_%H%M%S")
-            )
-
-            filename = (
-                f"{BackupService.ARCHIVE_PREFIX}"
-                f"{stamp}_{normalized_type}.zip"
+            filename = build_archive_filename(
+                BackupService.ARCHIVE_PREFIX,
+                normalized_type,
             )
 
             primary_final = (
@@ -560,6 +594,7 @@ class BackupService:
             )
 
             secondary_error = None
+            primary_final_written = False
 
             try:
                 with tempfile.TemporaryDirectory(
@@ -638,10 +673,15 @@ class BackupService:
                             "manifest.json",
                         )
 
-                    os.replace(
+                    publish_archive_no_overwrite(
                         primary_partial,
                         primary_final,
                     )
+                    primary_final_written = True
+
+                # Validate ZIP structure, manifest, SQL member and CRC now,
+                # not only when someone later requests a restore.
+                BackupService.validate_restore_archive(primary_final)
 
                 checksum = (
                     BackupService
@@ -686,7 +726,7 @@ class BackupService:
                             secondary_partial,
                         )
 
-                        os.replace(
+                        publish_archive_no_overwrite(
                             secondary_partial,
                             secondary_final,
                         )
@@ -756,6 +796,17 @@ class BackupService:
                     record.status = "SUCCESS"
                     record.error_message = None
 
+                if using_ssd_fallback:
+                    record.status = "PARTIAL"
+                    note = (
+                        "Backup saved to SSD fallback because the "
+                        "configured HDD was unavailable; HDD sync pending."
+                    )
+                    record.error_message = (
+                        f"{record.error_message} {note}"
+                        if record.error_message else note
+                    )
+
                 db.commit()
                 db.refresh(record)
                 return record
@@ -764,6 +815,13 @@ class BackupService:
                 primary_partial.unlink(
                     missing_ok=True
                 )
+
+                # A ZIP already renamed into place may fail validation.
+                # Do not leave a known-invalid archive behind.
+                # Never remove a pre-existing file if this run did not
+                # write the final ZIP.
+                if primary_final_written:
+                    primary_final.unlink(missing_ok=True)
 
                 if secondary_partial:
                     secondary_partial.unlink(

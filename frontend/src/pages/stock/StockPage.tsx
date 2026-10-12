@@ -2423,7 +2423,7 @@ export default function StockPage() {
         url;
 
       link.download =
-        `glisen_live_stock_${reportScope}_${datePart}.xlsx`;
+        `castle_live_stock_${reportScope}_${datePart}.xlsx`;
 
 
       document.body.appendChild(

@@ -671,7 +671,7 @@ PERMISSION_CATALOG = (
         "name": "backup.manage",
         "module": "Backup & Recovery",
         "label": "Backup / Restore",
-        "description": "Create, verify and restore Glisen ERP backups.",
+        "description": "Create, verify and restore CASTLE backups.",
         "depends_on": "backup.view",
         "boss_only": True,
     },

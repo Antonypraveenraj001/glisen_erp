@@ -341,7 +341,7 @@ class RolePermissionService:
             if invalid_ids:
                 raise ValueError(
                     "One or more selected permissions "
-                    "are not part of the Glisen permission catalogue."
+                    "are not part of the CASTLE permission catalogue."
                 )
 
             selected_names = {

@@ -3599,7 +3599,7 @@ export default function GSTReportPage() {
             =================================================== */}
 
             <footer className="gst-print-footer">
-              Generated from Glisen ERP
+              Generated from CASTLE
             </footer>
 
           </article>
