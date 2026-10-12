@@ -723,6 +723,21 @@ export default function SettingsPage() {
       null
     );
 
+  const previewSequence =
+    String(1).padStart(
+      Math.min(
+        6,
+        Math.max(
+          3,
+          Number(businessForm.sequence_digits) || 4
+        )
+      ),
+      "0"
+    );
+
+  const previewYear =
+    new Date().getFullYear();
+
 
   /* ==============================================================
      PERMISSIONS
@@ -3580,143 +3595,6 @@ export default function SettingsPage() {
                 </div>
 
 
-                <div className="settings-card">
-
-                  <div className="settings-card-header">
-
-                    <div className="settings-card-icon green">
-
-                      <FileText
-                        size={18}
-                      />
-
-                    </div>
-
-                    <div>
-
-                      <h3>
-                        Proforma Defaults
-                      </h3>
-
-                      <p>
-                        These become defaults for new Proformas.
-                        Individual Proformas can still be edited.
-                      </p>
-
-                    </div>
-
-                  </div>
-
-
-                  <div className="settings-form-grid">
-
-                    <label className="settings-field">
-
-                      <span>
-                        Default Validity (Days)
-                      </span>
-
-                      <input
-                        type="number"
-                        min="1"
-                        disabled={
-                          !canManageDocuments
-                        }
-                        value={
-                          documentForm.proforma_validity_days
-                        }
-                        onChange={
-                          event =>
-                            updateDocumentField(
-                              "proforma_validity_days",
-                              event.target.value
-                            )
-                        }
-                      />
-
-                    </label>
-
-
-                    <label className="settings-field settings-field-wide">
-
-                      <span>
-                        Default Payment Terms
-                      </span>
-
-                      <textarea
-                        disabled={
-                          !canManageDocuments
-                        }
-                        value={
-                          documentForm.proforma_payment_terms
-                        }
-                        onChange={
-                          event =>
-                            updateDocumentField(
-                              "proforma_payment_terms",
-                              event.target.value
-                            )
-                        }
-                      />
-
-                    </label>
-
-
-                    <label className="settings-field settings-field-wide">
-
-                      <span>
-                        Default Delivery Terms
-                      </span>
-
-                      <textarea
-                        disabled={
-                          !canManageDocuments
-                        }
-                        value={
-                          documentForm.proforma_delivery_terms
-                        }
-                        onChange={
-                          event =>
-                            updateDocumentField(
-                              "proforma_delivery_terms",
-                              event.target.value
-                            )
-                        }
-                      />
-
-                    </label>
-
-
-                    <label className="settings-field settings-field-wide">
-
-                      <span>
-                        Default Terms & Conditions
-                      </span>
-
-                      <textarea
-                        className="settings-large-textarea"
-                        disabled={
-                          !canManageDocuments
-                        }
-                        value={
-                          documentForm.proforma_terms_and_conditions
-                        }
-                        onChange={
-                          event =>
-                            updateDocumentField(
-                              "proforma_terms_and_conditions",
-                              event.target.value
-                            )
-                        }
-                      />
-
-                    </label>
-
-                  </div>
-
-                </div>
-
-
                 {
                   canManageDocuments
                   &&
@@ -4012,7 +3890,7 @@ export default function SettingsPage() {
                       </span>
 
                       <strong>
-                        FY start year controls document year
+                        Document year follows each module's date
                       </strong>
 
                     </div>
@@ -4023,8 +3901,8 @@ export default function SettingsPage() {
                   <div className="settings-info-box">
 
                     Example: A Proforma created in January 2027
-                    while FY 2026–2027 is active will use
-                    <strong> PRO-2026-xxxx</strong>, not PRO-2027-xxxx.
+                    will use <strong>PRO-2027-xxxx</strong>.
+                    Financial-year reporting still runs April to March.
 
                   </div>
 
@@ -4086,7 +3964,7 @@ export default function SettingsPage() {
                       <small>
                         Example:
                         {" "}
-                        {businessForm.enquiry_prefix || "ENQ"}-2026-0001
+                        {businessForm.enquiry_prefix || "ENQ"}-{previewYear}-{previewSequence}
                       </small>
 
                     </label>
@@ -4117,7 +3995,7 @@ export default function SettingsPage() {
                       <small>
                         Example:
                         {" "}
-                        {businessForm.proforma_prefix || "PRO"}-2026-0001
+                        {businessForm.proforma_prefix || "PRO"}-{previewYear}-{previewSequence}
                       </small>
 
                     </label>
@@ -4145,6 +4023,11 @@ export default function SettingsPage() {
                         }
                       />
 
+                      <small>
+                        Example: {businessForm.invoice_prefix || "INV"}-{previewYear}-{previewSequence}-{businessForm.credit_note_prefix || "CN"}1
+                        (linked to the source invoice).
+                      </small>
+
                     </label>
 
 
@@ -4169,6 +4052,10 @@ export default function SettingsPage() {
                             )
                         }
                       />
+
+                      <small>
+                        Example: {businessForm.invoice_prefix || "INV"}-{previewYear}-{previewSequence}
+                      </small>
 
                     </label>
 
@@ -4195,6 +4082,11 @@ export default function SettingsPage() {
                         }
                       />
 
+                      <small>
+                        Receipt suffix uses its Production Order ID,
+                        padded to at least {previewSequence.length} digits.
+                      </small>
+
                     </label>
 
 
@@ -4219,6 +4111,10 @@ export default function SettingsPage() {
                             )
                         }
                       />
+
+                      <small>
+                        Example: {businessForm.production_prefix || "PROD"}-{previewYear}-{previewSequence}
+                      </small>
 
                     </label>
 
@@ -4249,7 +4145,10 @@ export default function SettingsPage() {
                       />
 
                       <small>
-                        4 digits gives 0001, 0002, 0003...
+                        {previewSequence.length} digits gives {previewSequence},
+                        {String(2).padStart(previewSequence.length, "0")},
+                        {String(3).padStart(previewSequence.length, "0")}...
+                        Credit Notes keep a per-invoice suffix (1, 2, 3...).
                       </small>
 
                     </label>

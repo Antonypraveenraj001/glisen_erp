@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.business_settings import BusinessSettings
 from app.models.production_material import ProductionMaterial
 from app.models.production_operation import ProductionOperation
 from app.models.production_order import ProductionOrder
@@ -1906,8 +1907,23 @@ class ProductionService:
             .year
         )
 
+        settings = (
+            self.db.query(BusinessSettings)
+            .first()
+        )
+
+        prefix_name = (
+            (settings.production_prefix if settings else None)
+            or "PROD"
+        ).strip().upper()
+
+        digits = int(
+            (settings.sequence_digits if settings else None)
+            or 4
+        )
+
         prefix = (
-            f"PROD-{year}-"
+            f"{prefix_name}-{year}-"
         )
 
         existing_orders = (
@@ -1932,11 +1948,7 @@ class ProductionService:
                 try:
 
                     number = int(
-                        production_number
-                        .replace(
-                            prefix,
-                            "",
-                        )
+                        production_number[len(prefix):]
                     )
 
                     highest_number = max(
@@ -1949,5 +1961,5 @@ class ProductionService:
 
         return (
             f"{prefix}"
-            f"{highest_number + 1:04d}"
+            f"{highest_number + 1:0{digits}d}"
         )

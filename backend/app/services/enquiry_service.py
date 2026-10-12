@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.customer import Customer
+from app.models.business_settings import BusinessSettings
 from app.models.enquiry import Enquiry
 from app.models.final_bill import FinalBill
 from app.models.proforma import Proforma
@@ -355,54 +356,53 @@ class EnquiryService:
             datetime.now().year
         )
 
-        prefix = (
-            f"ENQ-{current_year}-"
-        )
-
-        existing = (
-            db.query(Enquiry)
-            .filter(
-                Enquiry.enquiry_number.like(
-                    f"{prefix}%"
-                )
-            )
-            .order_by(
-                Enquiry.id.desc()
-            )
+        settings = (
+            db.query(BusinessSettings)
             .first()
         )
 
-        if (
-            existing
-            is None
-        ):
+        prefix_name = (
+            (settings.enquiry_prefix if settings else None)
+            or "ENQ"
+        ).strip().upper()
 
-            sequence = 1
+        digits = int(
+            (settings.sequence_digits if settings else None)
+            or 4
+        )
 
-        else:
+        prefix = (
+            f"{prefix_name}-{current_year}-"
+        )
 
-            try:
+        existing_numbers = (
+            db.query(Enquiry.enquiry_number)
+            .filter(
+                Enquiry.enquiry_number.startswith(
+                    prefix,
+                    autoescape=True,
+                )
+            )
+            .all()
+        )
 
-                sequence = (
-                    int(
-                        existing
-                        .enquiry_number
-                        .split(
-                            "-"
-                        )[-1]
-                    )
-                    + 1
+        highest_number = 0
+
+        for row in existing_numbers:
+            number = row[0] or ""
+            if not number.startswith(prefix):
+                continue
+
+            suffix = number[len(prefix):]
+
+            if suffix.isascii() and suffix.isdigit():
+                highest_number = max(
+                    highest_number,
+                    int(suffix),
                 )
 
-            except (
-                ValueError,
-                IndexError,
-            ):
-
-                sequence = 1
-
         return (
-            f"{prefix}{sequence:04d}"
+            f"{prefix}{highest_number + 1:0{digits}d}"
         )
 
     # ============================================================

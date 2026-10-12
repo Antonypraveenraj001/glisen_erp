@@ -9,6 +9,80 @@ from openpyxl.styles import (
 from openpyxl.utils import (
     get_column_letter,
 )
+from openpyxl.utils.cell import coordinate_from_string
+
+
+def add_company_header(sheet, company: dict | None) -> None:
+    """Show the configured business identity above an existing report sheet."""
+    if not company:
+        return
+
+    # openpyxl's insert_rows does not move merged ranges automatically.
+    original_merges = [
+        (
+            merged.min_row,
+            merged.max_row,
+            merged.min_col,
+            merged.max_col,
+        )
+        for merged in list(sheet.merged_cells.ranges)
+    ]
+    for merged in list(sheet.merged_cells.ranges):
+        sheet.unmerge_cells(str(merged))
+
+    sheet.insert_rows(1, amount=4)
+
+    for first_row, last_row, first_col, last_col in original_merges:
+        sheet.merge_cells(
+            start_row=first_row + 4,
+            end_row=last_row + 4,
+            start_column=first_col,
+            end_column=last_col,
+        )
+
+    def plain(value) -> str:
+        return " ".join(str(value or "").split())
+
+    address = plain(company.get("address"))
+    state = plain(company.get("state_name"))
+    lines = [
+        plain(company.get("company_name")),
+        ", ".join(part for part in (address, state) if part),
+        "GSTIN: " + plain(company.get("gst_number")),
+        " | ".join(
+            part for part in (
+                ("Phone: " + plain(company.get("phone")))
+                if company.get("phone") else "",
+                ("Email: " + plain(company.get("email")))
+                if company.get("email") else "",
+            ) if part
+        ),
+    ]
+
+    for row_number, value in enumerate(lines, start=1):
+        sheet.merge_cells(
+            start_row=row_number,
+            end_row=row_number,
+            start_column=1,
+            end_column=4,
+        )
+        cell = sheet.cell(row=row_number, column=1, value=value)
+        cell.data_type = "s"
+        cell.font = Font(
+            bold=row_number in (1, 3),
+            size=14 if row_number == 1 else 10,
+        )
+        cell.alignment = Alignment(
+            vertical="center",
+            wrap_text=True,
+        )
+
+    sheet.row_dimensions[1].height = 24
+    sheet.row_dimensions[2].height = 30
+
+    if sheet.freeze_panes:
+        column, row = coordinate_from_string(sheet.freeze_panes)
+        sheet.freeze_panes = f"{column}{row + 4}"
 
 
 class FinancialAnalyzerExcelService:
@@ -93,6 +167,7 @@ class FinancialAnalyzerExcelService:
     @staticmethod
     def build_excel(
         analysis: dict,
+        company: dict | None = None,
     ) -> BytesIO:
 
         workbook = Workbook()
@@ -122,7 +197,7 @@ class FinancialAnalyzerExcelService:
         # ====================================================
 
         summary_sheet["A1"] = (
-            "CASTLE - Financial Analyzer"
+            "Financial Analyzer"
         )
 
         summary_sheet["A1"].font = Font(
@@ -1229,6 +1304,11 @@ class FinancialAnalyzerExcelService:
         expense_sheet.freeze_panes = (
             "A5"
         )
+
+        # Add Settings identity after all calculations and sections are
+        # written, so their values and original relative positions remain.
+        for sheet in workbook.worksheets:
+            add_company_header(sheet, company)
 
         # ====================================================
         # OUTPUT

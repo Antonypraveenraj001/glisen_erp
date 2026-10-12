@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.dependencies.database import get_db
 from app.dependencies.permissions import require_permission
+from app.models.company_settings import CompanySettings
 from app.models.user import User
 from app.schemas.stock_movement import StockMovementResponse
 from app.schemas.stock_report import StockSummaryResponse
@@ -129,13 +130,28 @@ def download_live_stock_excel(
         if item.current_stock > 0
     ]
 
+    # The ERP is branded CASTLE, but a stock report belongs to
+    # the manufacturing company configured in Settings.
+    company = db.query(CompanySettings).first()
+
+    def plain(value) -> str:
+        return " ".join(str(value or "").split())
+
+    company_name = plain(company.company_name) if company else ""
+    address = plain(company.address) if company else ""
+    state = plain(company.state_name) if company else ""
+    gstin = plain(company.gst_number) if company else ""
+    phone = plain(company.phone) if company else ""
+    email = plain(company.email) if company else ""
+
     workbook = Workbook()
     worksheet = workbook.active
     worksheet.title = "Live Stock"
     worksheet.freeze_panes = "A6"
 
     worksheet.merge_cells("A1:H1")
-    worksheet["A1"] = "CASTLE - LIVE STOCK REPORT"
+    worksheet["A1"] = company_name or "LIVE STOCK REPORT"
+    worksheet["A1"].data_type = "s"
     worksheet["A1"].font = Font(
         bold=True,
         size=16,
@@ -145,34 +161,46 @@ def download_live_stock_excel(
     )
 
     worksheet.merge_cells("A2:H2")
-    worksheet["A2"] = (
-        "Scope: "
-        +
-        (
-            "Filtered Result"
-            if normalized_scope
-            ==
-            "filtered"
-            else "Whole Live Stock"
-        )
+    worksheet["A2"] = ", ".join(
+        part for part in (address, state) if part
     )
+    worksheet["A2"].data_type = "s"
     worksheet["A2"].font = Font(
-        italic=True,
         size=10,
     )
     worksheet["A2"].alignment = Alignment(
         horizontal="center",
+        wrap_text=True,
     )
+    worksheet.row_dimensions[2].height = 30
 
     worksheet.merge_cells("A3:H3")
-    worksheet["A3"] = (
-        "Generated: "
-        +
-        datetime.now().strftime(
-            "%d-%m-%Y %H:%M"
-        )
+    worksheet["A3"] = " | ".join(
+        part for part in (
+            f"GSTIN: {gstin}" if gstin else "",
+            f"Phone: {phone}" if phone else "",
+            f"Email: {email}" if email else "",
+        ) if part
     )
+    worksheet["A3"].data_type = "s"
     worksheet["A3"].alignment = Alignment(
+        horizontal="center",
+    )
+
+    worksheet.merge_cells("A4:H4")
+    scope_label = (
+        "Filtered Result"
+        if normalized_scope == "filtered"
+        else "Whole Live Stock"
+    )
+    worksheet["A4"] = (
+        "LIVE STOCK REPORT"
+        f" | Scope: {scope_label}"
+        " | Generated: "
+        + datetime.now().strftime("%d-%m-%Y %H:%M")
+    )
+    worksheet["A4"].font = Font(italic=True, size=10)
+    worksheet["A4"].alignment = Alignment(
         horizontal="center",
     )
 

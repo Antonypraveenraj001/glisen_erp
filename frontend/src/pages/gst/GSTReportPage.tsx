@@ -24,9 +24,20 @@ import {
   getPurchaseGSTReport,
 } from "../../services/gstReportService";
 
+import {
+  getCompanyLogoBlob,
+  getCompanySettings,
+  getDocumentSettings,
+} from "../../services/settingsService";
+
 import type {
   GSTReportResponse,
 } from "../../types/gstReport";
+
+import type {
+  CompanySettings,
+  DocumentSettings,
+} from "../../types/settings";
 
 
 type ReportType =
@@ -91,6 +102,107 @@ interface NormalizedGSTReport {
   grand_total: number;
 
   rows: NormalizedGSTRow[];
+}
+
+
+function blobToDataUrl(
+  blob: Blob
+): Promise<string> {
+  return new Promise(
+    (resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          resolve(reader.result);
+        } else {
+          reject(new Error("Unable to read company logo."));
+        }
+      };
+
+      reader.onerror = () => {
+        reject(new Error("Unable to read company logo."));
+      };
+
+      reader.readAsDataURL(blob);
+    }
+  );
+}
+
+
+function applyGSTPrintSettings(
+  printSheet: HTMLElement,
+  company: CompanySettings,
+  settings: DocumentSettings,
+  logoDataUrl: string | null
+) {
+  const letterhead = printSheet.querySelector<HTMLElement>(
+    ".gst-print-letterhead"
+  );
+
+  if (!letterhead) {
+    throw new Error("GST print letterhead area is missing.");
+  }
+
+  if (settings.default_print_mode === "letterhead") {
+    const savedSpace = Number(settings.letterhead_top_space_mm);
+    const topSpace = Number.isFinite(savedSpace)
+      ? Math.max(0, Math.min(100, savedSpace))
+      : 40;
+
+    letterhead.style.height = `${topSpace}mm`;
+    return;
+  }
+
+  letterhead.style.height = "auto";
+  letterhead.classList.add("gst-print-company-slot");
+
+  const header = document.createElement("div");
+  header.className = "gst-print-company";
+
+  if (settings.show_logo && logoDataUrl) {
+    const logo = document.createElement("img");
+    logo.className = "gst-print-company-logo";
+    logo.src = logoDataUrl;
+    logo.alt = "Company logo";
+    header.appendChild(logo);
+  }
+
+  const details = document.createElement("div");
+  const name = document.createElement("div");
+  name.className = "gst-print-company-name";
+  name.textContent = company.company_name;
+  details.appendChild(name);
+
+  const appendLine = (value: string) => {
+    if (!value.trim()) {
+      return;
+    }
+
+    const line = document.createElement("div");
+    line.className = "gst-print-company-line";
+    line.textContent = value;
+    details.appendChild(line);
+  };
+
+  appendLine(
+    [company.address, company.state_name].filter(Boolean).join(", ")
+  );
+
+  if (settings.show_contact_details) {
+    appendLine(
+      [company.phone, company.email, company.website]
+        .filter(Boolean)
+        .join(" • ")
+    );
+  }
+
+  if (settings.show_gst_number && company.gst_number) {
+    appendLine(`GSTIN: ${company.gst_number}`);
+  }
+
+  header.appendChild(details);
+  letterhead.replaceChildren(header);
 }
 
 
@@ -1481,7 +1593,7 @@ export default function GSTReportPage() {
      phantom blank pages.
   ============================================================== */
 
-  function handlePrint() {
+  async function handlePrint() {
 
     if (
       !report
@@ -1506,6 +1618,9 @@ export default function GSTReportPage() {
 
       return;
     }
+
+    // Work on a snapshot; the hidden report and its totals are untouched.
+    const printCopy = printElement.cloneNode(true) as HTMLElement;
 
 
     const reportName =
@@ -1533,6 +1648,58 @@ export default function GSTReportPage() {
 
       return;
     }
+
+    printWindow.document.write(
+      "<html><body style='font-family:Arial,sans-serif;padding:30px'>Preparing GST print...</body></html>"
+    );
+
+    try {
+      const [
+        companySettings,
+        documentSettings,
+      ] = await Promise.all([
+        getCompanySettings(),
+        getDocumentSettings(),
+      ]);
+
+      let logoDataUrl: string | null = null;
+
+      if (
+        documentSettings.default_print_mode === "company_header"
+        && documentSettings.show_logo
+        && companySettings.logo_path
+      ) {
+        try {
+          logoDataUrl = await blobToDataUrl(
+            await getCompanyLogoBlob()
+          );
+        } catch (logoError) {
+          console.error(
+            "Unable to load company logo for GST print:",
+            logoError
+          );
+        }
+      }
+
+      applyGSTPrintSettings(
+        printCopy,
+        companySettings,
+        documentSettings,
+        logoDataUrl
+      );
+    } catch (settingsError) {
+      console.error(
+        "Unable to load GST print settings:",
+        settingsError
+      );
+      printWindow.close();
+      setError(
+        "Unable to load company and document settings for GST print."
+      );
+      return;
+    }
+
+    setError("");
 
 
     printWindow.document.open();
@@ -1644,6 +1811,37 @@ export default function GSTReportPage() {
               margin: 0;
 
               padding: 0;
+            }
+
+            .gst-print-company-slot {
+              margin-bottom: 10px;
+            }
+
+            .gst-print-company {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+
+            .gst-print-company-logo {
+              width: 56px;
+              height: 56px;
+              object-fit: contain;
+              flex-shrink: 0;
+            }
+
+            .gst-print-company-name {
+              font-size: 18px;
+              font-weight: 700;
+              color: #183a66;
+              margin-bottom: 4px;
+            }
+
+            .gst-print-company-line {
+              font-size: 10px;
+              line-height: 1.45;
+              color: #526b89;
+              overflow-wrap: anywhere;
             }
 
 
@@ -2053,7 +2251,7 @@ export default function GSTReportPage() {
 
         <body>
 
-          ${printElement.outerHTML}
+          ${printCopy.outerHTML}
 
         </body>
 
@@ -2064,25 +2262,24 @@ export default function GSTReportPage() {
     printWindow.document.close();
 
 
-    printWindow.focus();
+    const printDocument = () => {
+      printWindow.focus();
 
+      printWindow.onafterprint = () => {
+        printWindow.close();
+      };
 
-    window.setTimeout(
-      () => {
+      window.setTimeout(
+        () => printWindow.print(),
+        300
+      );
+    };
 
-        printWindow.print();
-
-
-        printWindow.onafterprint =
-          () => {
-
-            printWindow.close();
-
-          };
-
-      },
-      300
-    );
+    if (printWindow.document.readyState === "complete") {
+      printDocument();
+    } else {
+      printWindow.onload = printDocument;
+    }
   }
 
 

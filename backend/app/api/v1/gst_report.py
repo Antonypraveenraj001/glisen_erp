@@ -129,10 +129,25 @@ def export_gst_report_excel(
         )
 
 
+        company_settings = (
+            GSTReportService
+            .get_company_settings(db)
+        )
+
+        company_identity = {
+            "company_name": company_settings.company_name,
+            "address": company_settings.address,
+            "gst_number": company_settings.gst_number,
+            "state_name": company_settings.state_name,
+            "phone": company_settings.phone,
+            "email": company_settings.email,
+        }
+
         excel_file = (
             GSTReportExcelService
             .build_excel(
-                report=report
+                report=report,
+                company=company_identity,
             )
         )
 
@@ -272,10 +287,25 @@ def export_purchase_gst_excel(
         )
 
 
+        company_settings = (
+            GSTReportService
+            .get_company_settings(db)
+        )
+
+        company_identity = {
+            "company_name": company_settings.company_name,
+            "address": company_settings.address,
+            "gst_number": company_settings.gst_number,
+            "state_name": company_settings.state_name,
+            "phone": company_settings.phone,
+            "email": company_settings.email,
+        }
+
         excel_file = (
             GSTReportExcelService
             .build_purchase_excel(
-                report=report
+                report=report,
+                company=company_identity,
             )
         )
 

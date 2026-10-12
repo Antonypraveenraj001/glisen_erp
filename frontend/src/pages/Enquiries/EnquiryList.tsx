@@ -22,6 +22,10 @@ import {
   usePermissions,
 } from "../../hooks/usePermissions";
 
+import {
+  getBusinessSettings,
+} from "../../services/settingsService";
+
 import "./EnquiryList.css";
 
 
@@ -150,7 +154,7 @@ const API_BASE_URL =
   (import.meta.env.PROD ? "/api/v1" : "http://127.0.0.1:8000/api/v1");
 
 
-const ROWS_PER_PAGE =
+const FALLBACK_PAGE_SIZE =
   10;
 
 
@@ -532,6 +536,11 @@ export default function EnquiryList() {
   ============================================================== */
 
   const [
+    pageSize,
+    setPageSize,
+  ] = useState(FALLBACK_PAGE_SIZE);
+
+  const [
     activePage,
     setActivePage,
   ] =
@@ -556,6 +565,39 @@ export default function EnquiryList() {
     useState(
       1
     );
+
+
+  /* ==============================================================
+     LOAD SETTINGS PAGE SIZE
+  ============================================================== */
+
+  useEffect(() => {
+    let active = true;
+
+    void getBusinessSettings()
+      .then(settings => {
+        const configuredPageSize = Number(settings.default_page_size);
+
+        if (
+          active
+          && Number.isInteger(configuredPageSize)
+          && configuredPageSize >= 5
+          && configuredPageSize <= 100
+        ) {
+          setPageSize(configuredPageSize);
+        }
+      })
+      .catch(settingsError => {
+        console.error(
+          "Unable to load Enquiry page size:",
+          settingsError
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
 
   /* ==============================================================
@@ -912,7 +954,7 @@ export default function EnquiryList() {
       Math.ceil(
         activeEnquiries.length
         /
-        ROWS_PER_PAGE
+        pageSize
       )
     );
 
@@ -923,7 +965,7 @@ export default function EnquiryList() {
       Math.ceil(
         confirmedEnquiries.length
         /
-        ROWS_PER_PAGE
+        pageSize
       )
     );
 
@@ -934,7 +976,7 @@ export default function EnquiryList() {
       Math.ceil(
         cancelledEnquiries.length
         /
-        ROWS_PER_PAGE
+        pageSize
       )
     );
 
@@ -1012,20 +1054,21 @@ export default function EnquiryList() {
             1
           )
           *
-          ROWS_PER_PAGE;
+          pageSize;
 
 
         return activeEnquiries.slice(
           start,
           start
           +
-          ROWS_PER_PAGE
+          pageSize
         );
 
       },
       [
         activeEnquiries,
         activePage,
+        pageSize,
       ]
     );
 
@@ -1041,20 +1084,21 @@ export default function EnquiryList() {
             1
           )
           *
-          ROWS_PER_PAGE;
+          pageSize;
 
 
         return confirmedEnquiries.slice(
           start,
           start
           +
-          ROWS_PER_PAGE
+          pageSize
         );
 
       },
       [
         confirmedEnquiries,
         confirmedPage,
+        pageSize,
       ]
     );
 
@@ -1070,20 +1114,21 @@ export default function EnquiryList() {
             1
           )
           *
-          ROWS_PER_PAGE;
+          pageSize;
 
 
         return cancelledEnquiries.slice(
           start,
           start
           +
-          ROWS_PER_PAGE
+          pageSize
         );
 
       },
       [
         cancelledEnquiries,
         cancelledPage,
+        pageSize,
       ]
     );
 
@@ -2222,7 +2267,7 @@ export default function EnquiryList() {
           1
         )
         *
-        ROWS_PER_PAGE
+        pageSize
       )
       +
       1;
@@ -2232,7 +2277,7 @@ export default function EnquiryList() {
       Math.min(
         currentPage
         *
-        ROWS_PER_PAGE,
+        pageSize,
 
         totalRecords
       );

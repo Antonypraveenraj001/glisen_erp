@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.models.business_settings import BusinessSettings
 from app.models.proforma import Proforma
 from app.models.proforma_item import ProformaItem
 
@@ -89,8 +90,23 @@ class ProformaService:
 
         year = date.today().year
 
+        settings = (
+            self.db.query(BusinessSettings)
+            .first()
+        )
+
+        prefix_name = (
+            (settings.proforma_prefix if settings else None)
+            or "PRO"
+        ).strip().upper()
+
+        digits = int(
+            (settings.sequence_digits if settings else None)
+            or 4
+        )
+
         prefix = (
-            f"PRO-{year}-"
+            f"{prefix_name}-{year}-"
         )
 
         existing = (
@@ -114,10 +130,7 @@ class ProformaService:
             try:
 
                 sequence = int(
-                    number.replace(
-                        prefix,
-                        "",
-                    )
+                    number[len(prefix):]
                 )
 
                 highest_number = max(
@@ -136,7 +149,7 @@ class ProformaService:
 
         return (
             f"{prefix}"
-            f"{next_number:04d}"
+            f"{next_number:0{digits}d}"
         )
 
     # ========================================================

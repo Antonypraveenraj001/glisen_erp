@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.business_settings import BusinessSettings
 from app.models.finished_goods_receipt import (
     FinishedGoodsReceipt,
 )
@@ -599,7 +600,22 @@ class FinishedGoodsReceiptService:
             .year
         )
 
+        settings = (
+            self.db.query(BusinessSettings)
+            .first()
+        )
+
+        prefix_name = (
+            (settings.finished_goods_receipt_prefix if settings else None)
+            or "FGR"
+        ).strip().upper()
+
+        digits = int(
+            (settings.sequence_digits if settings else None)
+            or 4
+        )
+
         return (
-            f"FGR-{year}-"
-            f"{production_order_id:04d}"
+            f"{prefix_name}-{year}-"
+            f"{production_order_id:0{digits}d}"
         )

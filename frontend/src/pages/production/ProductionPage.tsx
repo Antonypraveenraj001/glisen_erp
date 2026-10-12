@@ -53,6 +53,10 @@ import {
 } from "../../services/proformaService";
 
 import {
+  getBusinessSettings,
+} from "../../services/settingsService";
+
+import {
   moveProductionToFinishedProducts,
 } from "../../services/finishedGoodsReceiptService";
 
@@ -75,7 +79,7 @@ const EMPTY_OPERATION_FORM = {
 };
 
 
-const PAGE_SIZE =
+const FALLBACK_PAGE_SIZE =
   10;
 
 
@@ -421,6 +425,11 @@ export default function ProductionPage() {
       1
     );
 
+  const [
+    pageSize,
+    setPageSize,
+  ] = useState(FALLBACK_PAGE_SIZE);
+
 
   const [
     loading,
@@ -741,6 +750,39 @@ export default function ProductionPage() {
 
 
   /* ==============================================================
+     LOAD SETTINGS PAGE SIZE
+  ============================================================== */
+
+  useEffect(() => {
+    let active = true;
+
+    void getBusinessSettings()
+      .then(settings => {
+        const configuredPageSize = Number(settings.default_page_size);
+
+        if (
+          active
+          && Number.isInteger(configuredPageSize)
+          && configuredPageSize >= 5
+          && configuredPageSize <= 100
+        ) {
+          setPageSize(configuredPageSize);
+        }
+      })
+      .catch(settingsError => {
+        console.error(
+          "Unable to load Production page size:",
+          settingsError
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+
+  /* ==============================================================
      FILTER
   ============================================================== */
 
@@ -827,7 +869,7 @@ export default function ProductionPage() {
       Math.ceil(
         filteredOrders.length
         /
-        PAGE_SIZE
+        pageSize
       )
     );
 
@@ -843,20 +885,21 @@ export default function ProductionPage() {
             1
           )
           *
-          PAGE_SIZE;
+          pageSize;
 
 
         return filteredOrders.slice(
           start,
           start
           +
-          PAGE_SIZE
+          pageSize
         );
 
       },
       [
         filteredOrders,
         currentPage,
+        pageSize,
       ]
     );
 
@@ -872,7 +915,7 @@ export default function ProductionPage() {
               1
             )
             *
-            PAGE_SIZE
+            pageSize
           )
           +
           1
@@ -883,7 +926,7 @@ export default function ProductionPage() {
     Math.min(
       currentPage
       *
-      PAGE_SIZE,
+      pageSize,
 
       filteredOrders.length
     );

@@ -65,6 +65,79 @@ def auto_size_columns(
         )
 
 
+def add_company_header(
+    sheet,
+    company: dict | None,
+) -> None:
+    """Prefix business identity without changing existing report values."""
+
+    if not company:
+        return
+
+    # openpyxl does not shift merged-cell ranges when inserting rows.
+    title_merges = []
+    for merged in list(sheet.merged_cells.ranges):
+        if merged.min_row == 1 and merged.max_row == 1:
+            title_merges.append(
+                (merged.min_col, merged.max_col)
+            )
+            sheet.unmerge_cells(str(merged))
+
+    sheet.insert_rows(1, amount=4)
+
+    for first_col, last_col in title_merges:
+        sheet.merge_cells(
+            start_row=5,
+            start_column=first_col,
+            end_row=5,
+            end_column=last_col,
+        )
+
+    def plain(value) -> str:
+        return " ".join(str(value or "").split())
+
+    address = plain(company.get("address"))
+    state = plain(company.get("state_name"))
+    company_lines = [
+        plain(company.get("company_name")),
+        ", ".join(part for part in (address, state) if part),
+        "GSTIN: " + plain(company.get("gst_number")),
+        " | ".join(
+            part for part in (
+                ("Phone: " + plain(company.get("phone")))
+                if company.get("phone") else "",
+                ("Email: " + plain(company.get("email")))
+                if company.get("email") else "",
+            ) if part
+        ),
+    ]
+
+    for row_number, value in enumerate(company_lines, start=1):
+        sheet.merge_cells(
+            start_row=row_number,
+            start_column=1,
+            end_row=row_number,
+            end_column=4,
+        )
+        cell = sheet.cell(row=row_number, column=1, value=value)
+        # Prevent configuration text beginning with '=' from becoming
+        # an Excel formula.
+        cell.data_type = "s"
+        cell.font = Font(
+            bold=(row_number in (1, 3)),
+            size=(14 if row_number == 1 else 10),
+        )
+        cell.alignment = Alignment(
+            vertical="center",
+            wrap_text=True,
+        )
+
+    sheet.row_dimensions[1].height = 24
+    sheet.row_dimensions[2].height = 30
+    if sheet.freeze_panes == "A2":
+        sheet.freeze_panes = "A6"
+
+
 # ================================================================
 # SALES GST EXCEL
 #
@@ -78,6 +151,7 @@ class GSTReportExcelService:
     @staticmethod
     def build_excel(
         report: dict,
+        company: dict | None = None,
     ) -> BytesIO:
 
         workbook = Workbook()
@@ -471,6 +545,9 @@ class GSTReportExcelService:
         )
 
 
+        add_company_header(summary_sheet, company)
+        add_company_header(detail_sheet, company)
+
         auto_size_columns(
             summary_sheet
         )
@@ -504,12 +581,14 @@ class GSTReportExcelService:
     @staticmethod
     def build_purchase_excel(
         report: dict,
+        company: dict | None = None,
     ) -> BytesIO:
 
         return (
             PurchaseGSTReportExcelService
             .build_excel(
-                report
+                report,
+                company=company,
             )
         )
 
@@ -523,6 +602,7 @@ class PurchaseGSTReportExcelService:
     @staticmethod
     def build_excel(
         report: dict,
+        company: dict | None = None,
     ) -> BytesIO:
 
         workbook = Workbook()
@@ -843,6 +923,9 @@ class PurchaseGSTReportExcelService:
             "A2"
         )
 
+
+        add_company_header(summary_sheet, company)
+        add_company_header(detail_sheet, company)
 
         auto_size_columns(
             summary_sheet

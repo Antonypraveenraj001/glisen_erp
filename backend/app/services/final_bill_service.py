@@ -22,6 +22,39 @@ from app.schemas.final_bill import (
 
 class FinalBillService:
 
+    @staticmethod
+    def _next_credit_note_number(
+        db: Session,
+        source_invoice_number: str,
+        credit_note_prefix: str,
+    ) -> str:
+        # Credit Notes retain a sequence local to their source invoice.
+        sequence = 1
+
+        while True:
+            number = (
+                f"{source_invoice_number}"
+                f"-{credit_note_prefix}{sequence}"
+            )
+
+            if len(number) > 30:
+                raise ValueError(
+                    "Credit Note number would exceed the "
+                    "30-character database limit. Shorten "
+                    "the Credit Note prefix."
+                )
+
+            duplicate = (
+                db.query(FinalBill)
+                .filter(FinalBill.invoice_number == number)
+                .first()
+            )
+
+            if duplicate is None:
+                return number
+
+            sequence += 1
+
     # ============================================================
     # DECIMAL HELPERS
     # ============================================================
@@ -2386,33 +2419,23 @@ class FinalBillService:
             # NUMBER
             # ====================================================
 
-            sequence = 1
+            settings = (
+                db.query(BusinessSettings)
+                .first()
+            )
 
-            while True:
+            credit_note_prefix = (
+                (settings.credit_note_prefix if settings else None)
+                or "CN"
+            ).strip().upper()
 
-                credit_note_number = (
-                    f"{source_bill.invoice_number}"
-                    f"-CN{sequence}"
+            credit_note_number = (
+                FinalBillService._next_credit_note_number(
+                    db,
+                    source_bill.invoice_number,
+                    credit_note_prefix,
                 )
-
-                duplicate = (
-                    db.query(
-                        FinalBill
-                    )
-                    .filter(
-                        FinalBill.invoice_number
-                        == credit_note_number
-                    )
-                    .first()
-                )
-
-                if (
-                    duplicate
-                    is None
-                ):
-                    break
-
-                sequence += 1
+            )
 
             credit_note_date = (
                 invoice_date

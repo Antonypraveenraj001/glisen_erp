@@ -18,6 +18,7 @@ from app.dependencies.database import (
 from app.dependencies.permissions import (
     require_permission,
 )
+from app.models.company_settings import CompanySettings
 from app.models.user import User
 from app.schemas.financial_analyzer import (
     FinancialAnalyzerResponse,
@@ -155,12 +156,27 @@ def export_financial_analysis_excel(
         )
 
 
+        company_settings = db.query(CompanySettings).first()
+        company_identity = (
+            {
+                "company_name": company_settings.company_name,
+                "address": company_settings.address,
+                "gst_number": company_settings.gst_number,
+                "state_name": company_settings.state_name,
+                "phone": company_settings.phone,
+                "email": company_settings.email,
+            }
+            if company_settings is not None
+            else None
+        )
+
         excel_file = (
             FinancialAnalyzerExcelService
             .build_excel(
                 analysis=(
                     analysis
                 ),
+                company=company_identity,
             )
         )
 
