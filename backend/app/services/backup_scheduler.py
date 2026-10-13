@@ -7,6 +7,7 @@ from datetime import (
     timedelta,
     timezone,
 )
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ from app.database.session import (
 from app.models.backup import (
     BackupLog,
 )
+from app.models.business_settings import BusinessSettings
 from app.models.system_state import (
     SystemState,
 )
@@ -29,6 +31,27 @@ from app.services.backup_sync import (
 
 POLL_SECONDS = 60
 FAILED_RETRY_SECONDS = 300
+
+# MySQL stores backup DATETIME values in UTC, without an offset on retrieval.
+# Scheduled clock times are interpreted in the company-configured timezone.
+DEFAULT_BACKUP_ZONE = ZoneInfo("Asia/Kolkata")
+
+
+def _business_backup_zone(db: Session) -> ZoneInfo:
+    row = db.query(BusinessSettings.timezone).first()
+    name = str(row[0]).strip() if row and row[0] else "Asia/Kolkata"
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        _log("Invalid business timezone; using Asia/Kolkata for scheduled backups.")
+        return DEFAULT_BACKUP_ZONE
+
+
+def _backup_started_on_local_date(started_at: datetime, zone: ZoneInfo):
+    # MySQL DATETIME gives naive UTC values; aware values preserve their offset.
+    if started_at.tzinfo is None:
+        started_at = started_at.replace(tzinfo=timezone.utc)
+    return started_at.astimezone(zone).date()
 
 
 _scheduler_thread: (
@@ -72,6 +95,7 @@ def _log(
 def _already_completed_today(
     db: Session,
     today,
+    zone: ZoneInfo = DEFAULT_BACKUP_ZONE,
 ) -> bool:
 
     latest = (
@@ -113,11 +137,7 @@ def _already_completed_today(
 
     try:
 
-        return (
-            latest.started_at.date()
-            ==
-            today
-        )
+        return _backup_started_on_local_date(latest.started_at, zone) == today
 
     except AttributeError:
 
@@ -190,7 +210,8 @@ def run_due_automatic_backup_once() -> None:
             return
 
 
-        now = datetime.now()
+        backup_zone = _business_backup_zone(db)
+        now = datetime.now(backup_zone)
 
 
         scheduled_time = (
@@ -220,6 +241,7 @@ def run_due_automatic_backup_once() -> None:
             _already_completed_today(
                 db=db,
                 today=now.date(),
+                zone=backup_zone,
             )
         ):
 
@@ -249,7 +271,7 @@ def run_due_automatic_backup_once() -> None:
         _log(
             (
                 "Backup is due. "
-                f"Server time={now.strftime('%H:%M:%S')}, "
+                f"Business time={now.strftime('%H:%M:%S')} ({backup_zone.key}), "
                 f"scheduled={scheduled_time.strftime('%H:%M:%S')}."
             )
         )
@@ -316,7 +338,7 @@ def run_due_automatic_backup_once() -> None:
         except Exception as exc:
 
             _last_failed_attempt_at = (
-                datetime.now()
+                datetime.now(backup_zone)
             )
 
 

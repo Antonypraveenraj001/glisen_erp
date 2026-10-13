@@ -256,14 +256,20 @@ function formatBytes(
 
 
 function formatDateTime(
-  value: string | null
+  value: string | null,
+  businessTimeZone: string
 ) {
   if (!value) {
     return "—";
   }
 
-  const parsed =
-    new Date(value);
+  // MySQL backup DATETIME values are UTC, but the API may omit 'Z'.
+  // Keep an existing explicit timezone; add UTC only to naive timestamps.
+  const isoValue = value.trim().replace(" ", "T");
+  const utcValue = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(isoValue)
+    ? isoValue
+    : `${isoValue}Z`;
+  const parsed = new Date(utcValue);
 
   if (
     Number.isNaN(
@@ -275,7 +281,8 @@ function formatDateTime(
 
   return (
     parsed.toLocaleString(
-      "en-IN"
+      "en-IN",
+      { timeZone: businessTimeZone }
     )
   );
 }
@@ -371,6 +378,11 @@ export default function BackupRecoverySettings() {
     setTotalHistory,
   ] =
     useState(0);
+
+  const [
+    businessTimeZone,
+    setBusinessTimeZone,
+  ] = useState("Asia/Kolkata");
 
   const [
     pageSize,
@@ -531,6 +543,8 @@ export default function BackupRecoverySettings() {
       setTotalHistory(
         backupHistory.total
       );
+
+      setBusinessTimeZone(business.timezone || "Asia/Kolkata");
 
       if (
         business.default_page_size
@@ -1670,7 +1684,8 @@ export default function BackupRecoverySettings() {
                                 <td>
                                   {
                                     formatDateTime(
-                                      item.started_at
+                                      item.started_at,
+                                      businessTimeZone
                                     )
                                   }
                                 </td>
@@ -1725,7 +1740,8 @@ export default function BackupRecoverySettings() {
                                             <CheckCircle2 size={13} />
                                             {
                                               formatDateTime(
-                                                item.verified_at
+                                                item.verified_at,
+                                                businessTimeZone
                                               )
                                             }
                                           </span>
