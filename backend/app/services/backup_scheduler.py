@@ -27,6 +27,7 @@ from app.services.backup_service import (
 from app.services.backup_sync import (
     BackupFallbackSync,
 )
+from app.services.backup_alert_reporter import BackupAlertReporter
 
 
 POLL_SECONDS = 60
@@ -179,6 +180,10 @@ def run_due_automatic_backup_once() -> None:
             .primary_backup_path
         ):
 
+            BackupAlertReporter.scheduled_failure(
+                business_date=datetime.now(_business_backup_zone(db)).date(),
+                reason="CONFIGURATION",
+            )
             return
 
 
@@ -288,7 +293,25 @@ def run_due_automatic_backup_once() -> None:
             )
 
 
-            _last_failed_attempt_at = None
+            # A PARTIAL result is usable for recovery but still requires
+            # the Boss's attention; do not mark it as a clean backup.
+            if record.status in ("VERIFIED", "SUCCESS"):
+                _last_failed_attempt_at = None
+                BackupAlertReporter.scheduled_recovered(
+                    business_date=now.date(),
+                )
+            elif record.status == "PARTIAL":
+                _last_failed_attempt_at = None
+                BackupAlertReporter.scheduled_failure(
+                    business_date=now.date(),
+                    reason="PARTIAL",
+                )
+            else:
+                _last_failed_attempt_at = datetime.now(backup_zone)
+                BackupAlertReporter.scheduled_failure(
+                    business_date=now.date(),
+                    reason="FAILED",
+                )
 
 
             _log(
@@ -310,6 +333,15 @@ def run_due_automatic_backup_once() -> None:
                 )
 
 
+                if result.get("partial", 0):
+                    BackupAlertReporter.retention_failure(
+                        business_date=now.date(),
+                    )
+                else:
+                    BackupAlertReporter.retention_recovered(
+                        business_date=now.date(),
+                    )
+
                 if (
                     result["purged"]
                     or
@@ -327,6 +359,9 @@ def run_due_automatic_backup_once() -> None:
 
             except Exception as exc:
 
+                BackupAlertReporter.retention_failure(
+                    business_date=now.date(),
+                )
                 _log(
                     (
                         "Retention cleanup failed: "
@@ -339,6 +374,10 @@ def run_due_automatic_backup_once() -> None:
 
             _last_failed_attempt_at = (
                 datetime.now(backup_zone)
+            )
+            BackupAlertReporter.scheduled_failure(
+                business_date=now.date(),
+                reason="FAILED",
             )
 
 

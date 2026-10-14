@@ -32,6 +32,8 @@ import {
   usePermissions,
 } from "../hooks/usePermissions";
 
+import BossAlertBell from "../components/BossAlertBell";
+
 
 interface MenuItem {
   label: string;
@@ -596,6 +598,8 @@ export default function MainLayout() {
 
 
           <div className="erp-user-area">
+
+            <BossAlertBell />
 
             <div className="erp-user-avatar">
               {initials}

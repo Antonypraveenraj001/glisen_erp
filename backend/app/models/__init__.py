@@ -148,6 +148,10 @@ from app.models.supplier import (
     Supplier,
 )
 
+from app.models.system_alert import (
+    SystemAlert,
+)
+
 from app.models.system_state import (
     SystemState,
 )
@@ -173,6 +177,7 @@ __all__ = [
     "BackupSettings",
     "BackupLog",
     "BackupRestoreVerification",
+    "SystemAlert",
     "SystemState",
 
     "FinancialYear",
