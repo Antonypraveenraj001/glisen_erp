@@ -26,11 +26,31 @@
       <div id="authenticated" hidden>
         <div class="userline"><span>Signed in as</span><strong id="signedInEmail"></strong></div>
         <div class="navtabs">
-          <button class="tab" type="button" id="companiesTab" aria-pressed="true">Companies</button>
+          <button class="tab" type="button" id="dashboardTab" aria-pressed="true">Dashboard</button>
+          <button class="tab secondary" type="button" id="companiesTab" aria-pressed="false">Companies</button>
           <button class="tab secondary" type="button" id="securityTab" aria-pressed="false">Owner security</button>
           <button class="tab secondary" id="logoutButton" type="button">Sign out</button>
         </div>
-        <section id="companiesPanel">
+        <section id="dashboardPanel">
+          <div class="section-top"><h2>Platform overview</h2><button class="secondary small" id="refreshDashboard" type="button">Refresh</button></div>
+          <div class="warning-note"><strong>Owner records only — NOT live ERP monitoring.</strong> Company registration, paid subscriptions and recovery reviews are summarized here. No customer ERP instances are connected; activation, suspension and actual license enforcement remain disabled.</div>
+          <p class="info" id="dashboardDate">Loading owner records…</p>
+          <div class="dashboard-grid" aria-label="Owner statistics">
+            <div class="metric"><span>Registered companies</span><strong id="metricCompanies">—</strong></div>
+            <div class="metric"><span>Pending setup</span><strong id="metricPending">—</strong></div>
+            <div class="metric"><span>Onboarding on hold</span><strong id="metricHold">—</strong></div>
+            <div class="metric"><span>Paid current (records)</span><strong id="metricPaid">—</strong></div>
+            <div class="metric"><span>Annual grace</span><strong id="metricGrace">—</strong></div>
+            <div class="metric"><span>Cancelled subscriptions</span><strong id="metricCancelled">—</strong></div>
+            <div class="metric"><span>Expiring within 30 days</span><strong id="metricExpiring">—</strong></div>
+            <div class="metric"><span>Open recovery cases</span><strong id="metricRecovery">—</strong></div>
+          </div>
+          <div class="section-top"><h2>Items needing review</h2><span class="info" id="dashboardAttentionCount">—</span></div>
+          <div id="dashboardAttention" class="company-list" aria-live="polite"><p class="info">Loading attention list…</p></div>
+          <p class="info">Subscriptions without payments and unconfigured plans are available through Companies → Manage license. This overview is not proof that a customer ERP is online.</p>
+          <button class="small secondary" type="button" id="dashboardGoCompanies">Open company management</button>
+        </section>
+        <section id="companiesPanel" hidden>
           <div class="warning-note"><strong>Registration only — not live ERP provisioning.</strong> Company records here do not create websites or databases. Activation and ERP suspension are blocked until separate-instance license enforcement is tested.</div>
           <h2>Company registration</h2>
           <form id="companyForm">

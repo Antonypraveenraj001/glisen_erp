@@ -26,29 +26,49 @@ function showNotice(message, good = false) {
   notice.hidden = !message;
 }
 
+let ownerSignedIn = false;
+
 function showTab(tab) {
+  const dashboard = tab === "dashboard";
+  const companies = tab === "companies";
   const security = tab === "security";
-  byId("companiesPanel").hidden = security;
+  byId("dashboardPanel").hidden = !dashboard;
+  byId("companiesPanel").hidden = !companies;
   byId("securityPanel").hidden = !security;
-  byId("companiesTab").setAttribute("aria-pressed", String(!security));
-  byId("securityTab").setAttribute("aria-pressed", String(security));
-  byId("companiesTab").className = security ? "tab secondary" : "tab";
-  byId("securityTab").className = security ? "tab" : "tab secondary";
-  byId("heading").textContent = security ? "Owner security" : "Company management";
+  for (const [id, selected] of [["dashboardTab", dashboard], ["companiesTab", companies], ["securityTab", security]]) {
+    const button = byId(id);
+    button.setAttribute("aria-pressed", String(selected));
+    button.className = selected ? "tab" : "tab secondary";
+  }
+  byId("heading").textContent = dashboard ? "Platform dashboard" : (companies ? "Company management" : "Owner security");
+  byId("intro").textContent = dashboard
+    ? "Owner-only company records, subscriptions and recovery reviews."
+    : (companies ? "Register and manage companies in the independent CASTLE owner directory."
+       : "Review the security of your independent Platform Owner account.");
+  if (dashboard) loadDashboard().catch(error => showNotice(error.message));
+  if (companies) loadCompanies().catch(error => showNotice(error.message));
 }
 
 function renderSession(data) {
   const signedIn = !!data?.authenticated;
+  ownerSignedIn = signedIn;
   loginForm.hidden = signedIn;
   authenticated.hidden = !signedIn;
   byId("layout").classList.toggle("wide", signedIn);
-  byId("heading").textContent = signedIn ? "Company management" : "Owner sign in";
+  byId("heading").textContent = signedIn ? "Platform dashboard" : "Owner sign in";
   byId("intro").textContent = signedIn
-    ? "Register and manage companies in the independent CASTLE owner directory."
+    ? "Owner-only company records, subscriptions and recovery reviews."
     : "Sign in to the owner-only service. Company Boss and Admin accounts cannot sign in here.";
   byId("signedInEmail").textContent = signedIn ? (data.email || "") : "";
-  if (signedIn) { showTab("companies"); loadCompanies().catch((error) => showNotice(error.message)); }
-  else { companyRows = []; editingCompany = null; selectedLicenseCompany = null; byId("licensePanel").hidden = true; selectedRecoveryCompany = null; selectedRecoveryCase = null; byId("recoveryPanel").hidden = true; byId("recoveryReviewPanel").hidden = true; companyForm.reset(); }
+  if (signedIn) showTab("dashboard");
+  else {
+    companyRows = []; editingCompany = null; selectedLicenseCompany = null;
+    byId("licensePanel").hidden = true;
+    selectedRecoveryCompany = null; selectedRecoveryCase = null;
+    byId("recoveryPanel").hidden = true; byId("recoveryReviewPanel").hidden = true;
+    byId("dashboardAttention").replaceChildren();
+    companyForm.reset();
+  }
 }
 
 async function api(path, method = "GET", payload = null) {
@@ -82,6 +102,46 @@ function actionButton(title, handler) {
     Promise.resolve().then(handler).catch(error => showNotice(error.message));
   });
   return button;
+}
+
+function renderDashboard(data) {
+  if (!ownerSignedIn) return;
+  const values = {
+    metricCompanies: data.companies.total,
+    metricPending: data.companies.pending_setup,
+    metricHold: data.companies.on_hold,
+    metricPaid: data.subscriptions.PAID_CURRENT,
+    metricGrace: data.subscriptions.ANNUAL_GRACE,
+    metricCancelled: data.subscriptions.CANCELLED,
+    metricExpiring: data.subscriptions.expiring_within_30_days,
+    metricRecovery: data.recoveries.open,
+  };
+  for (const [id, value] of Object.entries(values)) byId(id).textContent = String(value);
+  byId("dashboardDate").textContent = `Owner records checked for ${data.as_of_ist} (India). Live customer access is NOT connected.`;
+  byId("dashboardAttentionCount").textContent = `${data.attention_total} item(s); showing up to ${data.attention.length}`;
+  const list = byId("dashboardAttention");
+  list.replaceChildren();
+  if (!data.attention.length) {
+    list.appendChild(element("p", "No flagged items in owner records.", "info"));
+    return;
+  }
+  for (const item of data.attention) {
+    const card = element("article", undefined, "dashboard-attention-card");
+    card.appendChild(element("strong", `${item.company_name} — ${item.kind.replaceAll("_", " ")}`));
+    card.appendChild(element("p", `${item.detail}${item.due_on ? ` · ${item.due_on}` : ""}`));
+    card.appendChild(actionButton("Review company", async () => {
+      const company = await api(`companies/${item.company_id}`);
+      showTab("companies");
+      if (item.kind.startsWith("RECOVERY_")) await openRecovery(company);
+      else if (["ANNUAL_GRACE", "CANCELLED", "EXPIRING_SOON"].includes(item.kind)) await openLicense(company);
+    }));
+    list.appendChild(card);
+  }
+}
+
+async function loadDashboard() {
+  const data = await api("dashboard");
+  renderDashboard(data);
 }
 
 function renderCompanies(data) {
@@ -400,6 +460,9 @@ passwordForm.addEventListener("submit", async (event) => {
   } catch (error) { showNotice(error.message); }
 });
 
+byId("dashboardTab").addEventListener("click", () => showTab("dashboard"));
+byId("refreshDashboard").addEventListener("click", () => loadDashboard().catch(error => showNotice(error.message)));
+byId("dashboardGoCompanies").addEventListener("click", () => showTab("companies"));
 byId("companiesTab").addEventListener("click", () => showTab("companies"));
 byId("securityTab").addEventListener("click", () => showTab("security"));
 byId("cancelEditButton").addEventListener("click", cancelEdit);

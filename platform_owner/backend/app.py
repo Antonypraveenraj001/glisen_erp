@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from platform_owner.backend.database import make_owner_engine, make_session_factory
+from platform_owner.backend.dashboard_api import install_dashboard_routes
 from platform_owner.backend.company_api import install_company_routes
 from platform_owner.backend.company_models import OwnerCompany, OwnerCompanyEvent  # owner-only metadata
 from platform_owner.backend.license_api import install_license_routes
@@ -218,6 +219,7 @@ def create_app(
         clear_cookies(response)
         return {"authenticated": False, "message": "Password changed; sign in again"}
 
+    install_dashboard_routes(app, Db, Auth)
     install_company_routes(app, Db, Auth, Protected)
     install_license_routes(app, Db, Auth, Protected)
     install_recovery_routes(app, Db, Auth, Protected)
