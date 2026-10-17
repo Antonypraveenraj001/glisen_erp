@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>CASTLE | Platform Owner</title>
+  <link rel="stylesheet" href="/app.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <main class="layout">
+    <header class="brand"><div class="mark">C</div><div><strong>CASTLE</strong><span>PLATFORM OWNER</span></div></header>
+    <section class="panel" aria-live="polite">
+      <p class="eyebrow">INDEPENDENT CONTROL PLANE</p>
+      <h1 id="heading">Owner sign in</h1>
+      <p class="intro" id="intro">Sign in to the CASTLE owner-only service. Company Boss and Admin accounts cannot sign in here.</p>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <form id="loginForm" autocomplete="on">
+        <label for="email">Platform Owner email</label>
+        <input id="email" type="email" autocomplete="username" maxlength="254" required>
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+        <button type="submit" id="loginButton">Sign in securely</button>
+      </form>
+      <div id="authenticated" hidden>
+        <div class="userline"><span>Signed in as</span><strong id="signedInEmail"></strong></div>
+        <p class="info">Owner authentication is ready. Company registration, licenses, recovery and dashboard will be added in the next steps.</p>
+        <form id="passwordForm">
+          <h2>Change owner password</h2>
+          <label for="currentPassword">Current password</label>
+          <input id="currentPassword" type="password" autocomplete="current-password" required>
+          <label for="newPassword">New strong password</label>
+          <input id="newPassword" type="password" autocomplete="new-password" minlength="14" required>
+          <button type="submit">Change password and end all sessions</button>
+        </form>
+        <button class="secondary" id="logoutButton" type="button">Sign out</button>
+      </div>
+    </section>
+    <footer>Owner access is separate from all company ERP accounts. Never share these credentials.</footer>
+  </main>
+</body>
+</html>
