@@ -28,6 +28,7 @@
         <div class="navtabs">
           <button class="tab" type="button" id="dashboardTab" aria-pressed="true">Dashboard</button>
           <button class="tab secondary" type="button" id="companiesTab" aria-pressed="false">Companies</button>
+          <button class="tab secondary" type="button" id="auditTab" aria-pressed="false">Audit history</button>
           <button class="tab secondary" type="button" id="securityTab" aria-pressed="false">Owner security</button>
           <button class="tab secondary" id="logoutButton" type="button">Sign out</button>
         </div>
@@ -140,6 +141,18 @@
           </section>
           <h2 id="historyHeading" hidden>Recent company actions</h2>
           <div id="companyHistory" class="company-history" hidden></div>
+        </section>
+        <section id="auditPanel" hidden>
+          <div class="section-top"><h2>Platform Owner activity history</h2><button class="secondary small" id="refreshAudit" type="button">Refresh</button></div>
+          <div class="warning-note"><strong>Read-only owner records — NOT customer ERP audit.</strong> This view includes company registration, subscription records and Boss recovery review actions. Passwords, OTPs and sensitive identity evidence are not included. Live customer ERP actions, owner login events and Ubuntu maintenance are not yet integrated. These records are not tamper-evident.</div>
+          <form id="auditFilters" class="audit-filters">
+            <div><label for="auditCategory">Action category</label><select id="auditCategory"><option value="ALL">All recorded actions</option><option value="REGISTRATION">Company registration</option><option value="LICENSE">Licensing and payments</option><option value="RECOVERY">Boss recovery reviews</option></select></div>
+            <div><label for="auditCompanyCode">Company code (optional)</label><input id="auditCompanyCode" maxlength="40" placeholder="e.g. castle-demo-180j" autocomplete="off"></div>
+            <div><button class="small" type="submit">Apply filters</button></div>
+          </form>
+          <div class="section-top"><h2>Recorded actions</h2><span id="auditPageLabel" class="info">—</span></div>
+          <div id="auditList" class="company-list" aria-live="polite"></div>
+          <div class="page-controls"><button class="secondary small" id="previousAudit" type="button">Previous</button><button class="secondary small" id="nextAudit" type="button">Next</button></div>
         </section>
         <section id="securityPanel" hidden>
           <p class="info">Change your owner password only when needed. After changing it, all existing owner sessions are revoked.</p>

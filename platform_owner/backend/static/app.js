@@ -12,6 +12,9 @@ let companyRows = [];
 let selectedLicenseCompany = null;
 let selectedRecoveryCompany = null;
 let selectedRecoveryCase = null;
+let auditOffset = 0;
+let auditTotal = 0;
+let auditRows = [];
 
 function csrfCookie() {
   const entry = document.cookie.split("; ").find((x) =>
@@ -32,21 +35,25 @@ function showTab(tab) {
   const dashboard = tab === "dashboard";
   const companies = tab === "companies";
   const security = tab === "security";
+  const audit = tab === "audit";
   byId("dashboardPanel").hidden = !dashboard;
   byId("companiesPanel").hidden = !companies;
   byId("securityPanel").hidden = !security;
-  for (const [id, selected] of [["dashboardTab", dashboard], ["companiesTab", companies], ["securityTab", security]]) {
+  byId("auditPanel").hidden = !audit;
+  for (const [id, selected] of [["dashboardTab", dashboard], ["companiesTab", companies], ["auditTab", audit], ["securityTab", security]]) {
     const button = byId(id);
     button.setAttribute("aria-pressed", String(selected));
     button.className = selected ? "tab" : "tab secondary";
   }
-  byId("heading").textContent = dashboard ? "Platform dashboard" : (companies ? "Company management" : "Owner security");
+  byId("heading").textContent = dashboard ? "Platform dashboard" : (companies ? "Company management" : (audit ? "Audit history" : "Owner security"));
   byId("intro").textContent = dashboard
     ? "Owner-only company records, subscriptions and recovery reviews."
     : (companies ? "Register and manage companies in the independent CASTLE owner directory."
-       : "Review the security of your independent Platform Owner account.");
+       : (audit ? "Read-only activity records for company and recovery management."
+          : "Review the security of your independent Platform Owner account."));
   if (dashboard) loadDashboard().catch(error => showNotice(error.message));
   if (companies) loadCompanies().catch(error => showNotice(error.message));
+  if (audit) loadAudit().catch(error => showNotice(error.message));
 }
 
 function renderSession(data) {
@@ -67,6 +74,8 @@ function renderSession(data) {
     selectedRecoveryCompany = null; selectedRecoveryCase = null;
     byId("recoveryPanel").hidden = true; byId("recoveryReviewPanel").hidden = true;
     byId("dashboardAttention").replaceChildren();
+    byId("auditList").replaceChildren();
+    auditRows = []; auditOffset = 0; auditTotal = 0;
     companyForm.reset();
   }
 }
@@ -142,6 +151,35 @@ function renderDashboard(data) {
 async function loadDashboard() {
   const data = await api("dashboard");
   renderDashboard(data);
+}
+
+function renderAudit(data) {
+  if (!ownerSignedIn) return;
+  auditRows = data.items;
+  auditTotal = data.total;
+  const list = byId("auditList");
+  list.replaceChildren();
+  for (const item of data.items) {
+    const card = element("article", undefined, "audit-entry");
+    card.appendChild(element("strong", `${item.action.replaceAll("_", " ")} · ${item.company_name}`));
+    card.appendChild(element("p", `${item.occurred_at} UTC · ${item.category} · ${item.company_code}`));
+    card.appendChild(element("p", `Owner: ${item.actor_email} · Event #${item.id}`));
+    card.appendChild(element("p", item.details));
+    list.appendChild(card);
+  }
+  if (!data.items.length) list.appendChild(element("p", "No matching owner actions.", "info"));
+  byId("auditPageLabel").textContent = `${data.total ? auditOffset + 1 : 0}–${auditOffset + data.items.length} of ${data.total}`;
+  byId("previousAudit").disabled = auditOffset === 0;
+  byId("nextAudit").disabled = auditOffset + data.items.length >= data.total;
+}
+
+async function loadAudit() {
+  const category = byId("auditCategory").value;
+  const code = byId("auditCompanyCode").value.trim();
+  const params = new URLSearchParams({offset: String(auditOffset), limit: "20", category});
+  if (code) params.set("company_code", code);
+  const data = await api(`audit?${params.toString()}`);
+  renderAudit(data);
 }
 
 function renderCompanies(data) {
@@ -465,6 +503,20 @@ byId("refreshDashboard").addEventListener("click", () => loadDashboard().catch(e
 byId("dashboardGoCompanies").addEventListener("click", () => showTab("companies"));
 byId("companiesTab").addEventListener("click", () => showTab("companies"));
 byId("securityTab").addEventListener("click", () => showTab("security"));
+byId("auditTab").addEventListener("click", () => showTab("audit"));
+byId("refreshAudit").addEventListener("click", () => loadAudit().catch(error => showNotice(error.message)));
+byId("auditFilters").addEventListener("submit", (event) => {
+  event.preventDefault(); auditOffset = 0;
+  loadAudit().catch(error => showNotice(error.message));
+});
+byId("previousAudit").addEventListener("click", () => {
+  auditOffset = Math.max(0, auditOffset - 20);
+  loadAudit().catch(error => showNotice(error.message));
+});
+byId("nextAudit").addEventListener("click", () => {
+  if (auditOffset + auditRows.length < auditTotal) auditOffset += 20;
+  loadAudit().catch(error => showNotice(error.message));
+});
 byId("cancelEditButton").addEventListener("click", cancelEdit);
 byId("refreshCompanies").addEventListener("click", () => loadCompanies().catch(error => showNotice(error.message)));
 byId("previousCompanies").addEventListener("click", () => {offset = Math.max(0, offset - 20);loadCompanies().catch(error => showNotice(error.message));});
