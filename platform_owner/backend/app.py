@@ -38,6 +38,7 @@ class LoginPayload(BaseModel):
 class ChangePasswordPayload(BaseModel):
     current_password: str = Field(min_length=1, max_length=256)
     new_password: str = Field(min_length=1, max_length=256)
+    confirm_new_password: str = Field(min_length=1, max_length=256)
 
 
 def create_app(
@@ -207,6 +208,8 @@ def create_app(
         owner, _record = auth
         if not verify_password(payload.current_password, owner.password_hash):
             raise HTTPException(401, "Current password is incorrect")
+        if payload.new_password != payload.confirm_new_password:
+            raise HTTPException(422, "New passwords do not match")
         try:
             updated = hash_password(payload.new_password)
         except ValueError as exc:

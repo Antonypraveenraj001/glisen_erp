@@ -484,13 +484,29 @@ companyForm.addEventListener("submit", async (event) => {
   finally { button.disabled = false; }
 });
 
+function clearPasswordConfirmationError() {
+  byId("confirmNewPassword").setCustomValidity("");
+}
+
+byId("newPassword").addEventListener("input", clearPasswordConfirmationError);
+byId("confirmNewPassword").addEventListener("input", clearPasswordConfirmationError);
+
 passwordForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   showNotice("");
+  const confirmation = byId("confirmNewPassword");
+  confirmation.setCustomValidity("");
+  if (byId("newPassword").value !== confirmation.value) {
+    confirmation.setCustomValidity("New passwords do not match.");
+    confirmation.reportValidity();
+    showNotice("New passwords do not match. Please check both fields.");
+    return;
+  }
   try {
     const result = await api("auth/change-password", "POST", {
       current_password: byId("currentPassword").value,
       new_password: byId("newPassword").value,
+      confirm_new_password: confirmation.value,
     });
     passwordForm.reset();
     renderSession(result);

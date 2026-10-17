@@ -155,7 +155,11 @@ class OwnerSecurityTests(unittest.TestCase):
         self.assertEqual(
             other.post("/api/owner/auth/login", json={"email": EMAIL, "password": PASSWORD}, headers={"Origin": ORIGIN}).status_code, 200
         )
-        response = self.client.post("/api/owner/auth/change-password", json={"current_password": PASSWORD, "new_password": NEW_PASSWORD}, headers=self.csrf_headers())
+        response = self.client.post("/api/owner/auth/change-password", json={
+            "current_password": PASSWORD,
+            "new_password": NEW_PASSWORD,
+            "confirm_new_password": NEW_PASSWORD,
+        }, headers=self.csrf_headers())
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(self.client.get("/api/owner/auth/me").status_code, 401)
         self.assertEqual(other.get("/api/owner/auth/me").status_code, 401)
