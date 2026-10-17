@@ -54,3 +54,13 @@ button.tab,button.small {width:auto;margin:0;padding:10px 16px}
 .license-panel .tick {display:flex;align-items:flex-start;gap:10px;line-height:1.6}
 .license-panel .tick input {width:auto;margin-top:3px}
 .license-panel .company-history {white-space:pre-wrap;overflow-wrap:anywhere}
+
+/* Step 180H: non-executing Boss recovery review. */
+.recovery-panel {border-top:1px solid #dce4ee;margin-top:24px;padding-top:8px}
+.recovery-panel select {width:100%;border:1px solid #c8d7e5;padding:12px;border-radius:9px;background:white;font:inherit}
+.recovery-panel .tick {display:flex;align-items:flex-start;gap:10px;line-height:1.6}
+.recovery-panel .tick input {width:auto;margin-top:3px}
+.recovery-review {border:1px solid #c8d7e5;border-radius:12px;background:#f7faff;margin-top:20px;padding:17px}
+.recovery-panel .meta {overflow-wrap:anywhere;font-size:12px;line-height:1.8;color:#56708b}
+.recovery-panel .buttons {display:flex;flex-wrap:wrap;gap:9px;margin-top:9px}
+.recovery-panel .buttons button {width:auto;margin:0;padding:9px 14px}

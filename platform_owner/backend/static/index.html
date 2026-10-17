@@ -68,6 +68,56 @@
             <h2>Confirmed payment history</h2>
             <div id="licenseHistory" class="company-history"></div>
           </section>
+          <section id="recoveryPanel" class="recovery-panel" hidden>
+            <div class="section-top"><h2 id="recoveryHeading">Emergency Boss recovery</h2><button id="closeRecovery" class="small secondary" type="button">Close</button></div>
+            <div class="warning-note"><strong>REVIEW WORKFLOW ONLY — NO PASSWORD OR OTP RESET.</strong> This owner-only screen records independently verified requests. Even an approved case cannot change a customer ERP account until a separately secured and tested connector is installed. Never enter passwords, OTPs, Aadhaar/PAN numbers, scanned documents, or private evidence here. Keep sensitive evidence in an approved secure process outside this application.</div>
+            <form id="openRecoveryForm">
+              <h2>Open recovery case</h2>
+              <div class="fields-grid">
+                <div><label for="recoveryReason">Reason</label><select id="recoveryReason" required>
+                  <option value="LOST_PASSWORD">Boss password lost</option><option value="LOST_EMAIL_OR_OTP">Email or OTP unavailable</option>
+                  <option value="BOSS_UNAVAILABLE">Boss unavailable or incapacitated</option><option value="BOSS_REPLACEMENT">Authorized Boss replacement</option>
+                </select></div>
+                <div><label for="requesterRole">Person requesting recovery</label><select id="requesterRole" required>
+                  <option value="BOSS">Registered Boss</option><option value="RECOVERY_CONTACT">Registered recovery contact</option>
+                  <option value="LEGAL_REPRESENTATIVE">Other legal company representative</option>
+                </select></div>
+                <div><label for="requesterEmail">Requester email (contact only — not proof)</label><input id="requesterEmail" type="email" required maxlength="254"></div>
+              </div>
+              <div class="actions"><button id="openRecoveryButton" type="submit">Create unverified case</button></div>
+            </form>
+            <div class="section-top"><h2>Recovery case history</h2><button id="refreshRecovery" type="button" class="small secondary">Refresh</button></div>
+            <div id="recoveryCases" class="company-list" aria-live="polite"></div>
+            <section id="recoveryReviewPanel" class="recovery-review" hidden>
+              <h2 id="recoveryReviewHeading">Review recovery case</h2>
+              <form id="verifyRecoveryForm">
+                <label for="verificationMethod">Independent verification method</label>
+                <select id="verificationMethod" required>
+                  <option value="SIGNED_COMPANY_AUTHORIZATION">Signed company authorization and independent checks</option>
+                  <option value="INDEPENDENT_CONTACT_AND_RECORD_CHECK">Independent contact and record check (password-only cases)</option>
+                </select>
+                <label for="verificationReference">External evidence reference (NOT the evidence itself)</label>
+                <input id="verificationReference" required minlength="6" maxlength="80" pattern="[A-Za-z0-9][A-Za-z0-9._/-]{5,79}" placeholder="SECURE-CASE-2026-01">
+                <label class="tick"><input id="verifiedIdentity" type="checkbox" required> I independently verified the requester's identity.</label>
+                <label class="tick"><input id="verifiedAuthority" type="checkbox" required> I verified legal company authority (not merely a GSTIN/email).</label>
+                <label class="tick"><input id="verifiedContact" type="checkbox" required> I checked the company through an independently established contact channel.</label>
+                <div class="actions"><button id="verifyRecoveryButton" type="submit">Record verification (no ERP action)</button></div>
+              </form>
+              <div id="recoveryDecisionPanel" hidden>
+                <p class="info">Reviewed and verified. Approval will ONLY mark this case as awaiting a future secure connector.</p>
+                <label class="tick"><input id="approvalReviewed" type="checkbox"> I completed an independent review of this request.</label>
+                <label class="tick"><input id="approvalUnderstood" type="checkbox"> I understand NO customer login, password, email or OTP will be modified.</label>
+                <div class="actions"><button id="approveRecoveryButton" type="button">Approve for future secure execution only</button></div>
+              </div>
+              <form id="rejectRecoveryForm">
+                <label for="rejectionReason">Reject / revoke reason</label><select id="rejectionReason">
+                  <option value="INSUFFICIENT_PROOF">Insufficient proof</option><option value="CONTACT_MISMATCH">Contact mismatch</option>
+                  <option value="REQUEST_WITHDRAWN">Request withdrawn</option><option value="FRAUD_RISK">Fraud risk</option><option value="OTHER">Other</option>
+                </select>
+                <div class="actions"><button id="rejectRecoveryButton" type="submit" class="secondary">Reject or revoke case</button></div>
+              </form>
+            </section>
+          </section>
           <h2 id="historyHeading" hidden>Recent company actions</h2>
           <div id="companyHistory" class="company-history" hidden></div>
         </section>

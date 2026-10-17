@@ -11,6 +11,7 @@ from platform_owner.backend.database import OwnerBase, make_owner_engine, make_s
 from platform_owner.backend.models import OwnerAccount  # register metadata
 from platform_owner.backend.company_models import OwnerCompany, OwnerCompanyEvent  # owner-only registry metadata
 from platform_owner.backend.license_models import OwnerLicensePlan, OwnerLicenseTerm  # owner-only license metadata
+from platform_owner.backend.recovery_models import OwnerBossRecoveryCase, OwnerBossRecoveryEvent  # owner-only recovery metadata
 from platform_owner.backend.settings import load_settings
 
 

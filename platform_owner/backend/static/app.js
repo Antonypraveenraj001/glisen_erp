@@ -10,6 +10,8 @@ let offset = 0;
 let editingCompany = null;
 let companyRows = [];
 let selectedLicenseCompany = null;
+let selectedRecoveryCompany = null;
+let selectedRecoveryCase = null;
 
 function csrfCookie() {
   const entry = document.cookie.split("; ").find((x) =>
@@ -46,7 +48,7 @@ function renderSession(data) {
     : "Sign in to the owner-only service. Company Boss and Admin accounts cannot sign in here.";
   byId("signedInEmail").textContent = signedIn ? (data.email || "") : "";
   if (signedIn) { showTab("companies"); loadCompanies().catch((error) => showNotice(error.message)); }
-  else { companyRows = []; editingCompany = null; selectedLicenseCompany = null; byId("licensePanel").hidden = true; companyForm.reset(); }
+  else { companyRows = []; editingCompany = null; selectedLicenseCompany = null; byId("licensePanel").hidden = true; selectedRecoveryCompany = null; selectedRecoveryCase = null; byId("recoveryPanel").hidden = true; byId("recoveryReviewPanel").hidden = true; companyForm.reset(); }
 }
 
 async function api(path, method = "GET", payload = null) {
@@ -97,6 +99,7 @@ function renderCompanies(data) {
     buttons.appendChild(actionButton("Edit", () => editCompany(company)));
     buttons.appendChild(actionButton("History", () => loadHistory(company)));
     buttons.appendChild(actionButton("Manage license", () => openLicense(company)));
+    buttons.appendChild(actionButton("Boss recovery", () => openRecovery(company)));
     if (company.status === "PENDING_SETUP") {
       buttons.appendChild(actionButton("Hold onboarding", () => changeOnboarding(company, "hold")));
     }
@@ -190,6 +193,119 @@ async function refreshLicense() {
   }
   if (!history.items.length) list.appendChild(element("p", "No advance payments confirmed yet."));
 }
+
+async function openRecovery(company) {
+  selectedRecoveryCompany = company;
+  selectedRecoveryCase = null;
+  byId("recoveryHeading").textContent = `Boss recovery: ${company.legal_name}`;
+  byId("recoveryPanel").hidden = false;
+  byId("recoveryReviewPanel").hidden = true;
+  byId("requesterEmail").value = company.recovery_email || company.boss_email;
+  byId("requesterRole").value = company.recovery_email ? "RECOVERY_CONTACT" : "BOSS";
+  await refreshRecovery();
+  byId("recoveryPanel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+async function refreshRecovery() {
+  if (!selectedRecoveryCompany) return;
+  const data = await api(`companies/${selectedRecoveryCompany.id}/boss-recovery`);
+  const list = byId("recoveryCases"); list.replaceChildren();
+  for (const entry of data.items) {
+    const card = element("article", undefined, "company-card");
+    card.appendChild(element("h3", `Case #${entry.id} — ${entry.status.replaceAll("_", " ")}`));
+    card.appendChild(element("div", `${entry.reason.replaceAll("_", " ")} · ${entry.requester_role.replaceAll("_", " ")} · ${entry.requester_email}`, "meta"));
+    card.appendChild(element("div", `Opened: ${entry.opened_at} · Customer credentials changed: NO · Reset token issued: NO`, "meta"));
+    const buttons = element("div", undefined, "buttons");
+    buttons.appendChild(actionButton("Review / history", () => reviewRecovery(entry)));
+    card.appendChild(buttons); list.appendChild(card);
+  }
+  if (!data.items.length) list.appendChild(element("p", "No recovery cases for this company.", "info"));
+}
+
+async function reviewRecovery(entry) {
+  selectedRecoveryCase = entry;
+  byId("recoveryReviewPanel").hidden = false;
+  byId("recoveryReviewHeading").textContent = `Review case #${entry.id} — ${entry.status.replaceAll("_", " ")}`;
+  byId("verifyRecoveryForm").hidden = entry.status !== "OPEN";
+  byId("recoveryDecisionPanel").hidden = entry.status !== "VERIFIED";
+  byId("rejectRecoveryForm").hidden = !["OPEN", "VERIFIED", "READY_PENDING_CONNECTOR"].includes(entry.status);
+  byId("verificationReference").value = "";
+  for (const id of ["verifiedIdentity", "verifiedAuthority", "verifiedContact", "approvalReviewed", "approvalUnderstood"]) byId(id).checked = false;
+  const history = await api(`companies/${selectedRecoveryCompany.id}/boss-recovery/${entry.id}/history`);
+  byId("recoveryReviewHeading").textContent += ` · ${history.items.map(i => i.type).join(" → ")}`;
+  byId("recoveryReviewPanel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+byId("openRecoveryForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedRecoveryCompany) return;
+  if (!confirm(`Open an UNVERIFIED recovery case for ${selectedRecoveryCompany.legal_name}? This will NOT change a customer's credentials.`)) return;
+  const button = byId("openRecoveryButton"); button.disabled = true; showNotice("");
+  try {
+    await api(`companies/${selectedRecoveryCompany.id}/boss-recovery`, "POST", {
+      reason: byId("recoveryReason").value,
+      requester_role: byId("requesterRole").value,
+      requester_email: byId("requesterEmail").value.trim(),
+    });
+    await refreshRecovery(); showNotice("Unverified case opened. NO company ERP account changed.", true);
+  } catch (error) { showNotice(error.message); }
+  finally { button.disabled = false; }
+});
+
+byId("verifyRecoveryForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedRecoveryCompany || !selectedRecoveryCase) return;
+  if (!confirm("Confirm you performed each verification OUTSIDE this application using genuine evidence? No customer account will change.")) return;
+  const button = byId("verifyRecoveryButton"); button.disabled = true; showNotice("");
+  try {
+    const result = await api(`companies/${selectedRecoveryCompany.id}/boss-recovery/${selectedRecoveryCase.id}/verify`, "POST", {
+      method: byId("verificationMethod").value,
+      evidence_reference: byId("verificationReference").value.trim(),
+      independent_identity_checked: byId("verifiedIdentity").checked,
+      legal_company_authority_checked: byId("verifiedAuthority").checked,
+      company_contact_checked: byId("verifiedContact").checked,
+    });
+    await refreshRecovery(); await reviewRecovery(result);
+    showNotice("Manual verification recorded. No password, OTP or customer account changed.", true);
+  } catch (error) { showNotice(error.message); }
+  finally { button.disabled = false; }
+});
+
+byId("approveRecoveryButton").addEventListener("click", async () => {
+  if (!selectedRecoveryCompany || !selectedRecoveryCase) return;
+  if (!confirm("Record owner approval for FUTURE secure execution? This does NOT execute a reset.")) return;
+  const button = byId("approveRecoveryButton"); button.disabled = true; showNotice("");
+  try {
+    const result = await api(`companies/${selectedRecoveryCompany.id}/boss-recovery/${selectedRecoveryCase.id}/approve`, "POST", {
+      review_completed: byId("approvalReviewed").checked,
+      understand_no_customer_account_is_changed: byId("approvalUnderstood").checked,
+    });
+    await refreshRecovery(); await reviewRecovery(result);
+    showNotice("Case ready pending future secure connector. No customer access changed.", true);
+  } catch (error) { showNotice(error.message); }
+  finally { button.disabled = false; }
+});
+
+byId("rejectRecoveryForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedRecoveryCompany || !selectedRecoveryCase) return;
+  if (!confirm("Reject or revoke this recovery review? The customer ERP is unaffected.")) return;
+  const button = byId("rejectRecoveryButton"); button.disabled = true; showNotice("");
+  try {
+    const result = await api(`companies/${selectedRecoveryCompany.id}/boss-recovery/${selectedRecoveryCase.id}/reject`, "POST", {
+      decision_code: byId("rejectionReason").value,
+    });
+    await refreshRecovery(); await reviewRecovery(result);
+    showNotice("Recovery case rejected/revoked; no customer credentials changed.", true);
+  } catch (error) { showNotice(error.message); }
+  finally { button.disabled = false; }
+});
+
+byId("refreshRecovery").addEventListener("click", () => refreshRecovery().catch(e => showNotice(e.message)));
+byId("closeRecovery").addEventListener("click", () => {
+  selectedRecoveryCompany = null; selectedRecoveryCase = null;
+  byId("recoveryPanel").hidden = true; byId("recoveryReviewPanel").hidden = true;
+});
 
 byId("licensePlanForm").addEventListener("submit", async (event) => {
   event.preventDefault();

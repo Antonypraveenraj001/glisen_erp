@@ -17,6 +17,8 @@ from platform_owner.backend.company_api import install_company_routes
 from platform_owner.backend.company_models import OwnerCompany, OwnerCompanyEvent  # owner-only metadata
 from platform_owner.backend.license_api import install_license_routes
 from platform_owner.backend.license_models import OwnerLicensePlan, OwnerLicenseTerm  # owner-only metadata
+from platform_owner.backend.recovery_api import install_recovery_routes
+from platform_owner.backend.recovery_models import OwnerBossRecoveryCase, OwnerBossRecoveryEvent  # owner-only metadata
 from platform_owner.backend.models import OwnerAccount, OwnerLoginThrottle, OwnerSession
 from platform_owner.backend.security import (
     digest, hash_password, new_secret, now_utc, verify_password,
@@ -218,4 +220,5 @@ def create_app(
 
     install_company_routes(app, Db, Auth, Protected)
     install_license_routes(app, Db, Auth, Protected)
+    install_recovery_routes(app, Db, Auth, Protected)
     return app
