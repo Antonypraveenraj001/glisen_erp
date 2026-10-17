@@ -20,3 +20,29 @@ button.secondary{background:#e9f0f7;color:#1f436a}
 .userline{display:flex;gap:6px;flex-direction:column;background:#f2f6fb;border-radius:10px;padding:14px;font-size:12px;overflow-wrap:anywhere}
 .userline span{color:#72879e}footer{margin:21px auto;color:#71849b;font-size:11px;text-align:center;line-height:1.7}
 @media (max-width:500px){.layout{margin:30px auto}.panel{padding:24px}}
+/* Step 180J: owner-only company registry. */
+[hidden] {display:none !important}
+.layout.wide {width:min(100% - 32px, 960px);margin-top:4vh}
+.navtabs {display:flex;gap:9px;flex-wrap:wrap;margin:18px 0 18px}
+button.tab,button.small {width:auto;margin:0;padding:10px 16px}
+.tab[aria-pressed="true"] {background:#1b5288;color:white}
+.warning-note {background:#fff6e9;border:1px solid #f5dbb7;border-radius:12px;padding:16px;font-size:12px;line-height:1.7;color:#65400f}
+.fields-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:22px}
+.fields-grid > div {min-width:0}
+.actions {display:flex;gap:12px;flex-wrap:wrap}
+.actions button {width:auto;margin-top:20px}
+.section-top {display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.company-list {display:grid;gap:12px}
+.company-card {border:1px solid #dce4ee;border-radius:13px;padding:17px;background:#fafcff}
+.company-card h3 {font-size:15px;margin:0 0 5px;color:#163957;overflow-wrap:anywhere}
+.company-card .meta {color:#5d7490;font-size:12px;line-height:1.8;overflow-wrap:anywhere}
+.company-card .buttons {display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+.company-card button {width:auto;margin:0;padding:9px 14px;font-size:12px}
+.company-status {display:inline-block;border-radius:20px;background:#e2eef8;color:#194d79;padding:4px 9px;font-size:10px;font-weight:700}
+.company-status.ON_HOLD {background:#fff1df;color:#865017}
+.page-controls {display:flex;justify-content:space-between;align-items:center;margin:20px 0}
+.page-controls .info {margin:0}
+.company-history {border:1px solid #dce4ee;border-radius:12px;padding:14px;font-size:12px;line-height:2}
+.company-history > div {border-bottom:1px solid #edf1f6;padding:7px 2px}
+.company-history > div:last-child {border-bottom:0}
+@media (max-width:640px){.fields-grid{grid-template-columns:1fr}.section-top{gap:10px}.layout.wide .panel{padding:20px}}

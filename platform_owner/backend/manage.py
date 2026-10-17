@@ -9,6 +9,7 @@ from sqlalchemy import inspect
 from platform_owner.backend.bootstrap import bootstrap_first_owner
 from platform_owner.backend.database import OwnerBase, make_owner_engine, make_session_factory
 from platform_owner.backend.models import OwnerAccount  # register metadata
+from platform_owner.backend.company_models import OwnerCompany, OwnerCompanyEvent  # owner-only registry metadata
 from platform_owner.backend.settings import load_settings
 
 

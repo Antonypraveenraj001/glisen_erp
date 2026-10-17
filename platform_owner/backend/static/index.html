@@ -9,7 +9,7 @@
   <script defer src="/app.js"></script>
 </head>
 <body>
-  <main class="layout">
+  <main class="layout" id="layout">
     <header class="brand"><div class="mark">C</div><div><strong>CASTLE</strong><span>PLATFORM OWNER</span></div></header>
     <section class="panel" aria-live="polite">
       <p class="eyebrow">INDEPENDENT CONTROL PLANE</p>
@@ -25,16 +25,41 @@
       </form>
       <div id="authenticated" hidden>
         <div class="userline"><span>Signed in as</span><strong id="signedInEmail"></strong></div>
-        <p class="info">Owner authentication is ready. Company registration, licenses, recovery and dashboard will be added in the next steps.</p>
-        <form id="passwordForm">
-          <h2>Change owner password</h2>
-          <label for="currentPassword">Current password</label>
-          <input id="currentPassword" type="password" autocomplete="current-password" required>
-          <label for="newPassword">New strong password</label>
-          <input id="newPassword" type="password" autocomplete="new-password" minlength="14" required>
-          <button type="submit">Change password and end all sessions</button>
-        </form>
-        <button class="secondary" id="logoutButton" type="button">Sign out</button>
+        <div class="navtabs">
+          <button class="tab" type="button" id="companiesTab" aria-pressed="true">Companies</button>
+          <button class="tab secondary" type="button" id="securityTab" aria-pressed="false">Owner security</button>
+          <button class="tab secondary" id="logoutButton" type="button">Sign out</button>
+        </div>
+        <section id="companiesPanel">
+          <div class="warning-note"><strong>Registration only — not live ERP provisioning.</strong> Company records here do not create websites or databases. Activation and ERP suspension are blocked until separate-instance license enforcement is tested.</div>
+          <h2>Company registration</h2>
+          <form id="companyForm">
+            <div class="fields-grid">
+              <div><label for="companySlug">Company code (permanent)</label><input id="companySlug" required maxlength="40" minlength="3" placeholder="abc-industries" pattern="[a-z][a-z0-9-]{2,39}"></div>
+              <div><label for="companyName">Legal company name</label><input id="companyName" required maxlength="200" minlength="3" placeholder="ABC Industries Pvt Ltd"></div>
+              <div><label for="companyGstin">GSTIN (if registered)</label><input id="companyGstin" maxlength="15" placeholder="15-character GSTIN"></div>
+              <div><label for="bossEmail">Authorized Boss email</label><input id="bossEmail" required maxlength="254" type="email"></div>
+              <div><label for="recoveryEmail">Emergency recovery email (optional)</label><input id="recoveryEmail" maxlength="254" type="email"></div>
+            </div>
+            <div class="actions"><button id="saveCompanyButton" type="submit">Register company</button><button id="cancelEditButton" type="button" class="secondary" hidden>Cancel editing</button></div>
+          </form>
+          <div class="section-top"><h2>Registered companies</h2><button class="secondary small" id="refreshCompanies" type="button">Refresh</button></div>
+          <div id="companyList" class="company-list" role="list" aria-live="polite"><p class="info">Loading companies…</p></div>
+          <div class="page-controls"><button class="secondary small" id="previousCompanies" type="button">Previous</button><span id="companiesPageLabel" class="info">—</span><button class="secondary small" id="nextCompanies" type="button">Next</button></div>
+          <h2 id="historyHeading" hidden>Recent company actions</h2>
+          <div id="companyHistory" class="company-history" hidden></div>
+        </section>
+        <section id="securityPanel" hidden>
+          <p class="info">Change your owner password only when needed. After changing it, all existing owner sessions are revoked.</p>
+          <form id="passwordForm">
+            <h2>Change owner password</h2>
+            <label for="currentPassword">Current password</label>
+            <input id="currentPassword" type="password" autocomplete="current-password" required>
+            <label for="newPassword">New strong password</label>
+            <input id="newPassword" type="password" autocomplete="new-password" minlength="14" required>
+            <button type="submit">Change password and end all sessions</button>
+          </form>
+        </section>
       </div>
     </section>
     <footer>Owner access is separate from all company ERP accounts. Never share these credentials.</footer>
