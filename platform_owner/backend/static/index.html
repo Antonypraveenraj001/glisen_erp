@@ -46,6 +46,28 @@
           <div class="section-top"><h2>Registered companies</h2><button class="secondary small" id="refreshCompanies" type="button">Refresh</button></div>
           <div id="companyList" class="company-list" role="list" aria-live="polite"><p class="info">Loading companies…</p></div>
           <div class="page-controls"><button class="secondary small" id="previousCompanies" type="button">Previous</button><span id="companiesPageLabel" class="info">—</span><button class="secondary small" id="nextCompanies" type="button">Next</button></div>
+          <section id="licensePanel" class="license-panel" hidden>
+            <div class="section-top"><h2 id="licenseHeading">Company subscription</h2><button class="small secondary" id="closeLicense" type="button">Close</button></div>
+            <div class="warning-note"><strong>Financial records only — NOT ERP activation.</strong> A paid/current subscription here does NOT unlock a customer's ERP. No live instance, signed license, or server-side suspension is connected yet. Tax invoices and actual payment verification remain separate.</div>
+            <p id="licenseSummary" class="info" aria-live="polite"></p>
+            <form id="licensePlanForm">
+              <h2>Set next subscription plan</h2>
+              <div class="fields-grid">
+                <div><label for="licensePlan">Subscription</label><select id="licensePlan" required><option value="MONTHLY">Monthly — zero grace</option><option value="ANNUAL">Annual — 7-day grace</option></select></div>
+                <div><label for="licensePrice">Agreed subscription price (INR, excluding any separate tax invoice)</label><input id="licensePrice" type="number" min="0.01" max="999999999.99" step="0.01" required></div>
+              </div>
+              <div class="actions"><button type="submit" id="saveLicensePlan">Save plan</button></div>
+            </form>
+            <form id="licensePaymentForm">
+              <h2>Record received advance payment</h2>
+              <label for="licensePaymentReference">Unique payment reference</label>
+              <input id="licensePaymentReference" maxlength="100" minlength="3" pattern="[A-Za-z0-9][A-Za-z0-9._:/-]{2,99}" placeholder="BANK-REF-001" required>
+              <label class="tick"><input id="licenseAdvanceReceived" type="checkbox" required> I have verified that the full agreed fee has already been received. This entry does not activate ERP access.</label>
+              <div class="actions"><button type="submit" id="confirmLicensePayment">Confirm received payment</button></div>
+            </form>
+            <h2>Confirmed payment history</h2>
+            <div id="licenseHistory" class="company-history"></div>
+          </section>
           <h2 id="historyHeading" hidden>Recent company actions</h2>
           <div id="companyHistory" class="company-history" hidden></div>
         </section>

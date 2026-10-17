@@ -46,3 +46,11 @@ button.tab,button.small {width:auto;margin:0;padding:10px 16px}
 .company-history > div {border-bottom:1px solid #edf1f6;padding:7px 2px}
 .company-history > div:last-child {border-bottom:0}
 @media (max-width:640px){.fields-grid{grid-template-columns:1fr}.section-top{gap:10px}.layout.wide .panel{padding:20px}}
+
+/* Step 180L: owner subscription ledger (no customer ERP activation) */
+.license-panel {border-top:1px solid #dce4ee;margin-top:24px;padding-top:8px}
+.license-panel h2 {margin-top:24px}
+.license-panel select {width:100%;border:1px solid #c8d7e5;padding:12px;border-radius:9px;background:white;font:inherit}
+.license-panel .tick {display:flex;align-items:flex-start;gap:10px;line-height:1.6}
+.license-panel .tick input {width:auto;margin-top:3px}
+.license-panel .company-history {white-space:pre-wrap;overflow-wrap:anywhere}

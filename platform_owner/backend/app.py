@@ -15,6 +15,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from platform_owner.backend.database import make_owner_engine, make_session_factory
 from platform_owner.backend.company_api import install_company_routes
 from platform_owner.backend.company_models import OwnerCompany, OwnerCompanyEvent  # owner-only metadata
+from platform_owner.backend.license_api import install_license_routes
+from platform_owner.backend.license_models import OwnerLicensePlan, OwnerLicenseTerm  # owner-only metadata
 from platform_owner.backend.models import OwnerAccount, OwnerLoginThrottle, OwnerSession
 from platform_owner.backend.security import (
     digest, hash_password, new_secret, now_utc, verify_password,
@@ -215,4 +217,5 @@ def create_app(
         return {"authenticated": False, "message": "Password changed; sign in again"}
 
     install_company_routes(app, Db, Auth, Protected)
+    install_license_routes(app, Db, Auth, Protected)
     return app

@@ -9,6 +9,7 @@ const notice = byId("notice");
 let offset = 0;
 let editingCompany = null;
 let companyRows = [];
+let selectedLicenseCompany = null;
 
 function csrfCookie() {
   const entry = document.cookie.split("; ").find((x) =>
@@ -45,7 +46,7 @@ function renderSession(data) {
     : "Sign in to the owner-only service. Company Boss and Admin accounts cannot sign in here.";
   byId("signedInEmail").textContent = signedIn ? (data.email || "") : "";
   if (signedIn) { showTab("companies"); loadCompanies().catch((error) => showNotice(error.message)); }
-  else { companyRows = []; editingCompany = null; companyForm.reset(); }
+  else { companyRows = []; editingCompany = null; selectedLicenseCompany = null; byId("licensePanel").hidden = true; companyForm.reset(); }
 }
 
 async function api(path, method = "GET", payload = null) {
@@ -95,6 +96,7 @@ function renderCompanies(data) {
     const buttons = element("div", undefined, "buttons");
     buttons.appendChild(actionButton("Edit", () => editCompany(company)));
     buttons.appendChild(actionButton("History", () => loadHistory(company)));
+    buttons.appendChild(actionButton("Manage license", () => openLicense(company)));
     if (company.status === "PENDING_SETUP") {
       buttons.appendChild(actionButton("Hold onboarding", () => changeOnboarding(company, "hold")));
     }
@@ -156,6 +158,76 @@ async function changeOnboarding(company, action) {
   showNotice("Onboarding registration updated. No ERP access was changed.", true);
   await loadCompanies();
 }
+
+function licenseStatusText(item) {
+  const state = item.subscription_status.replaceAll("_", " ");
+  const last = item.last_paid_term;
+  const fee = item.price_inr ? `INR ${item.price_inr}` : "Not configured";
+  return `${state} · ${item.plan || "No plan"} · Price ${fee} · Latest paid end (exclusive): ${last ? last.expires_on : "None"} · Grace ends: ${item.annual_grace_ends_on || "Not applicable"} · Checked (India): ${item.checked_on_ist} · Cancellation: ${item.cancellation_effective_on || "Not applicable"} · Proposed export window through: ${item.data_recovery_deadline_on || "Not applicable"} · ERP ACCESS NOT ENFORCED`;
+}
+
+async function openLicense(company) {
+  selectedLicenseCompany = company;
+  byId("licenseHeading").textContent = `Subscription: ${company.legal_name}`;
+  byId("licensePanel").hidden = false;
+  await refreshLicense();
+  byId("licensePanel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+async function refreshLicense() {
+  if (!selectedLicenseCompany) return;
+  const id = selectedLicenseCompany.id;
+  const [summary, history] = await Promise.all([
+    api(`companies/${id}/license`), api(`companies/${id}/license/history`),
+  ]);
+  byId("licenseSummary").textContent = licenseStatusText(summary);
+  byId("licensePlan").value = summary.plan || "MONTHLY";
+  byId("licensePrice").value = summary.price_inr || "";
+  const list = byId("licenseHistory");
+  list.replaceChildren();
+  for (const term of history.items) {
+    list.appendChild(element("div", `${term.plan}: INR ${term.amount_received_inr} · ${term.start_on} to ${term.expires_on} (end exclusive) · Ref ${term.payment_reference}`));
+  }
+  if (!history.items.length) list.appendChild(element("p", "No advance payments confirmed yet."));
+}
+
+byId("licensePlanForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedLicenseCompany) return;
+  showNotice("");
+  const plan = byId("licensePlan").value;
+  const price = byId("licensePrice").value;
+  if (!confirm(`Set ${plan} subscription at INR ${price} for ${selectedLicenseCompany.legal_name}? This changes the future subscription price, NOT any paid term or ERP access.`)) return;
+  const button = byId("saveLicensePlan"); button.disabled = true;
+  try {
+    await api(`companies/${selectedLicenseCompany.id}/license/plan`, "PUT", {plan, price_inr: price});
+    await refreshLicense();
+    showNotice("Subscription plan saved. No ERP access was changed.", true);
+  } catch (error) { showNotice(error.message); }
+  finally { button.disabled = false; }
+});
+
+byId("licensePaymentForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!selectedLicenseCompany) return;
+  const reference = byId("licensePaymentReference").value;
+  if (!byId("licenseAdvanceReceived").checked) { showNotice("Verify the advance payment first."); return; }
+  if (!confirm(`CONFIRM money already received for ${selectedLicenseCompany.legal_name}? Reference: ${reference}. This action creates a permanent receipt record, NOT ERP access.`)) return;
+  showNotice("");
+  const button = byId("confirmLicensePayment"); button.disabled = true;
+  try {
+    await api(`companies/${selectedLicenseCompany.id}/license/confirm-payment`, "POST", {payment_reference: reference, advance_received: true});
+    byId("licensePaymentForm").reset();
+    await refreshLicense();
+    showNotice("Received payment recorded. Customer ERP remains NOT activated.", true);
+  } catch (error) { showNotice(error.message); }
+  finally { button.disabled = false; }
+});
+
+byId("closeLicense").addEventListener("click", () => {
+  selectedLicenseCompany = null;
+  byId("licensePanel").hidden = true;
+});
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
